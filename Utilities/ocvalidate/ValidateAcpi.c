@@ -31,13 +31,13 @@ ACPIAddHasDuplication (
   IN  CONST VOID  *SecondaryEntry
   )
 {
-  CONST OC_ACPI_ADD_ENTRY    *ACPIAddPrimaryEntry;
-  CONST OC_ACPI_ADD_ENTRY    *ACPIAddSecondaryEntry;
-  CONST CHAR8                *ACPIAddPrimaryPathString;
-  CONST CHAR8                *ACPIAddSecondaryPathString;
+  CONST OC_ACPI_ADD_ENTRY  *ACPIAddPrimaryEntry;
+  CONST OC_ACPI_ADD_ENTRY  *ACPIAddSecondaryEntry;
+  CONST CHAR8              *ACPIAddPrimaryPathString;
+  CONST CHAR8              *ACPIAddSecondaryPathString;
 
-  ACPIAddPrimaryEntry        = *(CONST OC_ACPI_ADD_ENTRY **) PrimaryEntry;
-  ACPIAddSecondaryEntry      = *(CONST OC_ACPI_ADD_ENTRY **) SecondaryEntry;
+  ACPIAddPrimaryEntry        = *(CONST OC_ACPI_ADD_ENTRY **)PrimaryEntry;
+  ACPIAddSecondaryEntry      = *(CONST OC_ACPI_ADD_ENTRY **)SecondaryEntry;
   ACPIAddPrimaryPathString   = OC_BLOB_GET (&ACPIAddPrimaryEntry->Path);
   ACPIAddSecondaryPathString = OC_BLOB_GET (&ACPIAddSecondaryEntry->Path);
 
@@ -54,18 +54,17 @@ CheckACPIAdd (
   IN  OC_GLOBAL_CONFIG  *Config
   )
 {
-  UINT32          ErrorCount;
-  UINT32          Index;
-  OC_ACPI_CONFIG  *UserAcpi;
-  CONST CHAR8     *Path;
-  CONST CHAR8     *Comment;
+  UINT32       ErrorCount;
+  UINT32       Index;
+  CONST CHAR8  *Path;
+  CONST CHAR8  *Comment;
+  UINTN        AcpiAddSumSize;
 
-  ErrorCount      = 0;
-  UserAcpi        = &Config->Acpi;
+  ErrorCount = 0;
 
-  for (Index = 0; Index < UserAcpi->Add.Count; ++Index) {
-    Path          = OC_BLOB_GET (&UserAcpi->Add.Values[Index]->Path);
-    Comment       = OC_BLOB_GET (&UserAcpi->Add.Values[Index]->Comment);
+  for (Index = 0; Index < Config->Acpi.Add.Count; ++Index) {
+    Path    = OC_BLOB_GET (&Config->Acpi.Add.Values[Index]->Path);
+    Comment = OC_BLOB_GET (&Config->Acpi.Add.Values[Index]->Comment);
 
     //
     // Sanitise strings.
@@ -75,6 +74,7 @@ CheckACPIAdd (
       ++ErrorCount;
       continue;
     }
+
     if (!AsciiCommentIsLegal (Comment)) {
       DEBUG ((DEBUG_WARN, "ACPI->Add[%u]->Comment contains illegal character!\n", Index));
       ++ErrorCount;
@@ -84,17 +84,32 @@ CheckACPIAdd (
       DEBUG ((DEBUG_WARN, "ACPI->Add[%u]->Path has filename suffix other than .aml and .bin!\n", Index));
       ++ErrorCount;
     }
+
+    //
+    // Check the length of path relative to OC directory.
+    //
+    AcpiAddSumSize = L_STR_LEN (OPEN_CORE_ACPI_PATH) + AsciiStrSize (Path);
+    if (AcpiAddSumSize > OC_STORAGE_SAFE_PATH_MAX) {
+      DEBUG ((
+        DEBUG_WARN,
+        "ACPI->Add[%u]->Path (length %u) is too long (should not exceed %u)!\n",
+        Index,
+        AsciiStrLen (Path),
+        OC_STORAGE_SAFE_PATH_MAX - L_STR_LEN (OPEN_CORE_ACPI_PATH)
+        ));
+      ++ErrorCount;
+    }
   }
 
   //
   // Check duplicated entries in ACPI->Add.
   //
   ErrorCount += FindArrayDuplication (
-    UserAcpi->Add.Values,
-    UserAcpi->Add.Count,
-    sizeof (UserAcpi->Add.Values[0]),
-    ACPIAddHasDuplication
-    );
+                  Config->Acpi.Add.Values,
+                  Config->Acpi.Add.Count,
+                  sizeof (Config->Acpi.Add.Values[0]),
+                  ACPIAddHasDuplication
+                  );
 
   return ErrorCount;
 }
@@ -105,16 +120,14 @@ CheckACPIDelete (
   IN  OC_GLOBAL_CONFIG  *Config
   )
 {
-  UINT32          ErrorCount;
-  UINT32          Index;
-  OC_ACPI_CONFIG  *UserAcpi;
-  CONST CHAR8     *Comment;
+  UINT32       ErrorCount;
+  UINT32       Index;
+  CONST CHAR8  *Comment;
 
-  ErrorCount      = 0;
-  UserAcpi        = &Config->Acpi;
+  ErrorCount = 0;
 
-  for (Index = 0; Index < UserAcpi->Delete.Count; ++Index) {
-    Comment       = OC_BLOB_GET (&UserAcpi->Delete.Values[Index]->Comment);
+  for (Index = 0; Index < Config->Acpi.Delete.Count; ++Index) {
+    Comment = OC_BLOB_GET (&Config->Acpi.Delete.Values[Index]->Comment);
 
     //
     // Sanitise strings.
@@ -139,32 +152,30 @@ CheckACPIPatch (
   IN  OC_GLOBAL_CONFIG  *Config
   )
 {
-  UINT32          ErrorCount;
-  UINT32          Index;
-  OC_ACPI_CONFIG  *UserAcpi;
-  CONST CHAR8     *Comment;
-  CONST UINT8     *Find;
-  UINT32          FindSize;
-  CONST UINT8     *Replace;
-  UINT32          ReplaceSize;
-  CONST UINT8     *Mask;
-  UINT32          MaskSize;
-  CONST UINT8     *ReplaceMask;
-  UINT32          ReplaceMaskSize;
- 
-  ErrorCount      = 0;
-  UserAcpi        = &Config->Acpi;
+  UINT32       ErrorCount;
+  UINT32       Index;
+  CONST CHAR8  *Comment;
+  CONST UINT8  *Find;
+  UINT32       FindSize;
+  CONST UINT8  *Replace;
+  UINT32       ReplaceSize;
+  CONST UINT8  *Mask;
+  UINT32       MaskSize;
+  CONST UINT8  *ReplaceMask;
+  UINT32       ReplaceMaskSize;
 
-  for (Index = 0; Index < UserAcpi->Patch.Count; ++Index) {
-    Comment         = OC_BLOB_GET (&UserAcpi->Patch.Values[Index]->Comment);
-    Find            = OC_BLOB_GET (&UserAcpi->Patch.Values[Index]->Find);
-    FindSize        = UserAcpi->Patch.Values[Index]->Find.Size;
-    Replace         = OC_BLOB_GET (&UserAcpi->Patch.Values[Index]->Replace);
-    ReplaceSize     = UserAcpi->Patch.Values[Index]->Replace.Size;
-    Mask            = OC_BLOB_GET (&UserAcpi->Patch.Values[Index]->Mask);
-    MaskSize        = UserAcpi->Patch.Values[Index]->Mask.Size;
-    ReplaceMask     = OC_BLOB_GET (&UserAcpi->Patch.Values[Index]->ReplaceMask);
-    ReplaceMaskSize = UserAcpi->Patch.Values[Index]->ReplaceMask.Size;
+  ErrorCount = 0;
+
+  for (Index = 0; Index < Config->Acpi.Patch.Count; ++Index) {
+    Comment         = OC_BLOB_GET (&Config->Acpi.Patch.Values[Index]->Comment);
+    Find            = OC_BLOB_GET (&Config->Acpi.Patch.Values[Index]->Find);
+    FindSize        = Config->Acpi.Patch.Values[Index]->Find.Size;
+    Replace         = OC_BLOB_GET (&Config->Acpi.Patch.Values[Index]->Replace);
+    ReplaceSize     = Config->Acpi.Patch.Values[Index]->Replace.Size;
+    Mask            = OC_BLOB_GET (&Config->Acpi.Patch.Values[Index]->Mask);
+    MaskSize        = Config->Acpi.Patch.Values[Index]->Mask.Size;
+    ReplaceMask     = OC_BLOB_GET (&Config->Acpi.Patch.Values[Index]->ReplaceMask);
+    ReplaceMaskSize = Config->Acpi.Patch.Values[Index]->ReplaceMask.Size;
 
     //
     // Sanitise strings.
@@ -183,18 +194,18 @@ CheckACPIPatch (
     // Checks for size.
     //
     ErrorCount += ValidatePatch (
-      "ACPI->Patch",
-      Index,
-      FALSE,
-      Find,
-      FindSize,
-      Replace,
-      ReplaceSize,
-      Mask,
-      MaskSize,
-      ReplaceMask,
-      ReplaceMaskSize
-      ); 
+                    "ACPI->Patch",
+                    Index,
+                    FALSE,
+                    Find,
+                    FindSize,
+                    Replace,
+                    ReplaceSize,
+                    Mask,
+                    MaskSize,
+                    ReplaceMask,
+                    ReplaceMaskSize
+                    );
   }
 
   return ErrorCount;
@@ -215,10 +226,10 @@ CheckACPI (
 
   DEBUG ((DEBUG_VERBOSE, "config loaded into %a!\n", __func__));
 
-  ErrorCount  = 0;
+  ErrorCount = 0;
 
   for (Index = 0; Index < ARRAY_SIZE (ACPICheckers); ++Index) {
-    ErrorCount += ACPICheckers[Index] (Config);
+    ErrorCount += ACPICheckers[Index](Config);
   }
 
   return ReportError (__func__, ErrorCount);

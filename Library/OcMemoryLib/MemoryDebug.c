@@ -16,14 +16,14 @@
 
 #include <Guid/MemoryAttributesTable.h>
 #include <Library/BaseMemoryLib.h>
+#include <Library/BaseOverflowLib.h>
 #include <Library/DebugLib.h>
 #include <Library/MemoryAllocationLib.h>
-#include <Library/OcGuardLib.h>
 #include <Library/OcMemoryLib.h>
 #include <Library/UefiBootServicesTableLib.h>
 #include <Library/UefiLib.h>
 
-STATIC CONST CHAR8 *mEfiMemoryTypeDesc[EfiMaxMemoryType] = {
+STATIC CONST CHAR8  *mEfiMemoryTypeDesc[EfiMaxMemoryType] = {
   "Reserved ",
   "LDR Code ",
   "LDR Data ",
@@ -43,7 +43,7 @@ STATIC CONST CHAR8 *mEfiMemoryTypeDesc[EfiMaxMemoryType] = {
 
 STATIC
 VOID
-OcPrintMemoryDescritptor (
+OcPrintMemoryDescriptor (
   IN EFI_MEMORY_DESCRIPTOR  *Desc
   )
 {
@@ -97,10 +97,10 @@ OcPrintMemoryAttributesTable (
   VOID
   )
 {
-  UINTN                             Index;
-  UINTN                             RealSize;
-  CONST EFI_MEMORY_ATTRIBUTES_TABLE *MemoryAttributesTable;
-  EFI_MEMORY_DESCRIPTOR             *MemoryAttributesEntry;
+  UINTN                              Index;
+  UINTN                              RealSize;
+  CONST EFI_MEMORY_ATTRIBUTES_TABLE  *MemoryAttributesTable;
+  EFI_MEMORY_DESCRIPTOR              *MemoryAttributesEntry;
 
   MemoryAttributesTable = OcGetMemoryAttributes (NULL);
   if (MemoryAttributesTable == NULL) {
@@ -111,19 +111,20 @@ OcPrintMemoryAttributesTable (
   //
   // Printing may reallocate, so we create a copy of the memory attributes.
   //
-  STATIC UINT8 mMemoryAttributesTable[OC_DEFAULT_MEMORY_MAP_SIZE];
-  RealSize = (UINTN) (sizeof (EFI_MEMORY_ATTRIBUTES_TABLE)
-    + MemoryAttributesTable->NumberOfEntries * MemoryAttributesTable->DescriptorSize);
+  STATIC UINT8  mMemoryAttributesTable[OC_DEFAULT_MEMORY_MAP_SIZE];
 
-  if (RealSize > sizeof(mMemoryAttributesTable)) {
-    DEBUG ((DEBUG_INFO, "OCMM: MemoryAttributesTable has too large size %u!\n", (UINT32) RealSize));
+  RealSize = (UINTN)(sizeof (EFI_MEMORY_ATTRIBUTES_TABLE)
+                     + MemoryAttributesTable->NumberOfEntries * MemoryAttributesTable->DescriptorSize);
+
+  if (RealSize > sizeof (mMemoryAttributesTable)) {
+    DEBUG ((DEBUG_INFO, "OCMM: MemoryAttributesTable has too large size %u!\n", (UINT32)RealSize));
     return;
   }
 
   CopyMem (mMemoryAttributesTable, MemoryAttributesTable, RealSize);
 
-  MemoryAttributesTable = (EFI_MEMORY_ATTRIBUTES_TABLE *) mMemoryAttributesTable;
-  MemoryAttributesEntry = (EFI_MEMORY_DESCRIPTOR *) (MemoryAttributesTable + 1);
+  MemoryAttributesTable = (EFI_MEMORY_ATTRIBUTES_TABLE *)mMemoryAttributesTable;
+  MemoryAttributesEntry = (EFI_MEMORY_DESCRIPTOR *)(MemoryAttributesTable + 1);
 
   DEBUG ((DEBUG_INFO, "OCMM: MemoryAttributesTable:\n"));
   DEBUG ((DEBUG_INFO, "OCMM:   Version              - 0x%08x\n", MemoryAttributesTable->Version));
@@ -131,11 +132,11 @@ OcPrintMemoryAttributesTable (
   DEBUG ((DEBUG_INFO, "OCMM:   DescriptorSize       - 0x%08x\n", MemoryAttributesTable->DescriptorSize));
 
   for (Index = 0; Index < MemoryAttributesTable->NumberOfEntries; ++Index) {
-    OcPrintMemoryDescritptor (MemoryAttributesEntry);
+    OcPrintMemoryDescriptor (MemoryAttributesEntry);
     MemoryAttributesEntry = NEXT_MEMORY_DESCRIPTOR (
-      MemoryAttributesEntry,
-      MemoryAttributesTable->DescriptorSize
-      );
+                              MemoryAttributesEntry,
+                              MemoryAttributesTable->DescriptorSize
+                              );
   }
 }
 
@@ -146,10 +147,10 @@ OcPrintMemoryMap (
   IN UINTN                  DescriptorSize
   )
 {
-  UINTN     Index;
-  UINT32    NumberOfEntries;
+  UINTN   Index;
+  UINT32  NumberOfEntries;
 
-  NumberOfEntries = (UINT32) (MemoryMapSize / DescriptorSize);
+  NumberOfEntries = (UINT32)(MemoryMapSize / DescriptorSize);
 
   DEBUG ((DEBUG_INFO, "OCMM: MemoryMap:\n"));
   DEBUG ((DEBUG_INFO, "OCMM:   Size                 - 0x%08x\n", MemoryMapSize));
@@ -157,10 +158,10 @@ OcPrintMemoryMap (
   DEBUG ((DEBUG_INFO, "OCMM:   DescriptorSize       - 0x%08x\n", DescriptorSize));
 
   for (Index = 0; Index < NumberOfEntries; ++Index) {
-    OcPrintMemoryDescritptor (MemoryMap);
+    OcPrintMemoryDescriptor (MemoryMap);
     MemoryMap = NEXT_MEMORY_DESCRIPTOR (
-      MemoryMap,
-      DescriptorSize
-      );
+                  MemoryMap,
+                  DescriptorSize
+                  );
   }
 }

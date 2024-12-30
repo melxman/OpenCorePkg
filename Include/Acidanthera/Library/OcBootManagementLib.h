@@ -1,17 +1,19 @@
 /** @file
-  Copyright (C) 2019, vit9696. All rights reserved.<BR>
-  Copyright (C) 2021, Mike Beaton. All rights reserved.<BR>
+  Copyright (C) 2019-2022, vit9696, mikebeaton. All rights reserved.<BR>
   SPDX-License-Identifier: BSD-3-Clause
 **/
 
 #ifndef OC_BOOT_MANAGEMENT_LIB_H
 #define OC_BOOT_MANAGEMENT_LIB_H
 
-#include <Uefi.h>
+#include <PiDxe.h>
+#include <Guid/AppleVariable.h>
 #include <IndustryStandard/AppleBootArgs.h>
 #include <IndustryStandard/AppleHid.h>
 #include <Library/OcAppleBootPolicyLib.h>
+#include <Library/OcAppleDiskImageLib.h>
 #include <Library/OcAppleKeyMapLib.h>
+#include <Library/OcFlexArrayLib.h>
 #include <Library/OcStringLib.h>
 #include <Library/OcStorageLib.h>
 #include <Library/OcTypingLib.h>
@@ -19,10 +21,26 @@
 #include <Protocol/LoadedImage.h>
 #include <Protocol/AppleBeepGen.h>
 #include <Protocol/OcAudio.h>
+#include <Protocol/GraphicsOutput.h>
+#include <Protocol/AppleUserInterface.h>
 
-#if defined(OC_TARGET_DEBUG) || defined(OC_TARGET_NOOPT)
-//#define BUILTIN_DEMONSTRATE_TYPING
+#if defined (OC_TARGET_DEBUG) || defined (OC_TARGET_NOOPT)
+// #define BUILTIN_DEMONSTRATE_TYPING
 #endif
+
+#if !defined (OC_TRACE_PARSE_VARS)
+#define OC_TRACE_PARSE_VARS  DEBUG_VERBOSE
+#endif
+
+/**
+  Maximum safe instance identifier size.
+**/
+#define OC_MAX_INSTANCE_IDENTIFIER_SIZE  64
+
+/**
+  Maximum allowed `.contentVisibility` file size.
+**/
+#define OC_MAX_CONTENT_VISIBILITY_SIZE  512
 
 /**
   Primary picker context.
@@ -37,23 +55,20 @@ typedef struct OC_HOTKEY_CONTEXT_ OC_HOTKEY_CONTEXT;
 /**
   Default strings for use in the interfaces.
 **/
-#define OC_MENU_BOOT_MENU            L"OpenCore Boot Menu"
-#define OC_MENU_RESET_NVRAM_ENTRY    L"Reset NVRAM"
-#define OC_MENU_UEFI_SHELL_ENTRY     L"UEFI Shell"
-#define OC_MENU_PASSWORD_REQUEST     L"Password: "
-#define OC_MENU_PASSWORD_PROCESSING  L"Verifying password..."
-#define OC_MENU_PASSWORD_RETRY_LIMIT L"Password retry limit exceeded."
-#define OC_MENU_CHOOSE_OS            L"Choose the Operating System: "
-#define OC_MENU_SHOW_AUXILIARY       L"Show Auxiliary"
-#define OC_MENU_RELOADING            L"Reloading"
-#define OC_MENU_TIMEOUT              L"Timeout"
-#define OC_MENU_OK                   L"OK"
-#define OC_MENU_EXTERNAL             L" (external)"
-#define OC_MENU_DISK_IMAGE           L" (dmg)"
-#define OC_MENU_SHUTDOWN             L"Shutting Down"
-#define OC_MENU_RESTART              L"Restarting"
-#define OC_MENU_SIP_IS_DISABLED      L"Toggle SIP (Disabled)"
-#define OC_MENU_SIP_IS_ENABLED       L"Toggle SIP (Enabled)"
+#define OC_MENU_BOOT_MENU             L"OpenCore Boot Menu"
+#define OC_MENU_UEFI_SHELL_ENTRY      L"UEFI Shell"
+#define OC_MENU_PASSWORD_REQUEST      L"Password: "
+#define OC_MENU_PASSWORD_PROCESSING   L"Verifying password..."
+#define OC_MENU_PASSWORD_RETRY_LIMIT  L"Password retry limit exceeded."
+#define OC_MENU_CHOOSE_OS             L"Choose the Operating System: "
+#define OC_MENU_SHOW_AUXILIARY        L"Show Auxiliary"
+#define OC_MENU_RELOADING             L"Reloading"
+#define OC_MENU_TIMEOUT               L"Timeout"
+#define OC_MENU_OK                    L"OK"
+#define OC_MENU_EXTERNAL              L" (external)"
+#define OC_MENU_DISK_IMAGE            L" (dmg)"
+#define OC_MENU_SHUTDOWN              L"Shutting Down"
+#define OC_MENU_RESTART               L"Restarting"
 
 /**
   Predefined flavours.
@@ -61,26 +76,36 @@ typedef struct OC_HOTKEY_CONTEXT_ OC_HOTKEY_CONTEXT;
 #define OC_FLAVOUR_AUTO                 "Auto"
 #define OC_FLAVOUR_RESET_NVRAM          "ResetNVRAM:NVRAMTool"
 #define OC_FLAVOUR_TOGGLE_SIP           "ToggleSIP:NVRAMTool"
+#define OC_FLAVOUR_TOGGLE_SIP_ENABLED   "ToggleSIP_Enabled:ToggleSIP:NVRAMTool"
+#define OC_FLAVOUR_TOGGLE_SIP_DISABLED  "ToggleSIP_Disabled:ToggleSIP:NVRAMTool"
+#define OC_FLAVOUR_FIRMWARE_SETTINGS    "FirmwareSettings"
+#define OC_FLAVOUR_HTTP_BOOT4           "HttpBoot4:HttpBoot:NetworkBoot"
+#define OC_FLAVOUR_HTTP_BOOT6           "HttpBoot6:HttpBoot:NetworkBoot"
+#define OC_FLAVOUR_PXE_BOOT4            "PxeBoot4:PxeBoot:NetworkBoot"
+#define OC_FLAVOUR_PXE_BOOT6            "PxeBoot6:PxeBoot:NetworkBoot"
 #define OC_FLAVOUR_APPLE_OS             "Apple"
 #define OC_FLAVOUR_APPLE_RECOVERY       "AppleRecv:Apple"
 #define OC_FLAVOUR_APPLE_FW             "AppleRecv:Apple"
 #define OC_FLAVOUR_APPLE_TIME_MACHINE   "AppleTM:Apple"
 #define OC_FLAVOUR_WINDOWS              "Windows"
-#define OC_FLAVOUR_OTHER_OS             "Other"
 
 /**
   Predefined flavour ids.
 **/
-#define OC_FLAVOUR_ID_RESET_NVRAM       "ResetNVRAM"
-#define OC_FLAVOUR_ID_UEFI_SHELL        "UEFIShell"
+#define OC_FLAVOUR_ID_RESET_NVRAM          "ResetNVRAM"
+#define OC_FLAVOUR_ID_UEFI_SHELL           "UEFIShell"
+#define OC_FLAVOUR_ID_TOGGLE_SIP_ENABLED   "ToggleSIP_Enabled"
+#define OC_FLAVOUR_ID_TOGGLE_SIP_DISABLED  "ToggleSIP_Disabled"
+#define OC_FLAVOUR_ID_FIRMWARE_SETTINGS    "FirmwareSettings"
+#define OC_FLAVOUR_ID_NETWORK_BOOT         "NetworkBoot"
 
 /**
   Paths allowed to be accessible by the interfaces.
 **/
-#define OPEN_CORE_IMAGE_PATH       L"Resources\\Image\\"
-#define OPEN_CORE_LABEL_PATH       L"Resources\\Label\\"
-#define OPEN_CORE_AUDIO_PATH       L"Resources\\Audio\\"
-#define OPEN_CORE_FONT_PATH        L"Resources\\Font\\"
+#define OPEN_CORE_IMAGE_PATH  L"Resources\\Image\\"
+#define OPEN_CORE_LABEL_PATH  L"Resources\\Label\\"
+#define OPEN_CORE_AUDIO_PATH  L"Resources\\Audio\\"
+#define OPEN_CORE_FONT_PATH   L"Resources\\Font\\"
 
 /**
   Attributes supported by the interfaces.
@@ -93,31 +118,34 @@ typedef struct OC_HOTKEY_CONTEXT_ OC_HOTKEY_CONTEXT;
 #define OC_ATTR_SHOW_DEBUG_DISPLAY       BIT5
 #define OC_ATTR_USE_MINIMAL_UI           BIT6
 #define OC_ATTR_USE_FLAVOUR_ICON         BIT7
-#define OC_ATTR_ALL_BITS (\
+#define OC_ATTR_USE_REVERSED_UI          BIT8
+#define OC_ATTR_REDUCE_MOTION            BIT9
+#define OC_ATTR_ALL_BITS                 (\
   OC_ATTR_USE_VOLUME_ICON         | OC_ATTR_USE_DISK_LABEL_FILE | \
   OC_ATTR_USE_GENERIC_LABEL_IMAGE | OC_ATTR_HIDE_THEMED_ICONS   | \
   OC_ATTR_USE_POINTER_CONTROL     | OC_ATTR_SHOW_DEBUG_DISPLAY  | \
-  OC_ATTR_USE_MINIMAL_UI          | OC_ATTR_USE_FLAVOUR_ICON )
+  OC_ATTR_USE_MINIMAL_UI          | OC_ATTR_USE_FLAVOUR_ICON    | \
+  OC_ATTR_USE_REVERSED_UI         | OC_ATTR_REDUCE_MOTION )
 
 /**
   Default timeout for IDLE timeout during menu picker navigation
   before VoiceOver toggle.
 **/
-#define OC_VOICE_OVER_IDLE_TIMEOUT_MS     700  ///< Experimental, less is problematic.
+#define OC_VOICE_OVER_IDLE_TIMEOUT_MS  700     ///< Experimental, less is problematic.
 
 /**
   Default VoiceOver BeepGen protocol values.
 **/
-#define OC_VOICE_OVER_SIGNAL_NORMAL_MS    200  ///< From boot.efi, constant.
-#define OC_VOICE_OVER_SILENCE_NORMAL_MS   150  ///< From boot.efi, constant.
-#define OC_VOICE_OVER_SIGNALS_NORMAL      1    ///< Username prompt or any input for boot.efi
-#define OC_VOICE_OVER_SIGNALS_PASSWORD    2    ///< Password prompt for boot.efi
-#define OC_VOICE_OVER_SIGNALS_PASSWORD_OK 3    ///< Password correct for boot.efi
+#define OC_VOICE_OVER_SIGNAL_NORMAL_MS     200 ///< From boot.efi, constant.
+#define OC_VOICE_OVER_SILENCE_NORMAL_MS    150 ///< From boot.efi, constant.
+#define OC_VOICE_OVER_SIGNALS_NORMAL       1   ///< Username prompt or any input for boot.efi
+#define OC_VOICE_OVER_SIGNALS_PASSWORD     2   ///< Password prompt for boot.efi
+#define OC_VOICE_OVER_SIGNALS_PASSWORD_OK  3   ///< Password correct for boot.efi
 
-#define OC_VOICE_OVER_SIGNAL_ERROR_MS     1000
-#define OC_VOICE_OVER_SILENCE_ERROR_MS    150
-#define OC_VOICE_OVER_SIGNALS_ERROR       1    ///< Password verification error or boot failure.
-#define OC_VOICE_OVER_SIGNALS_HWERROR     3    ///< Hardware error
+#define OC_VOICE_OVER_SIGNAL_ERROR_MS   1000
+#define OC_VOICE_OVER_SILENCE_ERROR_MS  150
+#define OC_VOICE_OVER_SIGNALS_ERROR     1      ///< Password verification error or boot failure.
+#define OC_VOICE_OVER_SIGNALS_HWERROR   3      ///< Hardware error
 
 /**
   Operating system boot type.
@@ -134,9 +162,8 @@ typedef UINT32 OC_BOOT_ENTRY_TYPE;
 #define OC_BOOT_WINDOWS             BIT5
 #define OC_BOOT_EXTERNAL_OS         BIT6
 #define OC_BOOT_EXTERNAL_TOOL       BIT7
-#define OC_BOOT_RESET_NVRAM         BIT8
-#define OC_BOOT_TOGGLE_SIP          BIT9
-#define OC_BOOT_SYSTEM              (OC_BOOT_RESET_NVRAM | OC_BOOT_TOGGLE_SIP)
+#define OC_BOOT_SYSTEM              BIT8
+#define OC_BOOT_UNMANAGED           BIT9
 
 /**
   Picker mode.
@@ -161,254 +188,114 @@ typedef enum OC_PICKER_MODE_ {
   10.6      - K32_U32 | K32_U64 | K64_U64.
   10.7+     - K32_U64 | K64_U64.
 **/
-#define OC_KERN_CAPABILITY_K32_U32        BIT0 ///< Supports K32 and U32 (10.4~10.6)
-#define OC_KERN_CAPABILITY_K32_U64        BIT1 ///< Supports K32 and U64 (10.4~10.7)
-#define OC_KERN_CAPABILITY_K64_U64        BIT2 ///< Supports K64 and U64 (10.6+)
+#define OC_KERN_CAPABILITY_K32_U32  BIT0       ///< Supports K32 and U32 (10.4~10.6)
+#define OC_KERN_CAPABILITY_K32_U64  BIT1       ///< Supports K32 and U64 (10.4~10.7)
+#define OC_KERN_CAPABILITY_K64_U64  BIT2       ///< Supports K64 and U64 (10.6+)
 
-#define OC_KERN_CAPABILITY_K32_K64_U64    (OC_KERN_CAPABILITY_K32_U64 | OC_KERN_CAPABILITY_K64_U64)
-#define OC_KERN_CAPABILITY_K32_U32_U64    (OC_KERN_CAPABILITY_K32_U32 | OC_KERN_CAPABILITY_K32_U64)
-#define OC_KERN_CAPABILITY_ALL            (OC_KERN_CAPABILITY_K32_U32 | OC_KERN_CAPABILITY_K32_K64_U64)
-
-/**
-  Action to perform as part of executing a system boot entry.
-**/
-typedef
-EFI_STATUS
-(*OC_BOOT_SYSTEM_ACTION) (
-  VOID
-  );
-
-/**
-  Discovered boot entry.
-  Note, inner resources must be freed with OcResetBootEntry.
-**/
-typedef struct OC_BOOT_ENTRY_ {
-  //
-  // Link in entry list in OC_BOOT_FILESYSTEM.
-  //
-  LIST_ENTRY                Link;
-  //
-  // Device path to booter or its directory.
-  // Can be NULL, for example, for custom or system entries.
-  //
-  EFI_DEVICE_PATH_PROTOCOL  *DevicePath;
-  //
-  // Action to perform on execution. Only valid for system entries.
-  //
-  OC_BOOT_SYSTEM_ACTION     SystemAction;
-  //
-  // Obtained human visible name.
-  //
-  CHAR16                    *Name;
-  //
-  // Obtained boot path directory.
-  // For custom entries this contains tool path.
-  //
-  CHAR16                    *PathName;
-  //
-  // Content flavour.
-  //
-  CHAR8                     *Flavour;
-  //
-  // Heuristical value signaling inferred type of booted os.
-  // WARNING: Non-definitive, do not rely on for any security purposes.
-  //
-  OC_BOOT_ENTRY_TYPE        Type;
-  //
-  // Entry index number, assigned by picker.
-  //
-  UINT32                    EntryIndex;
-  //
-  // Set when this entry is an externally available entry (e.g. USB).
-  //
-  BOOLEAN                   IsExternal;
-  //
-  // Should try booting from first dmg found in DevicePath.
-  //
-  BOOLEAN                   IsFolder;
-  //
-  // Set when this entry refers to a generic booter (e.g. BOOTx64.EFI).
-  //
-  BOOLEAN                   IsGeneric;
-  //
-  // Set when this entry refers to a custom boot entry.
-  //
-  BOOLEAN                   IsCustom;
-  //
-  // Should make this option default boot option.
-  //
-  BOOLEAN                   SetDefault;
-  //
-  // Should launch this entry in text mode.
-  //
-  BOOLEAN                   LaunchInText;
-  //
-  // Should expose real device path when dealing with custom entries.
-  //
-  BOOLEAN                   ExposeDevicePath;
-  //
-  // Load option data (usually "boot args") size.
-  //
-  UINT32                    LoadOptionsSize;
-  //
-  // Load option data (usually "boot args").
-  //
-  VOID                      *LoadOptions;
-} OC_BOOT_ENTRY;
-
-/**
-  Boot filesystem containing boot entries.
-**/
-typedef struct OC_BOOT_FILESYSTEM_ OC_BOOT_FILESYSTEM;
-struct OC_BOOT_FILESYSTEM_ {
-  //
-  // Link in filesystem list in OC_BOOT_CONTEXT.
-  //
-  LIST_ENTRY           Link;
-  //
-  // Filesystem handle.
-  //
-  EFI_HANDLE           Handle;
-  //
-  // List of boot entries (OC_BOOT_ENTRY).
-  //
-  LIST_ENTRY           BootEntries;
-  //
-  // Pointer to APFS Recovery partition (if any).
-  //
-  OC_BOOT_FILESYSTEM   *RecoveryFs;
-  //
-  // External filesystem.
-  //
-  BOOLEAN              External;
-  //
-  // Loader filesystem.
-  //
-  BOOLEAN              LoaderFs;
-  //
-  // Contains recovery on the filesystem.
-  //
-  BOOLEAN              HasSelfRecovery;
-};
-
-/**
-  Boot context containing boot filesystems.
-**/
-typedef struct OC_BOOT_CONTEXT_ {
-  //
-  // Total boot entry count.
-  //
-  UINTN                       BootEntryCount;
-  //
-  // Total filesystem count.
-  //
-  UINTN                       FileSystemCount;
-  //
-  // List of filesystems containing boot entries (OC_BOOT_FILESYSTEM).
-  //
-  LIST_ENTRY                  FileSystems;
-  //
-  // GUID namespace for boot entries.
-  //
-  EFI_GUID                    *BootVariableGuid;
-  //
-  // Default entry to be booted.
-  //
-  OC_BOOT_ENTRY               *DefaultEntry;
-  //
-  // Picker context for externally configured parameters.
-  //
-  OC_PICKER_CONTEXT           *PickerContext;
-} OC_BOOT_CONTEXT;
+#define OC_KERN_CAPABILITY_K32_K64_U64  (OC_KERN_CAPABILITY_K32_U64 | OC_KERN_CAPABILITY_K64_U64)
+#define OC_KERN_CAPABILITY_K32_U32_U64  (OC_KERN_CAPABILITY_K32_U32 | OC_KERN_CAPABILITY_K32_U64)
+#define OC_KERN_CAPABILITY_ALL          (OC_KERN_CAPABILITY_K32_U32 | OC_KERN_CAPABILITY_K32_K64_U64)
 
 /**
   Perform filtering based on file system basis.
   Ignores all filesystems by default.
   Remove this bit to allow any file system.
 **/
-#define OC_SCAN_FILE_SYSTEM_LOCK         BIT0
+#define OC_SCAN_FILE_SYSTEM_LOCK  BIT0
 
 /**
   Perform filtering based on device basis.
   Ignores all devices by default.
   Remove this bit to allow any device type.
 **/
-#define OC_SCAN_DEVICE_LOCK              BIT1
+#define OC_SCAN_DEVICE_LOCK  BIT1
 
 /**
   Allow scanning APFS filesystems.
 **/
-#define OC_SCAN_ALLOW_FS_APFS            BIT8
+#define OC_SCAN_ALLOW_FS_APFS  BIT8
 
 /**
   Allow scanning HFS filesystems.
 **/
-#define OC_SCAN_ALLOW_FS_HFS             BIT9
+#define OC_SCAN_ALLOW_FS_HFS  BIT9
 
 /**
   Allow scanning ESP filesystems.
 **/
-#define OC_SCAN_ALLOW_FS_ESP             BIT10
+#define OC_SCAN_ALLOW_FS_ESP  BIT10
 
 /**
   Allow scanning NTFS filesystems.
 **/
-#define OC_SCAN_ALLOW_FS_NTFS            BIT11
+#define OC_SCAN_ALLOW_FS_NTFS  BIT11
 
 /**
-  Allow scanning EXT filesystems (e.g. EXT4).
+  Allow scanning Linux Root filesystems.
+  https://systemd.io/DISCOVERABLE_PARTITIONS/
 **/
-#define OC_SCAN_ALLOW_FS_EXT             BIT12
+#define OC_SCAN_ALLOW_FS_LINUX_ROOT  BIT12
+
+/**
+  Allow scanning Linux Data filesystems.
+  https://systemd.io/DISCOVERABLE_PARTITIONS/
+**/
+#define OC_SCAN_ALLOW_FS_LINUX_DATA  BIT13
+
+/**
+  Allow scanning XBOOTLDR filesystems.
+**/
+#define OC_SCAN_ALLOW_FS_XBOOTLDR  BIT14
 
 /**
   Allow scanning SATA devices.
 **/
-#define OC_SCAN_ALLOW_DEVICE_SATA        BIT16
+#define OC_SCAN_ALLOW_DEVICE_SATA  BIT16
 
 /**
   Allow scanning SAS and Mac NVMe devices.
 **/
-#define OC_SCAN_ALLOW_DEVICE_SASEX       BIT17
+#define OC_SCAN_ALLOW_DEVICE_SASEX  BIT17
 
 /**
   Allow scanning SCSI devices.
 **/
-#define OC_SCAN_ALLOW_DEVICE_SCSI        BIT18
+#define OC_SCAN_ALLOW_DEVICE_SCSI  BIT18
 
 /**
   Allow scanning NVMe devices.
 **/
-#define OC_SCAN_ALLOW_DEVICE_NVME        BIT19
+#define OC_SCAN_ALLOW_DEVICE_NVME  BIT19
 
 /**
   Allow scanning ATAPI devices.
 **/
-#define OC_SCAN_ALLOW_DEVICE_ATAPI       BIT20
+#define OC_SCAN_ALLOW_DEVICE_ATAPI  BIT20
 
 /**
   Allow scanning USB devices.
 **/
-#define OC_SCAN_ALLOW_DEVICE_USB         BIT21
+#define OC_SCAN_ALLOW_DEVICE_USB  BIT21
 
 /**
   Allow scanning FireWire devices.
 **/
-#define OC_SCAN_ALLOW_DEVICE_FIREWIRE    BIT22
+#define OC_SCAN_ALLOW_DEVICE_FIREWIRE  BIT22
 
 /**
   Allow scanning SD card devices.
 **/
-#define OC_SCAN_ALLOW_DEVICE_SDCARD      BIT23
+#define OC_SCAN_ALLOW_DEVICE_SDCARD  BIT23
 
 /**
   Allow scanning PCI devices (e.g. virtio).
 **/
-#define OC_SCAN_ALLOW_DEVICE_PCI         BIT24
+#define OC_SCAN_ALLOW_DEVICE_PCI  BIT24
 
 /**
   All device bits used by OC_SCAN_DEVICE_LOCK.
 **/
-#define OC_SCAN_DEVICE_BITS ( \
+#define OC_SCAN_DEVICE_BITS  (\
   OC_SCAN_ALLOW_DEVICE_SATA     | OC_SCAN_ALLOW_DEVICE_SASEX | \
   OC_SCAN_ALLOW_DEVICE_SCSI     | OC_SCAN_ALLOW_DEVICE_NVME  | \
   OC_SCAN_ALLOW_DEVICE_ATAPI    | OC_SCAN_ALLOW_DEVICE_USB   | \
@@ -416,16 +303,17 @@ typedef struct OC_BOOT_CONTEXT_ {
   OC_SCAN_ALLOW_DEVICE_PCI)
 
 /**
-  All device bits used by OC_SCAN_DEVICE_LOCK.
+  All file system bits used by OC_SCAN_FILE_SYSTEM_LOCK.
 **/
-#define OC_SCAN_FILE_SYSTEM_BITS ( \
-  OC_SCAN_ALLOW_FS_APFS | OC_SCAN_ALLOW_FS_HFS | OC_SCAN_ALLOW_FS_ESP | \
-  OC_SCAN_ALLOW_FS_NTFS | OC_SCAN_ALLOW_FS_EXT)
+#define OC_SCAN_FILE_SYSTEM_BITS  (\
+  OC_SCAN_ALLOW_FS_APFS       | OC_SCAN_ALLOW_FS_HFS        | OC_SCAN_ALLOW_FS_ESP | \
+  OC_SCAN_ALLOW_FS_NTFS       | OC_SCAN_ALLOW_FS_LINUX_ROOT | \
+  OC_SCAN_ALLOW_FS_LINUX_DATA | OC_SCAN_ALLOW_FS_XBOOTLDR )
 
 /**
   By default allow booting from APFS from internal drives.
 **/
-#define OC_SCAN_DEFAULT_POLICY ( \
+#define OC_SCAN_DEFAULT_POLICY  (\
   OC_SCAN_FILE_SYSTEM_LOCK   | OC_SCAN_DEVICE_LOCK | \
   OC_SCAN_ALLOW_FS_APFS | \
   OC_SCAN_ALLOW_DEVICE_SATA  | OC_SCAN_ALLOW_DEVICE_SASEX | \
@@ -442,12 +330,280 @@ typedef enum {
 } OC_DMG_LOADING_SUPPORT;
 
 /**
+  Action to perform as part of executing a system boot entry.
+**/
+typedef
+EFI_STATUS
+(*OC_BOOT_SYSTEM_ACTION) (
+  IN OUT          OC_PICKER_CONTEXT  *PickerContext
+  );
+
+/**
+  Action to perform as part of executing an unmanaged boot entry.
+**/
+typedef
+EFI_STATUS
+(*OC_BOOT_UNMANAGED_ACTION) (
+  IN OUT  OC_PICKER_CONTEXT         *PickerContext,
+  IN      EFI_DEVICE_PATH_PROTOCOL  *DevicePath
+  );
+
+/**
+  Get Device Path for unmanaged boot entry.
+**/
+typedef
+EFI_STATUS
+(*OC_BOOT_UNMANAGED_GET_FINAL_DP) (
+  IN OUT  OC_PICKER_CONTEXT         *PickerContext,
+  IN OUT  EFI_DEVICE_PATH_PROTOCOL  **DevicePath
+  );
+
+/**
+  Forward declaration of OC_BOOT_ENTRY structure.
+**/
+typedef struct OC_BOOT_ENTRY_ OC_BOOT_ENTRY;
+
+/**
+  Exposed custom entry load interface.
+  Returns allocated file buffer from pool on success.
+**/
+typedef
+EFI_STATUS
+(EFIAPI *OC_CUSTOM_READ)(
+  IN  OC_STORAGE_CONTEXT                  *Storage,
+  IN  OC_BOOT_ENTRY                       *ChosenEntry,
+  OUT VOID                                **Data,
+  OUT UINT32                              *DataSize,
+  OUT EFI_DEVICE_PATH_PROTOCOL            **DevicePath,
+  OUT EFI_HANDLE                          *StorageHandle,
+  OUT EFI_DEVICE_PATH_PROTOCOL            **StoragePath,
+  IN  OC_DMG_LOADING_SUPPORT              DmgLoading,
+  OUT OC_APPLE_DISK_IMAGE_PRELOAD_CONTEXT *DmgPreloadContext,
+  OUT VOID                                **CustomFreeContext
+  );
+
+/**
+  Exposed custom entry interface to free any custom items after load.
+**/
+typedef
+EFI_STATUS
+(EFIAPI *OC_CUSTOM_FREE)(
+  IN  VOID                        *CustomFreeContext
+  );
+
+/**
+  Discovered boot entry.
+  Note, inner resources must be freed with FreeBootEntry.
+**/
+struct OC_BOOT_ENTRY_ {
+  //
+  // Link in entry list in OC_BOOT_FILESYSTEM.
+  //
+  LIST_ENTRY                        Link;
+  //
+  // Device path to booter or its directory.
+  // Can be NULL, for example, for custom or system entries.
+  //
+  EFI_DEVICE_PATH_PROTOCOL          *DevicePath;
+  //
+  // Action to perform on execution. Only valid for system entries.
+  //
+  OC_BOOT_SYSTEM_ACTION             SystemAction;
+  //
+  // Action to perform on execution. Only valid for unmanaged boot entries.
+  //
+  OC_BOOT_UNMANAGED_ACTION          UnmanagedBootAction;
+  //
+  // Get final Device Path for boot entry. Only valid for unmanaged boot entries.
+  //
+  OC_BOOT_UNMANAGED_GET_FINAL_DP    UnmanagedBootGetFinalDevicePath;
+  //
+  // Custom entry image read routine, optional for non-custom entries.
+  //
+  OC_CUSTOM_READ                    CustomRead;
+  //
+  // Custom entry routine to free custom items. Optional.
+  //
+  OC_CUSTOM_FREE                    CustomFree;
+  //
+  // Id under which to save entry as default.
+  //
+  CHAR16                            *Id;
+  //
+  // Obtained human visible name.
+  //
+  CHAR16                            *Name;
+  //
+  // Obtained boot path directory.
+  // For custom entries this contains tool path.
+  //
+  CHAR16                            *PathName;
+  //
+  // Content flavour.
+  //
+  CHAR8                             *Flavour;
+  //
+  // Heuristical value signaling inferred type of booted os.
+  // WARNING: Non-definitive, do not rely on for any security purposes.
+  //
+  OC_BOOT_ENTRY_TYPE                Type;
+  //
+  // Entry index number, assigned by picker.
+  //
+  UINT32                            EntryIndex;
+  //
+  // Set when this entry is an externally available entry (e.g. USB).
+  //
+  BOOLEAN                           IsExternal;
+  //
+  // Should try booting from first dmg found in DevicePath.
+  //
+  BOOLEAN                           IsFolder;
+  //
+  // Set when this entry refers to a generic booter (e.g. BOOTx64.EFI).
+  //
+  BOOLEAN                           IsGeneric;
+  //
+  // Set when this entry refers to a custom boot entry.
+  //
+  BOOLEAN                           IsCustom;
+  //
+  // Set when entry was created by OC_BOOT_ENTRY_PROTOCOL.
+  //
+  BOOLEAN                           IsBootEntryProtocol;
+  //
+  // Set when entry is identified as macOS installer.
+  //
+  BOOLEAN                           IsAppleInstaller;
+  //
+  // Should make this option default boot option.
+  //
+  BOOLEAN                           SetDefault;
+  //
+  // Should launch this entry in text mode.
+  //
+  BOOLEAN                           LaunchInText;
+  //
+  // Should expose real device path when dealing with custom entries.
+  //
+  BOOLEAN                           ExposeDevicePath;
+  //
+  // Should disable OpenRuntime NVRAM protection around invocation of tool.
+  //
+  BOOLEAN                           FullNvramAccess;
+  //
+  // Partition UUID of entry device.
+  // Set for non-system action boot entry protocol boot entries only.
+  //
+  EFI_GUID                          UniquePartitionGUID;
+  //
+  // Load option data (usually "boot args") size.
+  //
+  UINT32                            LoadOptionsSize;
+  //
+  // Load option data (usually "boot args").
+  //
+  VOID                              *LoadOptions;
+  //
+  // Audio base path for system action. Boot Entry Protocol only.
+  //
+  CHAR8                             *AudioBasePath;
+  //
+  // Audio base type for system action. Boot Entry Protocol only.
+  //
+  CHAR8                             *AudioBaseType;
+};
+
+/**
+  Parsed load option or shell variable.
+**/
+typedef struct OC_PARSED_VAR_ASCII_ {
+  CHAR8    *Name;
+  CHAR8    *Value;
+} OC_PARSED_VAR_ASCII;
+
+typedef struct OC_PARSED_VAR_UNICODE_ {
+  CHAR16    *Name;
+  CHAR16    *Value;
+} OC_PARSED_VAR_UNICODE;
+
+typedef union OC_PARSED_VAR_ {
+  OC_PARSED_VAR_ASCII      Ascii;
+  OC_PARSED_VAR_UNICODE    Unicode;
+} OC_PARSED_VAR;
+
+/**
+  Boot filesystem containing boot entries.
+**/
+typedef struct OC_BOOT_FILESYSTEM_ OC_BOOT_FILESYSTEM;
+struct OC_BOOT_FILESYSTEM_ {
+  //
+  // Link in filesystem list in OC_BOOT_CONTEXT.
+  //
+  LIST_ENTRY            Link;
+  //
+  // Filesystem handle.
+  //
+  EFI_HANDLE            Handle;
+  //
+  // List of boot entries (OC_BOOT_ENTRY).
+  //
+  LIST_ENTRY            BootEntries;
+  //
+  // Pointer to APFS Recovery partition (if any).
+  //
+  OC_BOOT_FILESYSTEM    *RecoveryFs;
+  //
+  // External filesystem.
+  //
+  BOOLEAN               External;
+  //
+  // Loader filesystem.
+  //
+  BOOLEAN               LoaderFs;
+  //
+  // Contains recovery on the filesystem.
+  //
+  BOOLEAN               HasSelfRecovery;
+};
+
+/**
+  Boot context containing boot filesystems.
+**/
+typedef struct OC_BOOT_CONTEXT_ {
+  //
+  // Total boot entry count.
+  //
+  UINTN                BootEntryCount;
+  //
+  // Total filesystem count.
+  //
+  UINTN                FileSystemCount;
+  //
+  // List of filesystems containing boot entries (OC_BOOT_FILESYSTEM).
+  //
+  LIST_ENTRY           FileSystems;
+  //
+  // GUID namespace for boot entries.
+  //
+  EFI_GUID             *BootVariableGuid;
+  //
+  // Default entry to be booted.
+  //
+  OC_BOOT_ENTRY        *DefaultEntry;
+  //
+  // Picker context for externally configured parameters.
+  //
+  OC_PICKER_CONTEXT    *PickerContext;
+} OC_BOOT_CONTEXT;
+
+/**
   Exposed start interface with chosen boot entry but otherwise equivalent
   to EFI_BOOT_SERVICES StartImage.
 **/
 typedef
 EFI_STATUS
-(EFIAPI *OC_IMAGE_START) (
+(EFIAPI *OC_IMAGE_START)(
   IN  OC_BOOT_ENTRY               *ChosenEntry,
   IN  EFI_HANDLE                  ImageHandle,
   OUT UINTN                       *ExitDataSize,
@@ -456,57 +612,90 @@ EFI_STATUS
   );
 
 /**
-  Exposed custom entry load interface.
-  Returns allocated file buffer from pool on success.
-**/
-typedef
-EFI_STATUS
-(EFIAPI *OC_CUSTOM_READ) (
-  IN  OC_STORAGE_CONTEXT          *Storage,
-  IN  OC_BOOT_ENTRY               *ChosenEntry,
-  OUT VOID                        **Data,
-  OUT UINT32                      *DataSize,
-  OUT EFI_DEVICE_PATH_PROTOCOL    **DevicePath,
-  OUT EFI_HANDLE                  *StorageHandle,
-  OUT EFI_DEVICE_PATH_PROTOCOL    **StoragePath
-  );
-
-/**
   Custom picker entry.
+  Note that OC_BOOT_ENTRY_PROTOCOL_REVISION needs incrementing
+  when this structure is updated.
 **/
 typedef struct {
   //
+  // Used by OC_BOOT_ENTRY_PROTOCOL to reidentify entry.
+  // Multiple entries may share an id - allows e.g. newest version
+  // of Linux install to automatically become selected default.
+  //
+  CONST CHAR8                       *Id;
+  //
   // Entry name.
   //
-  CONST CHAR8  *Name;
+  CONST CHAR8                       *Name;
   //
-  // Entry path.
+  // Absolute device path to file for user custom entries,
+  // file path relative to device root for boot entry protocol.
   //
-  CONST CHAR8  *Path;
+  CONST CHAR8                       *Path;
   //
   // Entry boot arguments.
   //
-  CONST CHAR8  *Arguments;
+  CONST CHAR8                       *Arguments;
   //
   // Content flavour.
   //
-  CONST CHAR8  *Flavour;
+  CONST CHAR8                       *Flavour;
   //
   // Whether this entry is auxiliary.
   //
-  BOOLEAN      Auxiliary;
+  BOOLEAN                           Auxiliary;
   //
   // Whether this entry is a tool.
   //
-  BOOLEAN      Tool;
+  BOOLEAN                           Tool;
   //
   // Whether it should be started in text mode.
   //
-  BOOLEAN      TextMode;
+  BOOLEAN                           TextMode;
   //
   // Whether we should pass the actual device path (if possible).
   //
-  BOOLEAN      RealPath;
+  BOOLEAN                           RealPath;
+  //
+  // Should disable OpenRuntime NVRAM protection around invocation of tool.
+  //
+  BOOLEAN                           FullNvramAccess;
+  //
+  // System action. Boot Entry Protocol only. Optional.
+  //
+  OC_BOOT_SYSTEM_ACTION             SystemAction;
+  //
+  // Audio base path for system action. Boot Entry Protocol only. Optional.
+  //
+  CHAR8                             *AudioBasePath;
+  //
+  // Audio base type for system action. Boot Entry Protocol only. Optional.
+  //
+  CHAR8                             *AudioBaseType;
+  //
+  // Unmanaged boot action. Boot Entry Protocol unmanaged boot entries only.
+  //
+  OC_BOOT_UNMANAGED_ACTION          UnmanagedBootAction;
+  //
+  // Get final Device Path for unmanaged boot entry. Boot Entry Protocol unmanaged boot entries only.
+  //
+  OC_BOOT_UNMANAGED_GET_FINAL_DP    UnmanagedBootGetFinalDevicePath;
+  //
+  // Absolute Device Path. May be used instead of text Path above for Boot Entry Protocol entries. Optional.
+  //
+  EFI_DEVICE_PATH_PROTOCOL          *UnmanagedDevicePath;
+  //
+  // Custom entry image read routine, optional for non-custom entries.
+  //
+  OC_CUSTOM_READ                    CustomRead;
+  //
+  // Custom entry routine to free custom items. Optional.
+  //
+  OC_CUSTOM_FREE                    CustomFree;
+  //
+  // Whether this entry should be labeled as external to the system. Boot Entry Protocol only. Optional.
+  //
+  BOOLEAN                           External;
 } OC_PICKER_ENTRY;
 
 /**
@@ -520,17 +709,17 @@ typedef enum {
 /**
   OC picker codes.
 **/
-typedef INTN                    OC_KEY_CODE;
+typedef INTN OC_KEY_CODE;
 
 /**
   OC picker modifiers.
 **/
-typedef UINT16                  OC_MODIFIER_MAP;
+typedef UINT16 OC_MODIFIER_MAP;
 
 /**
   OC picker modifiers.
 **/
-typedef UINTN                   OC_PICKER_KEY_MAP;
+typedef UINTN OC_PICKER_KEY_MAP;
 
 /**
   Full picker key info.
@@ -538,9 +727,9 @@ typedef UINTN                   OC_PICKER_KEY_MAP;
   typing key should be detected by UnicodeChar != CHAR_NULL.
 **/
 typedef struct {
-  OC_KEY_CODE         OcKeyCode;
-  OC_MODIFIER_MAP     OcModifiers;
-  CHAR16              UnicodeChar;
+  OC_KEY_CODE        OcKeyCode;
+  OC_MODIFIER_MAP    OcModifiers;
+  CHAR16             UnicodeChar;
 } OC_PICKER_KEY_INFO;
 
 /**
@@ -548,7 +737,7 @@ typedef struct {
 **/
 typedef
 EFI_STATUS
-(EFIAPI *OC_REQ_PRIVILEGE) (
+(EFIAPI *OC_REQ_PRIVILEGE)(
   IN OC_PICKER_CONTEXT   *Context,
   IN OC_PRIVILEGE_LEVEL  Level
   );
@@ -558,7 +747,7 @@ EFI_STATUS
 **/
 typedef
 EFI_STATUS
-(EFIAPI *OC_SHOW_MENU) (
+(EFIAPI *OC_SHOW_MENU)(
   IN  OC_BOOT_CONTEXT             *BootContext,
   IN  OC_BOOT_ENTRY               **BootEntries,
   OUT OC_BOOT_ENTRY               **ChosenBootEntry
@@ -569,7 +758,7 @@ EFI_STATUS
 **/
 typedef
 EFI_STATUS
-(EFIAPI *OC_GET_ENTRY_LABEL_IMAGE) (
+(EFIAPI *OC_GET_ENTRY_LABEL_IMAGE)(
   IN  OC_PICKER_CONTEXT          *Context,
   IN  OC_BOOT_ENTRY              *BootEntry,
   IN  UINT8                      Scale,
@@ -582,7 +771,7 @@ EFI_STATUS
 **/
 typedef
 EFI_STATUS
-(EFIAPI *OC_GET_ENTRY_ICON) (
+(EFIAPI *OC_GET_ENTRY_ICON)(
   IN  OC_PICKER_CONTEXT          *Context,
   IN  OC_BOOT_ENTRY              *BootEntry,
   OUT VOID                       **ImageData,
@@ -594,10 +783,10 @@ EFI_STATUS
 **/
 typedef
 VOID
-(EFIAPI *OC_GET_KEY_INFO) (
+(EFIAPI *OC_GET_KEY_INFO)(
   IN OUT OC_PICKER_CONTEXT                  *Context,
   IN     OC_PICKER_KEY_MAP                  KeyFilter,
-     OUT OC_PICKER_KEY_INFO                 *PickerKeyInfo
+  OUT OC_PICKER_KEY_INFO                 *PickerKeyInfo
   );
 
 /**
@@ -605,8 +794,8 @@ VOID
 **/
 typedef
 UINT64
-(EFIAPI *OC_GET_KEY_WAIT_END_TIME) (
-  IN UINTN    Timeout
+(EFIAPI *OC_GET_KEY_WAIT_END_TIME)(
+  IN UINT64     Timeout
   );
 
 /**
@@ -614,7 +803,7 @@ UINT64
 **/
 typedef
 BOOLEAN
-(EFIAPI *OC_WAIT_FOR_KEY_INFO) (
+(EFIAPI *OC_WAIT_FOR_KEY_INFO)(
   IN OUT OC_PICKER_CONTEXT                  *Context,
   IN     UINT64                             EndTime,
   IN     OC_PICKER_KEY_MAP                  KeyFilter,
@@ -626,7 +815,7 @@ BOOLEAN
 **/
 typedef
 VOID
-(EFIAPI *OC_FLUSH_TYPING_BUFFER) (
+(EFIAPI *OC_FLUSH_TYPING_BUFFER)(
   IN OUT OC_PICKER_CONTEXT                  *Context
   );
 
@@ -635,10 +824,11 @@ VOID
 **/
 typedef
 EFI_STATUS
-(EFIAPI *OC_PLAY_AUDIO_FILE) (
-  IN  OC_PICKER_CONTEXT  *Context,
-  IN  UINT32             File,
-  IN  BOOLEAN            Fallback
+(EFIAPI *OC_PLAY_AUDIO_FILE)(
+  IN  OC_PICKER_CONTEXT                 *Context,
+  IN  CONST CHAR8                       *BasePath,
+  IN  CONST CHAR8                       *BaseType,
+  IN  BOOLEAN                           Fallback
   );
 
 /**
@@ -646,7 +836,7 @@ EFI_STATUS
 **/
 typedef
 EFI_STATUS
-(EFIAPI *OC_PLAY_AUDIO_BEEP) (
+(EFIAPI *OC_PLAY_AUDIO_BEEP)(
   IN  OC_PICKER_CONTEXT        *Context,
   IN  UINT32                   ToneCount,
   IN  UINT32                   ToneLength,
@@ -658,7 +848,7 @@ EFI_STATUS
 **/
 typedef
 EFI_STATUS
-(EFIAPI *OC_PLAY_AUDIO_ENTRY) (
+(EFIAPI *OC_PLAY_AUDIO_ENTRY)(
   IN  OC_PICKER_CONTEXT  *Context,
   IN  OC_BOOT_ENTRY      *Entry
   );
@@ -668,9 +858,10 @@ EFI_STATUS
 **/
 typedef
 VOID
-(EFIAPI *OC_TOGGLE_VOICE_OVER) (
-  IN  OC_PICKER_CONTEXT  *Context,
-  IN  UINT32             File  OPTIONAL
+(EFIAPI *OC_TOGGLE_VOICE_OVER)(
+  IN  OC_PICKER_CONTEXT                 *Context,
+  IN  CONST CHAR8                       *BasePath     OPTIONAL,
+  IN  CONST CHAR8                       *BaseType     OPTIONAL
   );
 
 /**
@@ -679,20 +870,20 @@ VOID
 typedef enum {
   OcPickerDefault           = 0,
   OcPickerShowPicker        = 1,
-  OcPickerResetNvram        = 2,
+  OcPickerProtocolHotKey    = 2,
   OcPickerBootApple         = 3,
-  OcPickerBootAppleRecovery = 4,
+  OcPickerBootAppleRecovery = 4
 } OC_PICKER_CMD;
 
 /**
   Instrument kb loop delay.
 
   @param[in]      LoopDelayStart    Delay start in TSC asm ticks.
-  @param[in]      LoopDelayEnd      Delay end in TSC asm ticks. 
+  @param[in]      LoopDelayEnd      Delay end in TSC asm ticks.
 **/
 typedef
 VOID
-(EFIAPI *OC_KB_DEBUG_INSTRUMENT_LOOP_DELAY) (
+(EFIAPI *OC_KB_DEBUG_INSTRUMENT_LOOP_DELAY)(
   UINT64 LoopDelayStart,
   UINT64 LoopDelayEnd
   );
@@ -706,22 +897,22 @@ VOID
 **/
 typedef
 VOID
-(EFIAPI *OC_KB_DEBUG_SHOW) (
+(EFIAPI *OC_KB_DEBUG_SHOW)(
   UINTN                     NumKeysDown,
   UINTN                     NumKeysHeld,
   APPLE_MODIFIER_MAP        Modifiers
   );
 
 typedef struct {
-  OC_KB_DEBUG_INSTRUMENT_LOOP_DELAY  InstrumentLoopDelay;
-  OC_KB_DEBUG_SHOW                   Show;
+  OC_KB_DEBUG_INSTRUMENT_LOOP_DELAY    InstrumentLoopDelay;
+  OC_KB_DEBUG_SHOW                     Show;
 } OC_KB_DEBUG_CALLBACKS;
 
 typedef struct {
-  OC_PRIVILEGE_LEVEL CurrentLevel;
-  CONST UINT8        *Salt;
-  UINT32             SaltSize;
-  CONST UINT8        *Hash;
+  OC_PRIVILEGE_LEVEL    CurrentLevel;
+  CONST UINT8           *Salt;
+  UINT32                SaltSize;
+  CONST UINT8           *Hash;
 } OC_PRIVILEGE_CONTEXT;
 
 /**
@@ -729,7 +920,7 @@ typedef struct {
 **/
 typedef
 BOOLEAN
-(EFIAPI *OC_VERIFY_PASSWORD) (
+(EFIAPI *OC_VERIFY_PASSWORD)(
   IN CONST UINT8                  *Password,
   IN UINT32                       PasswordSize,
   IN CONST OC_PRIVILEGE_CONTEXT   *PrivilegeContext
@@ -742,191 +933,195 @@ struct OC_PICKER_CONTEXT_ {
   //
   // Scan policy (e.g. OC_SCAN_DEFAULT_POLICY).
   //
-  UINT32                     ScanPolicy;
+  UINT32                      ScanPolicy;
   //
   // DMG loading mode (e.g. OcDmgLoadingAppleSigned).
   //
-  OC_DMG_LOADING_SUPPORT     DmgLoading;
+  OC_DMG_LOADING_SUPPORT      DmgLoading;
   //
   // Default entry selection timeout (pass 0 to ignore).
   //
-  UINT32                     TimeoutSeconds;
+  UINT32                      TimeoutSeconds;
   //
   // Default delay prior to handling hotkeys (pass 0 to ignore).
   //
-  UINT32                     TakeoffDelay;
+  UINT32                      TakeoffDelay;
   //
   // Define picker behaviour.
   // For example, show boot menu or just boot the default option.
   //
-  OC_PICKER_CMD              PickerCommand;
+  OC_PICKER_CMD               PickerCommand;
+  //
+  // Non-NULL if PickerCommand is OcPickerProtocolHotKey.
+  //
+  EFI_HANDLE                  HotKeyProtocolHandle;
+  //
+  // Non-NULL if PickerCommand is OcPickerProtocolHotKey.
+  //
+  CHAR8                       *HotKeyEntryId;
   //
   // Use custom (gOcVendorVariableGuid) for Boot#### variables.
   //
-  BOOLEAN                    CustomBootGuid;
+  BOOLEAN                     CustomBootGuid;
   //
-  // Custom entry reading routine, optional for no custom entries.
+  // Custom entry image read routine, optional for non-custom entries.
   //
-  OC_CUSTOM_READ             CustomRead;
+  OC_CUSTOM_READ              CustomRead;
   //
   // Storage context.
   //
-  OC_STORAGE_CONTEXT         *StorageContext;
+  OC_STORAGE_CONTEXT          *StorageContext;
   //
   // Image starting routine used, required.
   //
-  OC_IMAGE_START             StartImage;
+  OC_IMAGE_START              StartImage;
   //
   // Handle to perform loader detection, optional.
   //
-  EFI_HANDLE                 LoaderHandle;
+  EFI_HANDLE                  LoaderHandle;
   //
   // Get entry label image.
   //
-  OC_GET_ENTRY_LABEL_IMAGE   GetEntryLabelImage;
+  OC_GET_ENTRY_LABEL_IMAGE    GetEntryLabelImage;
   //
   // Get entry icon.
   //
-  OC_GET_ENTRY_ICON          GetEntryIcon;
+  OC_GET_ENTRY_ICON           GetEntryIcon;
   //
   // Entry display routine.
   //
-  OC_SHOW_MENU               ShowMenu;
+  OC_SHOW_MENU                ShowMenu;
   //
   // Privilege escalation requesting routine.
   //
-  OC_REQ_PRIVILEGE           RequestPrivilege;
+  OC_REQ_PRIVILEGE            RequestPrivilege;
   //
   // Password verification.
   //
-  OC_VERIFY_PASSWORD         VerifyPassword;
+  OC_VERIFY_PASSWORD          VerifyPassword;
   //
   // Picker typing context.
   //
-  OC_HOTKEY_CONTEXT          *HotKeyContext;
+  OC_HOTKEY_CONTEXT           *HotKeyContext;
   //
   // Keyboard debug methods.
   //
-  OC_KB_DEBUG_CALLBACKS      *KbDebug;
+  OC_KB_DEBUG_CALLBACKS       *KbDebug;
   //
   // Context to pass to RequestPrivilege, optional.
   //
-  OC_PRIVILEGE_CONTEXT       *PrivilegeContext;
+  OC_PRIVILEGE_CONTEXT        *PrivilegeContext;
   //
   // Additional suffix to include by the interface.
   //
-  CONST CHAR8                *TitleSuffix;
+  CONST CHAR8                 *TitleSuffix;
   //
   // Used picker mode.
   //
-  OC_PICKER_MODE             PickerMode;
+  OC_PICKER_MODE              PickerMode;
   //
   // Console attributes. 0 is reserved as disabled.
   //
-  UINT32                     ConsoleAttributes;
+  UINT32                      ConsoleAttributes;
   //
   // Picker attribues:
   // - BIT0~BIT15  are OpenCore reserved.
   // - BIT16~BIT31 are OEM-specific.
   //
-  UINT32                     PickerAttributes;
+  UINT32                      PickerAttributes;
   //
   // Picker icon set variant (refer to docs for requested behaviour).
   //
-  CONST CHAR8                *PickerVariant;
+  CONST CHAR8                 *PickerVariant;
+  //
+  // Boot loader instance identifier.
+  //
+  CONST CHAR8                 *InstanceIdentifier;
   //
   // Enable polling boot arguments.
   //
-  BOOLEAN                    PollAppleHotKeys;
-  //
-  // Append the "Reset NVRAM" option to the boot entry list.
-  //
-  BOOLEAN                    ShowNvramReset;
-  //
-  // Append toggle SIP option to the boot entry list.
-  //
-  BOOLEAN                    ShowToggleSip;
+  BOOLEAN                     PollAppleHotKeys;
   //
   // Allow setting default boot option from boot menu.
   //
-  BOOLEAN                    AllowSetDefault;
+  BOOLEAN                     AllowSetDefault;
   //
   // Hide and do not scan auxiliary entries.
   //
-  BOOLEAN                    HideAuxiliary;
+  BOOLEAN                     HideAuxiliary;
   //
   // Enable audio assistant during picker playback.
   //
-  BOOLEAN                    PickerAudioAssist;
+  BOOLEAN                     PickerAudioAssist;
   //
   // Set when Apple picker cannot be used on this system.
   //
-  BOOLEAN                    ApplePickerUnsupported;
+  BOOLEAN                     ApplePickerUnsupported;
   //
   // Ignore Apple peripheral firmware updates.
   //
-  BOOLEAN                    BlacklistAppleUpdate;
+  BOOLEAN                     BlacklistAppleUpdate;
   //
   // Recommended audio protocol, optional.
   //
-  OC_AUDIO_PROTOCOL          *OcAudio;
+  OC_AUDIO_PROTOCOL           *OcAudio;
   //
   // Recommended beeper protocol, optional.
   //
-  APPLE_BEEP_GEN_PROTOCOL    *BeepGen;
+  APPLE_BEEP_GEN_PROTOCOL     *BeepGen;
   //
   // Play audio file function.
   //
-  OC_PLAY_AUDIO_FILE         PlayAudioFile;
+  OC_PLAY_AUDIO_FILE          PlayAudioFile;
   //
   // Play audio beep function.
   //
-  OC_PLAY_AUDIO_BEEP         PlayAudioBeep;
+  OC_PLAY_AUDIO_BEEP          PlayAudioBeep;
   //
   // Play audio entry function.
   //
-  OC_PLAY_AUDIO_ENTRY        PlayAudioEntry;
+  OC_PLAY_AUDIO_ENTRY         PlayAudioEntry;
   //
   // Toggle VoiceOver function.
   //
-  OC_TOGGLE_VOICE_OVER       ToggleVoiceOver;
+  OC_TOGGLE_VOICE_OVER        ToggleVoiceOver;
   //
   // Recovery initiator if present.
   //
-  EFI_DEVICE_PATH_PROTOCOL   *RecoveryInitiator;
+  EFI_DEVICE_PATH_PROTOCOL    *RecoveryInitiator;
   //
   // Custom boot order updated during scanning allocated from pool.
   // Preserved here to avoid situations with losing BootNext on rescan.
   //
-  UINT16                     *BootOrder;
+  UINT16                      *BootOrder;
   //
   // Number of entries in boot order.
   //
-  UINTN                      BootOrderCount;
+  UINTN                       BootOrderCount;
   //
   // Additional boot arguments for Apple loaders.
   //
-  CHAR8                      AppleBootArgs[BOOT_LINE_LENGTH];
+  CHAR8                       AppleBootArgs[BOOT_LINE_LENGTH];
   //
   // Number of custom boot paths (bless override).
   //
-  UINTN                      NumCustomBootPaths;
+  UINTN                       NumCustomBootPaths;
   //
   // Custom boot paths (bless override).  Must start with '\'.
   //
-  CHAR16                     **CustomBootPaths;
+  CHAR16                      **CustomBootPaths;
   //
   // Number of absolute custom entries.
   //
-  UINT32                     AbsoluteEntryCount;
+  UINT32                      AbsoluteEntryCount;
   //
   // Number of total custom entries (absolute and tools).
   //
-  UINT32                     AllCustomEntryCount;
+  UINT32                      AllCustomEntryCount;
   //
   // Custom picker entries.  Absolute entries come first.
   //
-  OC_PICKER_ENTRY            CustomEntries[];
+  OC_PICKER_ENTRY             CustomEntries[];
 };
 
 /**
@@ -936,31 +1131,31 @@ struct OC_HOTKEY_CONTEXT_ {
   //
   // Get pressed key info.
   //
-  OC_GET_KEY_INFO            GetKeyInfo;
+  OC_GET_KEY_INFO                      GetKeyInfo;
   //
   // Request end time in units appropriate for WaitForKeyInfo.
   //
-  OC_GET_KEY_WAIT_END_TIME   GetKeyWaitEndTime;
+  OC_GET_KEY_WAIT_END_TIME             GetKeyWaitEndTime;
   //
   // Wait for pressed key info.
   //
-  OC_WAIT_FOR_KEY_INFO       WaitForKeyInfo;
+  OC_WAIT_FOR_KEY_INFO                 WaitForKeyInfo;
   //
   // Flush typing buffer.
   //
-  OC_FLUSH_TYPING_BUFFER     FlushTypingBuffer;
+  OC_FLUSH_TYPING_BUFFER               FlushTypingBuffer;
   //
   // Apple Key Map protocol.
   //
-  APPLE_KEY_MAP_AGGREGATOR_PROTOCOL  *KeyMap;
+  APPLE_KEY_MAP_AGGREGATOR_PROTOCOL    *KeyMap;
   //
   // Non-repeating key context.
   //
-  OC_KEY_REPEAT_CONTEXT      *DoNotRepeatContext;
+  OC_KEY_REPEAT_CONTEXT                *DoNotRepeatContext;
   //
   // Typing context.
   //
-  OC_TYPING_CONTEXT          *TypingContext;
+  OC_TYPING_CONTEXT                    *TypingContext;
 };
 
 /**
@@ -983,11 +1178,11 @@ struct OC_HOTKEY_CONTEXT_ {
 EFI_STATUS
 EFIAPI
 OcGetBootEntryLabelImage (
-  IN  OC_PICKER_CONTEXT          *Context,
-  IN  OC_BOOT_ENTRY              *BootEntry,
-  IN  UINT8                      Scale,
-  OUT VOID                       **ImageData,
-  OUT UINT32                     *DataLength
+  IN  OC_PICKER_CONTEXT  *Context,
+  IN  OC_BOOT_ENTRY      *BootEntry,
+  IN  UINT8              Scale,
+  OUT VOID               **ImageData,
+  OUT UINT32             *DataLength
   );
 
 /**
@@ -1002,10 +1197,10 @@ OcGetBootEntryLabelImage (
 EFI_STATUS
 EFIAPI
 OcGetBootEntryIcon (
-  IN  OC_PICKER_CONTEXT          *Context,
-  IN  OC_BOOT_ENTRY              *BootEntry,
-  OUT VOID                       **ImageData,
-  OUT UINT32                     *DataLength
+  IN  OC_PICKER_CONTEXT  *Context,
+  IN  OC_BOOT_ENTRY      *BootEntry,
+  OUT VOID               **ImageData,
+  OUT UINT32             *DataLength
   );
 
 /**
@@ -1025,13 +1220,15 @@ OcScanForBootEntries (
   This is likely to return an incomplete list and can even give NULL,
   when only tools and system entries are present.
 
-  @param[in]  Context  Picker context.
+  @param[in]  Context       Picker context.
+  @param[in]  UseBootNextOnly  Use only BootNext.
 
   @retval boot context allocated from pool.
 **/
 OC_BOOT_CONTEXT *
 OcScanForDefaultBootEntry (
-  IN  OC_PICKER_CONTEXT  *Context
+  IN  OC_PICKER_CONTEXT  *Context,
+  IN  BOOLEAN            UseBootNextOnly
   );
 
 /**
@@ -1100,8 +1297,8 @@ OcSetDefaultBootEntry (
 EFI_STATUS
 EFIAPI
 OcShowSimplePasswordRequest (
-  IN OC_PICKER_CONTEXT      *Context,
-  IN OC_PRIVILEGE_LEVEL     Level
+  IN OC_PICKER_CONTEXT   *Context,
+  IN OC_PRIVILEGE_LEVEL  Level
   );
 
 /**
@@ -1121,9 +1318,9 @@ OcShowSimplePasswordRequest (
 BOOLEAN
 EFIAPI
 OcVerifyPassword (
-  IN CONST UINT8                  *Password,
-  IN UINT32                       PasswordSize,
-  IN CONST OC_PRIVILEGE_CONTEXT   *PrivilegeContext
+  IN CONST UINT8                 *Password,
+  IN UINT32                      PasswordSize,
+  IN CONST OC_PRIVILEGE_CONTEXT  *PrivilegeContext
   );
 
 /**
@@ -1139,9 +1336,9 @@ OcVerifyPassword (
 EFI_STATUS
 EFIAPI
 OcShowSimpleBootMenu (
-  IN  OC_BOOT_CONTEXT             *BootContext,
-  IN  OC_BOOT_ENTRY               **BootEntries,
-  OUT OC_BOOT_ENTRY               **ChosenBootEntry
+  IN  OC_BOOT_CONTEXT  *BootContext,
+  IN  OC_BOOT_ENTRY    **BootEntries,
+  OUT OC_BOOT_ENTRY    **ChosenBootEntry
   );
 
 /**
@@ -1169,7 +1366,7 @@ OcLoadBootEntry (
 **/
 EFI_STATUS
 OcActivateHibernateWake (
-  IN UINT32                       HibernateMask
+  IN UINT32  HibernateMask
   );
 
 /**
@@ -1196,7 +1393,7 @@ OcHandleRecoveryRequest (
 **/
 VOID *
 OcReadApplePanicLog (
-  OUT UINT32       *PanicSize
+  OUT UINT32  *PanicSize
   );
 
 /**
@@ -1223,40 +1420,40 @@ OcLoadPickerHotKeys (
   Key index mappings.
   Non-negative values may also be returned to request a specific zero-indexed boot entry.
 **/
-#define OC_INPUT_STR                  "123456789ABCDEFGHIJKLMNOPQRSTUVXWZ"
-#define OC_INPUT_MAX                  L_STR_LEN (OC_INPUT_STR)
-#define OC_INPUT_ABORTED              -1        ///< Esc or 0
-#define OC_INPUT_NO_ACTION            -2        ///< Some other key
-#define OC_INPUT_TIMEOUT              -3        ///< Timeout
-#define OC_INPUT_CONTINUE             -4        ///< Continue (press enter)
-#define OC_INPUT_UP                   -5        ///< Move up
-#define OC_INPUT_DOWN                 -6        ///< Move down
-#define OC_INPUT_LEFT                 -7        ///< Move left
-#define OC_INPUT_RIGHT                -8        ///< Move right
-#define OC_INPUT_TOP                  -9        ///< Move to top
-#define OC_INPUT_BOTTOM               -10       ///< Move to bottom
-#define OC_INPUT_MORE                 -11       ///< Show more entries (press space)
-#define OC_INPUT_VOICE_OVER           -12       ///< Toggle VoiceOver (press CMD+F5)
-#define OC_INPUT_INTERNAL             -13       ///< Accepted internal hotkey (e.g. Apple)
-#define OC_INPUT_TYPING_CLEAR_ALL     -14       ///< Clear current input while typing (press esc)
-#define OC_INPUT_TYPING_BACKSPACE     -15       ///< Clear last typed character while typing (press backspace)
-#define OC_INPUT_TYPING_LEFT          -16       ///< Move left while typing (UI does not have to support)
-#define OC_INPUT_TYPING_RIGHT         -17       ///< Move right while typing (UI does not have to support)
-#define OC_INPUT_TYPING_CONFIRM       -18       ///< Confirm input while typing (press enter)
-#define OC_INPUT_SWITCH_FOCUS         -19       ///< Switch UI focus (tab and shift+tab)
-#define OC_INPUT_FUNCTIONAL(x)        (-50 - (x))  ///< Function hotkeys
+#define OC_INPUT_STR               "123456789ABCDEFGHIJKLMNOPQRSTUVXWZ"
+#define OC_INPUT_MAX               L_STR_LEN (OC_INPUT_STR)
+#define OC_INPUT_ABORTED           -1           ///< Esc or 0
+#define OC_INPUT_NO_ACTION         -2           ///< Some other key
+#define OC_INPUT_TIMEOUT           -3           ///< Timeout
+#define OC_INPUT_CONTINUE          -4           ///< Continue (press enter)
+#define OC_INPUT_UP                -5           ///< Move up
+#define OC_INPUT_DOWN              -6           ///< Move down
+#define OC_INPUT_LEFT              -7           ///< Move left
+#define OC_INPUT_RIGHT             -8           ///< Move right
+#define OC_INPUT_TOP               -9           ///< Move to top
+#define OC_INPUT_BOTTOM            -10          ///< Move to bottom
+#define OC_INPUT_MORE              -11          ///< Show more entries (press space)
+#define OC_INPUT_VOICE_OVER        -12          ///< Toggle VoiceOver (press CMD+F5)
+#define OC_INPUT_INTERNAL          -13          ///< Accepted internal hotkey (e.g. Apple)
+#define OC_INPUT_TYPING_CLEAR_ALL  -14          ///< Clear current input while typing (press esc)
+#define OC_INPUT_TYPING_BACKSPACE  -15          ///< Clear last typed character while typing (press backspace)
+#define OC_INPUT_TYPING_LEFT       -16          ///< Move left while typing (UI does not have to support)
+#define OC_INPUT_TYPING_RIGHT      -17          ///< Move right while typing (UI does not have to support)
+#define OC_INPUT_TYPING_CONFIRM    -18          ///< Confirm input while typing (press enter)
+#define OC_INPUT_SWITCH_FOCUS      -19          ///< Switch UI focus (tab and shift+tab)
+#define OC_INPUT_FUNCTIONAL(x)  (-50 - (x))     ///< Function hotkeys
 
 /**
   Modifier mappings.
 **/
-#define OC_MODIFIERS_NONE                     0
-#define OC_MODIFIERS_SET_DEFAULT              BIT0
-#define OC_MODIFIERS_REVERSE_SWITCH_FOCUS     BIT1
+#define OC_MODIFIERS_NONE                  0
+#define OC_MODIFIERS_SET_DEFAULT           BIT0
+#define OC_MODIFIERS_REVERSE_SWITCH_FOCUS  BIT1
 
-#define OC_PICKER_KEYS_TYPING                 BIT0
-#define OC_PICKER_KEYS_HOTKEYS                BIT1
-#define OC_PICKER_KEYS_VOICE_OVER             BIT2
-#define OC_PICKER_KEYS_TAB_CONTROL            BIT3
+#define OC_PICKER_KEYS_TYPING       BIT0
+#define OC_PICKER_KEYS_HOTKEYS      BIT1
+#define OC_PICKER_KEYS_VOICE_OVER   BIT2
+#define OC_PICKER_KEYS_TAB_CONTROL  BIT3
 
 #define OC_PICKER_KEYS_FOR_TYPING   \
   (OC_PICKER_KEYS_TYPING | OC_PICKER_KEYS_VOICE_OVER | OC_PICKER_KEYS_TAB_CONTROL)
@@ -1312,8 +1509,8 @@ OcRunBootPicker (
 **/
 UINT32
 OcGetDevicePolicyType (
-  IN  EFI_HANDLE   Handle,
-  OUT BOOLEAN      *External  OPTIONAL
+  IN  EFI_HANDLE  Handle,
+  OUT BOOLEAN     *External  OPTIONAL
   );
 
 /**
@@ -1325,7 +1522,7 @@ OcGetDevicePolicyType (
 **/
 UINT32
 OcGetFileSystemPolicyType (
-  IN  EFI_HANDLE   Handle
+  IN  EFI_HANDLE  Handle
   );
 
 /**
@@ -1363,20 +1560,56 @@ OcGetAppleBootLoadedImage (
   by other libraries, so values are often pointers to original fields.
 **/
 typedef struct OC_BOOT_ARGUMENTS_ {
-  UINT32            *MemoryMap;
-  UINT32            *MemoryMapSize;
-  UINT32            *MemoryMapDescriptorSize;
-  UINT32            *MemoryMapDescriptorVersion;
-  CHAR8             *CommandLine;
-  UINT32            *KernelAddrP;
-  UINT32            *SystemTableP;
-  UINT32            *RuntimeServicesPG;
-  UINT64            *RuntimeServicesV;
-  UINT32            *DeviceTreeP;
-  UINT32            *DeviceTreeLength;
-  UINT32            *CsrActiveConfig;
-  EFI_SYSTEM_TABLE  *SystemTable;
+  UINT32              *MemoryMap;
+  UINT32              *MemoryMapSize;
+  UINT32              *MemoryMapDescriptorSize;
+  UINT32              *MemoryMapDescriptorVersion;
+  CHAR8               *CommandLine;
+  UINT32              *KernelAddrP;
+  UINT32              *SystemTableP;
+  UINT32              *RuntimeServicesPG;
+  UINT64              *RuntimeServicesV;
+  UINT32              *DeviceTreeP;
+  UINT32              *DeviceTreeLength;
+  UINT32              *CsrActiveConfig;
+  EFI_SYSTEM_TABLE    *SystemTable;
 } OC_BOOT_ARGUMENTS;
+
+//
+// Sanity check max. size for LoadOptions. We need to pass PEM certificates
+// to some drivers (e.g. OpenNetworkBoot), so this has to be quite large.
+//
+#define MAX_LOAD_OPTIONS_SIZE  SIZE_16KB
+
+/**
+  Are load options apparently valid (Unicode string or cleanly non-present)?
+
+  @param[in]   LoadOptionsSize   Load options size.
+  @param[in]   LoadOptions       Load options.
+
+  @retval TRUE if valid.
+**/
+BOOLEAN
+EFIAPI
+OcValidLoadOptions (
+  IN        UINT32  LoadOptionsSize,
+  IN CONST  VOID    *LoadOptions
+  );
+
+/**
+  Are load options present as a Unicode string?
+
+  @param[in]   LoadOptionsSize   Load options size.
+  @param[in]   LoadOptions       Load options.
+
+  @retval TRUE if valid.
+**/
+BOOLEAN
+EFIAPI
+OcHasLoadOptions (
+  IN        UINT32  LoadOptionsSize,
+  IN CONST  VOID    *LoadOptions
+  );
 
 /**
   Parse macOS kernel into unified boot arguments structure.
@@ -1386,8 +1619,8 @@ typedef struct OC_BOOT_ARGUMENTS_ {
 **/
 VOID
 OcParseBootArgs (
-  OUT OC_BOOT_ARGUMENTS *Arguments,
-  IN  VOID              *BootArgs
+  OUT OC_BOOT_ARGUMENTS  *Arguments,
+  IN  VOID               *BootArgs
   );
 
 /**
@@ -1403,11 +1636,11 @@ OcParseBootArgs (
 **/
 BOOLEAN
 OcCheckArgumentFromEnv (
-  IN     EFI_LOADED_IMAGE   *LoadedImage OPTIONAL,
-  IN     EFI_GET_VARIABLE   GetVariable OPTIONAL,
-  IN     CONST CHAR8        *Argument,
-  IN     CONST UINTN        ArgumentLength,
-  IN OUT CHAR8              **Value OPTIONAL
+  IN     EFI_LOADED_IMAGE  *LoadedImage OPTIONAL,
+  IN     EFI_GET_VARIABLE  GetVariable OPTIONAL,
+  IN     CONST CHAR8       *Argument,
+  IN     CONST UINTN       ArgumentLength,
+  IN OUT CHAR8             **Value OPTIONAL
   );
 
 /**
@@ -1422,10 +1655,10 @@ OcCheckArgumentFromEnv (
 **/
 CONST CHAR8 *
 OcGetArgumentFromCmd (
-  IN  CONST CHAR8   *CommandLine,
-  IN  CONST CHAR8   *Argument,
-  IN  CONST UINTN   ArgumentLength,
-  OUT UINTN         *ValueLength OPTIONAL
+  IN  CONST CHAR8  *CommandLine,
+  IN  CONST CHAR8  *Argument,
+  IN  CONST UINTN  ArgumentLength,
+  OUT UINTN        *ValueLength OPTIONAL
   );
 
 /**
@@ -1477,78 +1710,12 @@ OcAppendArgumentsToLoadedImage (
   );
 
 /**
-  Get current SIP setting.
-
-  @param[out]     CsrActiveConfig    Returned csr-active-config variable; uninitialised if variable
-                                     not found, or other error.
-  @param[out]     Attributes         If not NULL, a pointer to the memory location to return the
-                                     attributes bitmask for the variable; uninitialised if variable
-                                     not found, or other error.
-
-  @retval EFI_SUCCESS, EFI_NOT_FOUND, or other error returned by called code.
-**/
-EFI_STATUS
-OcGetSip (
-  OUT UINT32 *CsrActiveConfig,
-  OUT UINT32 *Attributes          OPTIONAL
-  );
-
-/**
-  Set current SIP setting.
-
-  @param[in]      CsrActiveConfig    csr-active-config value to set, or NULL to clear the variable.
-  @param[in]      Attributes         Attributes to apply.
-
-  @retval EFI_SUCCESS, EFI_NOT_FOUND, or other error returned by called code.
-**/
-EFI_STATUS
-OcSetSip (
-  IN  UINT32 *CsrActiveConfig,
-  IN  UINT32 Attributes
-  );
-
-/**
-  Is SIP enabled?
-
-  @param[in]      GetStatus          Return status from previous OcGetSip or gRT->GetVariable call.
-  @param[in]      CsrActiveConfig    csr-active-config value from previous OcGetSip or gRT->GetVariable call.
-                                     This value is never used unless GetStatus is EFI_SUCCESS.
-
-  @retval TRUE if SIP should be considered enabled based on the passed values.
-**/
-BOOLEAN
-OcIsSipEnabled (
-  IN  EFI_STATUS  GetStatus,
-  IN  UINT32      CsrActiveConfig
-  );
-
-/**
-  Toggle SIP.
-
-  @param[in]      CsrActiveConfig    The csr-active-config value to use to disable SIP, if it was previously enabled.
-
-  @retval TRUE on successful operation.
-**/
-EFI_STATUS
-OcToggleSip (
-  IN  UINT32 CsrActiveConfig
-  );
-
-/**
-  Perform NVRAM UEFI variable deletion.
-**/
-VOID
-OcDeleteVariables (
-  VOID
-  );
-
-/**
   Launch firmware application.
 
   @param[in] ApplicationGuid  Application GUID identifier in the firmware.
   @param[in] SetReason        Pass enter reason (specific to Apple BootPicker).
 
-  @retval error code, should not return. 
+  @retval error code, should not return.
 **/
 EFI_STATUS
 OcRunFirmwareApplication (
@@ -1557,10 +1724,26 @@ OcRunFirmwareApplication (
   );
 
 /**
+  Pre-locate audio protocol for picker context, so that boot
+  entry protocol methods can treat this as the definitive
+  audio protocol instance.
+
+  @param[in]  Context   Picker context.
+
+  @retval EFI_SUCCESS on success or when unnecessary.
+**/
+EFI_STATUS
+EFIAPI
+OcPreLocateAudioProtocol (
+  IN     OC_PICKER_CONTEXT  *Context
+  );
+
+/**
   Play audio file for context.
 
   @param[in]  Context   Picker context.
-  @param[in]  File      File to play.
+  @param[in]  BasePath  File base path.
+  @param[in]  BaseType  Audio base type.
   @param[in]  Fallback  Try to fallback to beeps on failure.
 
   @retval EFI_SUCCESS on success or when unnecessary.
@@ -1569,7 +1752,8 @@ EFI_STATUS
 EFIAPI
 OcPlayAudioFile (
   IN  OC_PICKER_CONTEXT  *Context,
-  IN  UINT32             File,
+  IN  CONST CHAR8        *BasePath,
+  IN  CONST CHAR8        *BaseType,
   IN  BOOLEAN            Fallback
   );
 
@@ -1586,10 +1770,10 @@ OcPlayAudioFile (
 EFI_STATUS
 EFIAPI
 OcPlayAudioBeep (
-  IN  OC_PICKER_CONTEXT        *Context,
-  IN  UINT32                   ToneCount,
-  IN  UINT32                   ToneLength,
-  IN  UINT32                   SilenceLength
+  IN  OC_PICKER_CONTEXT  *Context,
+  IN  UINT32             ToneCount,
+  IN  UINT32             ToneLength,
+  IN  UINT32             SilenceLength
   );
 
 /**
@@ -1611,13 +1795,15 @@ OcPlayAudioEntry (
   Toggle VoiceOver support.
 
   @param[in]  Context   Picker context.
-  @param[in]  File      File to play after enabling VoiceOver.
+  @param[in]  BasePath  File base path of file to play after enabling VoiceOver.
+  @param[in]  BaseType  Audio base type of file to play after enabling VoiceOver.
 **/
 VOID
 EFIAPI
 OcToggleVoiceOver (
   IN  OC_PICKER_CONTEXT  *Context,
-  IN  UINT32             File  OPTIONAL
+  IN  CONST CHAR8        *BasePath     OPTIONAL,
+  IN  CONST CHAR8        *BaseType     OPTIONAL
   );
 
 /**
@@ -1628,6 +1814,7 @@ OcToggleVoiceOver (
   @param[out]  BootOrderCount    Number of entries in boot order.
   @param[out]  Deduplicated      Whether the list was changed during deduplication, optional.
   @param[out]  HasBootNext       Whether the list starts with BootNext, optional
+  @param[in]   UseBootNextOnly   Return list containing BootNext entry only
 
   @retval  boot order entry list allocated from pool or NULL.
 **/
@@ -1637,7 +1824,8 @@ OcGetBootOrder (
   IN  BOOLEAN   WithBootNext,
   OUT UINTN     *BootOrderCount,
   OUT BOOLEAN   *Deduplicated  OPTIONAL,
-  OUT BOOLEAN   *HasBootNext   OPTIONAL
+  OUT BOOLEAN   *HasBootNext   OPTIONAL,
+  IN  BOOLEAN   UseBootNextOnly
   );
 
 /**
@@ -1658,12 +1846,12 @@ OcGetBootOrder (
 **/
 EFI_STATUS
 OcRegisterBootstrapBootOption (
-  IN CONST CHAR16    *OptionName,
-  IN EFI_HANDLE      DeviceHandle,
-  IN CONST CHAR16    *FilePath,
-  IN BOOLEAN         ShortForm,
-  IN CONST CHAR16    *MatchSuffix,
-  IN UINTN           MatchSuffixLen
+  IN CONST CHAR16  *OptionName,
+  IN EFI_HANDLE    DeviceHandle,
+  IN CONST CHAR16  *FilePath,
+  IN BOOLEAN       ShortForm,
+  IN CONST CHAR16  *MatchSuffix,
+  IN UINTN         MatchSuffixLen
   );
 
 /**
@@ -1671,7 +1859,8 @@ OcRegisterBootstrapBootOption (
 **/
 VOID
 OcImageLoaderInit (
-  VOID
+  IN     CONST BOOLEAN  ProtectUefiServices,
+  IN     CONST BOOLEAN  FixupAppleEfiImages
   );
 
 /**
@@ -1702,7 +1891,6 @@ VOID
   IN OUT EFI_LOADED_IMAGE_PROTOCOL  *LoadedImage,
   IN     UINT32                     Capabilities
   );
-
 
 /**
   Register image loading callback.
@@ -1739,12 +1927,379 @@ OcImageLoaderRegisterConfigure (
 EFI_STATUS
 EFIAPI
 OcImageLoaderLoad (
-  IN  BOOLEAN                  BootPolicy,
-  IN  EFI_HANDLE               ParentImageHandle,
-  IN  EFI_DEVICE_PATH_PROTOCOL *DevicePath,
-  IN  VOID                     *SourceBuffer OPTIONAL,
-  IN  UINTN                    SourceSize,
-  OUT EFI_HANDLE               *ImageHandle
+  IN  BOOLEAN                   BootPolicy,
+  IN  EFI_HANDLE                ParentImageHandle,
+  IN  EFI_DEVICE_PATH_PROTOCOL  *DevicePath,
+  IN  VOID                      *SourceBuffer OPTIONAL,
+  IN  UINTN                     SourceSize,
+  OUT EFI_HANDLE                *ImageHandle
+  );
+
+/**
+  Parse loaded image protocol load options, resultant options are in the
+  same format as is returned by OcParsedVars and may be examined using the
+  same utility methods.
+
+  Assumes CHAR_NULL terminated Unicode string of space separated options,
+  each of form {name} or {name}={value}. Double quotes can be used round {value} to
+  include spaces, and '\' can be used within quoted or unquoted values to escape any
+  character (including space and '"').
+
+  Note: Var names and values are left as pointers to within the original raw LoadOptions
+  string, which may be modified during processing.
+
+  @param[in]   LoadedImage        Loaded image handle.
+  @param[out]  ParsedVars         Parsed load options if successful, NULL otherwise.
+                                  Caller may free after use with OcFlexArrayFree
+                                  if required.
+
+  @retval EFI_SUCCESS             Success.
+  @retval EFI_NOT_FOUND           Missing or empty load options.
+  @retval EFI_OUT_OF_RESOURCES    Out of memory.
+  @retval EFI_INVALID_PARAMETER   Invalid load options detected.
+**/
+EFI_STATUS
+OcParseLoadOptions (
+  IN     CONST EFI_LOADED_IMAGE_PROTOCOL  *LoadedImage,
+  OUT       OC_FLEX_ARRAY                 **ParsedVars
+  );
+
+/**
+  Parse Unix-style var file or string. Parses a couple of useful ASCII
+  GRUB config files (multi-line, name=var, with optional comments) and
+  defines a standard format for Unicode UEFI LoadOptions.
+
+  Assumes CHAR_NULL terminated Unicode string of space separated options,
+  each of form {name} or {name}={value}. Double quotes can be used round {value} to
+  include spaces, and backslash can be used within quoted or unquoted values to escape any
+  character (including space and double quote).
+  Comments (if any) run from hash symbol to end of same line.
+
+  Note: Var names and values are left as pointers to within the raw string, which may
+  be modified during processing.
+
+  @param[in]   StrVars            Raw var string.
+  @param[out]  ParsedVars         Parsed variables if successful, NULL otherwise.
+                                  Caller may free after use with OcFlexArrayFree.
+  @param[in]   StringFormat       Are option names and values Unicode or ASCII?
+  @param[in]   TokensOnly         If TRUE parse as a sequence of token values only,
+                                  rather than as a sequence of name[=[value]] pairs.
+
+  @retval EFI_SUCCESS             Success.
+  @retval EFI_NOT_FOUND           Missing or empty load options.
+  @retval EFI_OUT_OF_RESOURCES    Out of memory.
+  @retval EFI_INVALID_PARAMETER   Invalid load options detected.
+**/
+EFI_STATUS
+OcParseVars (
+  IN           VOID              *StrVars,
+  OUT       OC_FLEX_ARRAY        **ParsedVars,
+  IN     CONST OC_STRING_FORMAT  StringFormat,
+  IN     CONST BOOLEAN           TokensOnly
+  );
+
+/**
+  Return parsed variable at given index.
+
+  @param[in]   ParsedVars         Parsed variables.
+  @param[in]   Index              Index of option to return.
+
+  @retval                         Parsed option.
+**/
+OC_PARSED_VAR *
+OcParsedVarsItemAt (
+  IN     CONST OC_FLEX_ARRAY  *ParsedVars,
+  IN     CONST UINTN          Index
+  );
+
+/**
+  Get string value of parsed var or load option.
+  Returned value is in same format as raw options.
+  Return value points directly into original raw option memory,
+  so may need to be copied if it is to be retained, and must not
+  be freed directly.
+
+  @param[in]   ParsedVars         Parsed variables.
+  @param[in]   Name               Option name.
+  @param[in]   StrValue           Option value if successful, not modified otherwise;
+                                  note that NULL is returned if option exists with no value.
+                                  Caller must not attempt to free this memory.
+  @param[in]   StringFormat       Are option names and values Unicode or ASCII?
+
+  @retval TRUE                    Option exists.
+  @retval FALSE                   Option not found.
+**/
+BOOLEAN
+OcParsedVarsGetStr (
+  IN     CONST OC_FLEX_ARRAY     *ParsedVars,
+  IN     CONST VOID              *Name,
+  OUT       VOID                 **StrValue,
+  IN     CONST OC_STRING_FORMAT  StringFormat
+  );
+
+/**
+  Get string value of parsed var or load option.
+  Return value points directly into original raw option memory,
+  so may need to be copied if it is to be retained, and must not
+  be freed directly.
+
+  @param[in]   ParsedVars         Parsed variables.
+  @param[in]   Name               Option name.
+  @param[in]   StrValue           Option value if successful, not modified otherwise;
+                                  note that NULL is returned if option exists with no value.
+                                  Caller must not attempt to free this memory.
+
+  @retval TRUE                    Option exists.
+  @retval FALSE                   Option not found.
+**/
+BOOLEAN
+OcParsedVarsGetUnicodeStr (
+  IN     CONST OC_FLEX_ARRAY  *ParsedVars,
+  IN     CONST CHAR16         *Name,
+  OUT       CHAR16            **StrValue
+  );
+
+/**
+  Get ASCII string value of parsed var or load option.
+  Return value points directly into original raw option memory,
+  so may need to be copied if it is to be retained, and must not
+  be freed directly.
+
+  @param[in]   ParsedVars         Parsed variables.
+  @param[in]   Name               Option name.
+  @param[in]   StrValue           Option value if successful, not modified otherwise;
+                                  note that NULL is returned if option exists with no value.
+                                  Caller must not attempt to free this memory.
+
+  @retval TRUE                    Option exists.
+  @retval FALSE                   Option not found.
+**/
+BOOLEAN
+OcParsedVarsGetAsciiStr (
+  IN     CONST OC_FLEX_ARRAY  *ParsedVars,
+  IN     CONST CHAR8          *Name,
+  OUT       CHAR8             **StrValue
+  );
+
+/**
+  Get presence or absence of parsed shell var or load option.
+
+  @param[in]   ParsedVars         Parsed variables.
+  @param[in]   Name               Option name.
+  @param[in]   StringFormat       Are option names and values Unicode or ASCII?
+
+  @retval TRUE                    Option exists (with or without a value).
+  @retval FALSE                   Option not found.
+**/
+BOOLEAN
+OcHasParsedVar (
+  IN     CONST OC_FLEX_ARRAY     *ParsedVars,
+  IN     CONST VOID              *Name,
+  IN     CONST OC_STRING_FORMAT  StringFormat
+  );
+
+/**
+  Get integer value of parsed shell var or load option (parses hex and decimal representations).
+
+  @param[in]   ParsedVars         Parsed variables.
+  @param[in]   Name               Option name.
+  @param[in]   Value              Option value if successful, not modified otherwise.
+  @param[in]   StringFormat       Are option names and values Unicode or ASCII?
+
+  @retval EFI_SUCCESS             Success.
+  @retval EFI_NOT_FOUND           Option not found, or has no value.
+  @retval other                   Error encountered when parsing option as int.
+**/
+EFI_STATUS
+OcParsedVarsGetInt (
+  IN     CONST OC_FLEX_ARRAY     *ParsedVars,
+  IN     CONST VOID              *Name,
+  OUT       UINTN                *Value,
+  IN     CONST OC_STRING_FORMAT  StringFormat
+  );
+
+/**
+  Get guid value of parsed shell var or load option.
+
+  @param[in]   ParsedVars         Parsed variables.
+  @param[in]   Name               Option name.
+  @param[in]   Value              Option value if successful, not modified otherwise.
+  @param[in]   StringFormat       Are option names and values Unicode or ASCII?
+
+  @retval EFI_SUCCESS             Success.
+  @retval EFI_NOT_FOUND           Option not found, or has no value.
+  @retval other                   Error encountered when parsing option as guid.
+**/
+EFI_STATUS
+OcParsedVarsGetGuid (
+  IN     CONST OC_FLEX_ARRAY     *ParsedVars,
+  IN     CONST VOID              *Name,
+  OUT       EFI_GUID             *Value,
+  IN     CONST OC_STRING_FORMAT  StringFormat
+  );
+
+/**
+  Locate boot entry protocol handles.
+
+  @param[in,out]     EntryProtocolHandles       Boot entry protocol handles, or NULL if none.
+  @param[in,out]     EntryProtocolHandleCount   Count of boot entry protocol handles.
+**/
+VOID
+OcLocateBootEntryProtocolHandles (
+  IN OUT EFI_HANDLE  **EntryProtocolHandles,
+  IN OUT UINTN       *EntryProtocolHandleCount
+  );
+
+/**
+  Free boot entry protocol handles.
+
+  @param[in,out]     EntryProtocolHandles       Boot entry protocol handles, or NULL if none.
+**/
+VOID
+OcFreeBootEntryProtocolHandles (
+  EFI_HANDLE  **EntryProtocolHandles
+  );
+
+/**
+  Request bootable entries from installed boot entry protocol drivers.
+
+  @param[in,out] BootContext                Context of filesystems.
+  @param[in,out] FileSystem                 Filesystem to scan for entries.
+  @param[in]     EntryProtocolHandles       Boot entry protocol handles, or NULL if none.
+  @param[in]     EntryProtocolHandleCount   Count of boot entry protocol handles.
+  @param[in]     DefaultEntryId             Id of saved default entry on this file system.
+  @param[in]     CreateDefault              Create default entry if TRUE, create all others otherwise.
+  @param[in]     CreateForHotKey            If TRUE default entry is being created for protocol hotkey,
+                                            otherwise for NVRAM boot entry.
+
+  @retval EFI_SUCCESS                       At least one entry was created.
+**/
+EFI_STATUS
+OcAddEntriesFromBootEntryProtocol (
+  IN OUT OC_BOOT_CONTEXT *BootContext,
+  IN OUT OC_BOOT_FILESYSTEM *FileSystem,
+  IN     EFI_HANDLE *EntryProtocolHandles,
+  IN     UINTN EntryProtocolHandleCount,
+  IN     CONST VOID *DefaultEntryId, OPTIONAL
+  IN     BOOLEAN        CreateDefault,
+  IN     BOOLEAN        CreateForHotKey
+  );
+
+/**
+  Force Apple Firmware UI to always reconnect to current console GOP.
+
+  @retval EFI_SUCCESS   Firmware UI ConnectGop method was successfully reset.
+  @retval other         Compatible firmware UI protocol for reset could not be found.
+**/
+EFI_STATUS
+OcUnlockAppleFirmwareUI (
+  VOID
+  );
+
+/**
+  Launch Apple boot picker firmware application.
+
+  @retval EFI_SUCCESS   Picker was successfully executed, implies boot selection was returned in BootNext.
+  @retval other         Picker could not be launched, or error within picker application.
+**/
+EFI_STATUS
+OcLaunchAppleBootPicker (
+  VOID
+  );
+
+/**
+  Read boot entry meta-data file from boot entry device path.
+  May be used before before OC_BOOT_ENTRY struct is created.
+
+  @param[in]  DevicePath          Boot entry device path.
+  @param[in]  FileName            File name to search for.
+  @param[in]  DebugFileType       Brief description of file for use in debug messages.
+  @param[in]  MaxFileSize         Maximum allowed file size (inclusive).
+  @param[in]  MinFileSize         Minimum allowed file size (inclusive).
+  @param[out] FileData            Returned file data.
+  @param[out] DataLength          Returned data length.
+  @param[in]  SearchAtLeaf        Search next to boot file (or in boot folder) first.
+  @param[in]  SearchAtRoot        After SearchAtLeaf (if specified), search at OC-specific
+                                  GUID sub-folder location (if present), then at FS root.
+
+  @retval EFI_SUCCESS   File was located, validated against allowed length, and returned.
+  @retval other         File could not be located, or had invalid length.
+**/
+EFI_STATUS
+EFIAPI
+OcGetBootEntryFileFromDevicePath (
+  IN  EFI_DEVICE_PATH_PROTOCOL  *DevicePath,
+  IN  CONST CHAR16              *FileName,
+  IN  CONST CHAR8               *DebugFileType,
+  IN  UINT32                    MaxFileSize,
+  IN  UINT32                    MinFileSize,
+  OUT VOID                      **FileData,
+  OUT UINT32                    *DataLength OPTIONAL,
+  IN  BOOLEAN                   SearchAtLeaf,
+  IN  BOOLEAN                   SearchAtRoot
+  );
+
+/**
+  Read boot entry meta-data file.
+  Validates that boot entry is external tool or OS type.
+
+  @param[in]  BootEntry           Boot entry.
+  @param[in]  FileName            File name to search for.
+  @param[in]  DebugFileType       Brief description of file for use in debug messages.
+  @param[in]  MaxFileSize         Maximum allowed file size (inclusive).
+  @param[in]  MinFileSize         Minimum allowed file size (inclusive).
+  @param[out] FileData            Returned file data.
+  @param[out] DataLength          Returned data length.
+  @param[in]  SearchAtLeaf        Search next to boot file (or in boot folder) first.
+  @param[in]  SearchAtRoot        After SearchAtLeaf (if specified), search at OC-specific
+                                  GUID sub-folder location (if present), then at FS root.
+
+  @retval EFI_SUCCESS   Boot entry was correct type, file was located, validated against allowed length, and returned.
+  @retval other         Boot entry was incorrect type, or file could not be located, or had invalid length.
+**/
+EFI_STATUS
+EFIAPI
+OcGetBootEntryFile (
+  IN  OC_BOOT_ENTRY  *BootEntry,
+  IN  CONST CHAR16   *FileName,
+  IN  CONST CHAR8    *DebugFileType,
+  IN  UINT32         MaxFileSize,
+  IN  UINT32         MinFileSize,
+  OUT VOID           **FileData,
+  OUT UINT32         *DataLength OPTIONAL,
+  IN  BOOLEAN        SearchAtLeaf,
+  IN  BOOLEAN        SearchAtRoot
+  );
+
+/**
+  Tests whether reset to firmware settings is supported.
+
+  @retval EFI_SUCCESS   Reset to firmware settings is supported.
+  @retval other         Reset to firmware settings is not supported.
+**/
+EFI_STATUS
+EFIAPI
+OcResetToFirmwareSettingsSupported (
+  VOID
+  );
+
+/**
+  Reset the system. Fails to reset if firmware mode is requested but not supported.
+  Defaults to cold reset when other reset fails, or unknown reset mode is requested.
+
+  @param[in]  Mode      Reset mode. Supported modes are:
+                         - "firmware"  - reboot to UEFI firmware settings, if supported
+                         - "warmreset" - warm reset
+                         - "coldreset" - cold reset
+                         - "shutdown"  - shut down
+
+  @retval EFI_SUCCESS   System was reset.
+  @retval other         System could not be reset.
+**/
+EFI_STATUS
+EFIAPI
+OcResetSystem (
+  IN CHAR16  *Mode
   );
 
 #endif // OC_BOOT_MANAGEMENT_LIB_H

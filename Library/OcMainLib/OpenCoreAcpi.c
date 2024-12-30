@@ -31,19 +31,19 @@ OcAcpiAddTables (
   IN OC_ACPI_CONTEXT     *Context
   )
 {
-  EFI_STATUS           Status;
-  UINT8                *TableData;
-  UINT32               TableDataLength;
-  UINT32               Index;
-  OC_ACPI_ADD_ENTRY    *Table;
-  CONST CHAR8          *TablePath;
-  CHAR16               FullPath[OC_STORAGE_SAFE_PATH_MAX];
+  EFI_STATUS         Status;
+  UINT8              *TableData;
+  UINT32             TableDataLength;
+  UINT32             Index;
+  OC_ACPI_ADD_ENTRY  *Table;
+  CONST CHAR8        *TablePath;
+  CHAR16             FullPath[OC_STORAGE_SAFE_PATH_MAX];
 
   for (Index = 0; Index < Config->Acpi.Add.Count; ++Index) {
-    Table = Config->Acpi.Add.Values[Index];
+    Table     = Config->Acpi.Add.Values[Index];
     TablePath = OC_BLOB_GET (&Table->Path);
 
-    if (!Table->Enabled || TablePath[0] == '\0') {
+    if (!Table->Enabled || (TablePath[0] == '\0')) {
       DEBUG ((DEBUG_INFO, "OC: Skipping add ACPI %a (%d)\n", TablePath, Table->Enabled));
       continue;
     }
@@ -88,15 +88,15 @@ OcAcpiAddTables (
 STATIC
 VOID
 OcAcpiDeleteTables (
-  IN OC_GLOBAL_CONFIG    *Config,
-  IN OC_ACPI_CONTEXT     *Context
+  IN OC_GLOBAL_CONFIG  *Config,
+  IN OC_ACPI_CONTEXT   *Context
   )
 {
-  EFI_STATUS           Status;
-  UINT32               Index;
-  UINT32               Signature;
-  UINT64               OemTableId;
-  OC_ACPI_DELETE_ENTRY *Table;
+  EFI_STATUS            Status;
+  UINT32                Index;
+  UINT32                Signature;
+  UINT64                OemTableId;
+  OC_ACPI_DELETE_ENTRY  *Table;
 
   for (Index = 0; Index < Config->Acpi.Delete.Count; ++Index) {
     Table = Config->Acpi.Delete.Values[Index];
@@ -109,12 +109,12 @@ OcAcpiDeleteTables (
     CopyMem (&OemTableId, Table->OemTableId, sizeof (Table->OemTableId));
 
     Status = AcpiDeleteTable (
-      Context,
-      Signature,
-      Table->TableLength,
-      OemTableId,
-      Table->All
-      );
+               Context,
+               Signature,
+               Table->TableLength,
+               OemTableId,
+               Table->All
+               );
 
     if (EFI_ERROR (Status)) {
       DEBUG ((
@@ -133,13 +133,14 @@ OcAcpiDeleteTables (
 STATIC
 VOID
 OcAcpiPatchTables (
-  IN OC_GLOBAL_CONFIG    *Config,
-  IN OC_ACPI_CONTEXT     *Context
+  IN OC_GLOBAL_CONFIG  *Config,
+  IN OC_ACPI_CONTEXT   *Context
   )
 {
   EFI_STATUS           Status;
   UINT32               Index;
   OC_ACPI_PATCH_ENTRY  *UserPatch;
+  CONST CHAR8          *Comment;
   OC_ACPI_PATCH        Patch;
 
   for (Index = 0; Index < Config->Acpi.Patch.Count; ++Index) {
@@ -149,47 +150,60 @@ OcAcpiPatchTables (
       continue;
     }
 
+    Comment = OC_BLOB_GET (&UserPatch->Comment);
+
     //
     // Ignore patch if:
     // - There is nothing to replace.
     // - Find and replace mismatch in size.
     // - Mask and ReplaceMask mismatch in size when are available.
     //
-    if (UserPatch->Replace.Size == 0
-      || (UserPatch->Find.Size > 0 && UserPatch->Find.Size != UserPatch->Replace.Size)
-      || (UserPatch->Find.Size == 0 && OC_BLOB_GET (&UserPatch->Base)[0] == '\0')
-      || (UserPatch->Mask.Size > 0 && UserPatch->Find.Size != UserPatch->Mask.Size)
-      || (UserPatch->ReplaceMask.Size > 0 && UserPatch->Replace.Size != UserPatch->ReplaceMask.Size)) {
-      DEBUG ((DEBUG_ERROR, "OC: ACPI patch %u is borked\n", Index));
+    if (  (UserPatch->Replace.Size == 0)
+       || ((UserPatch->Find.Size > 0) && (UserPatch->Find.Size != UserPatch->Replace.Size))
+       || ((UserPatch->Find.Size == 0) && (OC_BLOB_GET (&UserPatch->Base)[0] == '\0'))
+       || ((UserPatch->Mask.Size > 0) && (UserPatch->Find.Size != UserPatch->Mask.Size))
+       || ((UserPatch->ReplaceMask.Size > 0) && (UserPatch->Replace.Size != UserPatch->ReplaceMask.Size)))
+    {
+      DEBUG ((DEBUG_ERROR, "OC: ACPI patch (%a) at %u is borked\n", Comment, Index));
       continue;
     }
 
     ZeroMem (&Patch, sizeof (Patch));
 
-    Patch.Find  = OC_BLOB_GET (&UserPatch->Find);
+    Patch.Find    = OC_BLOB_GET (&UserPatch->Find);
     Patch.Replace = OC_BLOB_GET (&UserPatch->Replace);
 
     if (UserPatch->Mask.Size > 0) {
-      Patch.Mask  = OC_BLOB_GET (&UserPatch->Mask);
+      Patch.Mask = OC_BLOB_GET (&UserPatch->Mask);
     }
 
     if (UserPatch->ReplaceMask.Size > 0) {
       Patch.ReplaceMask = OC_BLOB_GET (&UserPatch->ReplaceMask);
     }
 
-    Patch.Base        = OC_BLOB_GET (&UserPatch->Base);
-    Patch.BaseSkip    = UserPatch->BaseSkip;
-    Patch.Size        = UserPatch->Replace.Size;
-    Patch.Count       = UserPatch->Count;
-    Patch.Skip        = UserPatch->Skip;
-    Patch.Limit       = UserPatch->Limit;
+    Patch.Base     = OC_BLOB_GET (&UserPatch->Base);
+    Patch.BaseSkip = UserPatch->BaseSkip;
+    Patch.Size     = UserPatch->Replace.Size;
+    Patch.Count    = UserPatch->Count;
+    Patch.Skip     = UserPatch->Skip;
+    Patch.Limit    = UserPatch->Limit;
     CopyMem (&Patch.TableSignature, UserPatch->TableSignature, sizeof (UserPatch->TableSignature));
     Patch.TableLength = UserPatch->TableLength;
     CopyMem (&Patch.OemTableId, UserPatch->OemTableId, sizeof (UserPatch->OemTableId));
 
+    DEBUG ((
+      DEBUG_INFO,
+      "OC: Applying %u byte ACPI patch (%a) at %u, skip %u, count %u\n",
+      Patch.Size,
+      Comment,
+      Index,
+      Patch.Skip,
+      Patch.Count
+      ));
+
     Status = AcpiApplyPatch (Context, &Patch);
     if (EFI_ERROR (Status)) {
-      DEBUG ((DEBUG_WARN, "OC: ACPI patcher failed %u - %r\n", Index, Status));
+      DEBUG ((DEBUG_WARN, "OC: ACPI patcher failed (%a) at %u - %r\n", Comment, Index, Status));
     }
   }
 }
@@ -200,25 +214,21 @@ OcLoadAcpiSupport (
   IN OC_GLOBAL_CONFIG    *Config
   )
 {
-  EFI_STATUS        Status;
-  OC_ACPI_CONTEXT   Context;
+  EFI_STATUS       Status;
+  OC_ACPI_CONTEXT  Context;
 
   Status = AcpiInitContext (&Context);
 
   if (EFI_ERROR (Status)) {
-    DEBUG ((DEBUG_ERROR, "OC: Failed to initialize ACPI support - %r", Status));
+    DEBUG ((DEBUG_ERROR, "OC: Failed to initialize ACPI support - %r\n", Status));
     return;
   }
+
+  OcAcpiDeleteTables (Config, &Context);
 
   if (Config->Acpi.Quirks.RebaseRegions) {
     AcpiLoadRegions (&Context);
   }
-
-  OcAcpiPatchTables (Config, &Context);
-
-  OcAcpiDeleteTables (Config, &Context);
-
-  OcAcpiAddTables (Config, Storage, &Context);
 
   if (Config->Acpi.Quirks.FadtEnableReset) {
     AcpiFadtEnableReset (&Context);
@@ -233,12 +243,20 @@ OcLoadAcpiSupport (
   //
   AcpiHandleHardwareSignature (&Context, Config->Acpi.Quirks.ResetHwSig);
 
+  if (Config->Acpi.Quirks.NormalizeHeaders) {
+    AcpiNormalizeHeaders (&Context);
+  }
+
+  OcAcpiPatchTables (Config, &Context);
+
+  OcAcpiAddTables (Config, Storage, &Context);
+
   if (Config->Acpi.Quirks.RebaseRegions) {
     AcpiRelocateRegions (&Context);
   }
 
-  if (Config->Acpi.Quirks.NormalizeHeaders) {
-    AcpiNormalizeHeaders (&Context);
+  if (Config->Acpi.Quirks.SyncTableIds) {
+    AcpiSyncTableIds (&Context);
   }
 
   AcpiApplyContext (&Context);

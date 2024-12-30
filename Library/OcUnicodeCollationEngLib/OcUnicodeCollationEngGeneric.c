@@ -24,15 +24,15 @@ OcUnicodeCollationEngInstallProtocol (
   if (Reinstall) {
     Status = OcUninstallAllProtocolInstances (&gEfiUnicodeCollation2ProtocolGuid);
     if (EFI_ERROR (Status)) {
-      DEBUG ((DEBUG_ERROR, "OCUC: Uninstall failed: %r\n", Status));
+      DEBUG ((DEBUG_ERROR, "OCUC: Uninstall failed - %r\n", Status));
       return NULL;
     }
   } else {
     Status = gBS->LocateProtocol (
-      &gEfiUnicodeCollation2ProtocolGuid,
-      NULL,
-      (VOID **) &Existing
-      );
+                    &gEfiUnicodeCollation2ProtocolGuid,
+                    NULL,
+                    (VOID **)&Existing
+                    );
 
     if (!EFI_ERROR (Status)) {
       //
@@ -43,12 +43,12 @@ OcUnicodeCollationEngInstallProtocol (
   }
 
   NewHandle = NULL;
-  Status = gBS->InstallMultipleProtocolInterfaces (
-    &NewHandle,
-    &gEfiUnicodeCollation2ProtocolGuid,
-    &gInternalUnicode2Eng,
-    NULL
-    );
+  Status    = gBS->InstallMultipleProtocolInterfaces (
+                     &NewHandle,
+                     &gEfiUnicodeCollation2ProtocolGuid,
+                     &gInternalUnicode2Eng,
+                     NULL
+                     );
   if (EFI_ERROR (Status)) {
     return NULL;
   }

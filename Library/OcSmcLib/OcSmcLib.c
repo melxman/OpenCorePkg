@@ -25,34 +25,41 @@
 #include <Library/OcMiscLib.h>
 #include <Library/OcSmcLib.h>
 #include <Library/OcRtcLib.h>
+#include <Library/OcVariableLib.h>
 
 #include "OcSmcLibInternal.h"
 
 STATIC
 EFI_EVENT
-mAuthenticationKeyEraseEvent;
+  mAuthenticationKeyEraseEvent;
 
 STATIC
 VIRTUALSMC_KEY_VALUE
-mVirtualSmcKeyValue[6] = {
-  { SMC_KEY_KEY, SmcKeyTypeUint32, 4, SMC_KEY_ATTRIBUTE_READ, {0, 0, 0, ARRAY_SIZE (mVirtualSmcKeyValue)} },
-  { SMC_KEY_RMde, SmcKeyTypeChar, 1, SMC_KEY_ATTRIBUTE_READ, {SMC_MODE_APPCODE} },
+  mVirtualSmcKeyValue[6] = {
+  { SMC_KEY_KEY,  SmcKeyTypeUint32, 4,  SMC_KEY_ATTRIBUTE_READ,                         { 0, 0, 0, ARRAY_SIZE (mVirtualSmcKeyValue) }
+  },
+  { SMC_KEY_RMde, SmcKeyTypeChar,   1,  SMC_KEY_ATTRIBUTE_READ,                         { SMC_MODE_APPCODE }
+  },
   //
   // Requested yet unused (battery inside, causes missing battery in UI).
   //
-  //{ SMC_KEY_BBIN, SmcKeyTypeFlag, 1, SMC_KEY_ATTRIBUTE_READ, {0} },
-  { SMC_KEY_BRSC, SmcKeyTypeUint16, 2, SMC_KEY_ATTRIBUTE_READ, {0} },
-  { SMC_KEY_MSLD, SmcKeyTypeUint8, 1, SMC_KEY_ATTRIBUTE_READ, {0} },
-  { SMC_KEY_BATP, SmcKeyTypeFlag, 1, SMC_KEY_ATTRIBUTE_READ, {0} },
+  // { SMC_KEY_BBIN, SmcKeyTypeFlag, 1, SMC_KEY_ATTRIBUTE_READ, {0} },
+  { SMC_KEY_BRSC, SmcKeyTypeUint16, 2,  SMC_KEY_ATTRIBUTE_READ,                         { 0 }
+  },
+  { SMC_KEY_MSLD, SmcKeyTypeUint8,  1,  SMC_KEY_ATTRIBUTE_READ,                         { 0 }
+  },
+  { SMC_KEY_BATP, SmcKeyTypeFlag,   1,  SMC_KEY_ATTRIBUTE_READ,                         { 0 }
+  },
   //
   // HBKP must always be the last key in the list (see mAuthenticationKeyIndex).
   //
-  { SMC_KEY_HBKP, SmcKeyTypeCh8s, 32, SMC_KEY_ATTRIBUTE_READ|SMC_KEY_ATTRIBUTE_WRITE, {0} }
+  { SMC_KEY_HBKP, SmcKeyTypeCh8s,   32, SMC_KEY_ATTRIBUTE_READ|SMC_KEY_ATTRIBUTE_WRITE, { 0 }
+  }
 };
 
 STATIC
 CONST UINT8
-mAuthenticationKeyIndex = ARRAY_SIZE (mVirtualSmcKeyValue) - 1;
+  mAuthenticationKeyIndex = ARRAY_SIZE (mVirtualSmcKeyValue) - 1;
 
 STATIC
 EFI_STATUS
@@ -64,7 +71,7 @@ SmcIoVirtualSmcReadValue (
   OUT SMC_DATA               *Value
   )
 {
-  UINTN      Index;
+  UINTN  Index;
 
   DEBUG ((DEBUG_INFO, "OCSMC: SmcReadValue Key %X Size %d\n", Key, Size));
 
@@ -97,18 +104,18 @@ SmcIoVirtualSmcWriteValue (
   IN  SMC_DATA               *Value
   )
 {
-  UINTN       Index;
+  UINTN  Index;
 
   DEBUG ((DEBUG_INFO, "OCSMC: SmcWriteValue Key %X Size %d\n", Key, Size));
 
-  if (!Value || Size == 0) {
+  if (!Value || (Size == 0)) {
     return EFI_SMC_BAD_PARAMETER;
   }
 
   //
   // Handle HBKP separately to let boot.efi erase its contents as early as it wants.
   //
-  if (Key == SMC_KEY_HBKP && Size <= SMC_HBKP_SIZE) {
+  if ((Key == SMC_KEY_HBKP) && (Size <= SMC_HBKP_SIZE)) {
     SecureZeroMem (mVirtualSmcKeyValue[mAuthenticationKeyIndex].Data, SMC_HBKP_SIZE);
     CopyMem (mVirtualSmcKeyValue[mAuthenticationKeyIndex].Data, Value, Size);
     for (Index = 0; Index < SMC_HBKP_SIZE; Index++) {
@@ -120,6 +127,7 @@ SmcIoVirtualSmcWriteValue (
 
     return EFI_SUCCESS;
   }
+
   return EFI_SMC_NOT_WRITABLE;
 }
 
@@ -131,11 +139,11 @@ SmcIoVirtualSmcMakeKey (
   OUT SMC_KEY  *Key
   )
 {
-  UINTN      Index;
+  UINTN  Index;
 
   DEBUG ((DEBUG_VERBOSE, "OCSMC: SmcIoVirtualSmcMakeKey\n"));
 
-  if (Name != NULL && Key != NULL) {
+  if ((Name != NULL) && (Key != NULL)) {
     *Key  = 0;
     Index = 0;
 
@@ -167,7 +175,7 @@ SmcIoVirtualSmcGetKeyCount (
   DEBUG ((
     DEBUG_VERBOSE,
     "OCSMC: SmcIoVirtualSmcGetKeyCount %u\n",
-    (UINT32) ARRAY_SIZE (mVirtualSmcKeyValue)
+    (UINT32)ARRAY_SIZE (mVirtualSmcKeyValue)
     ));
 
   if (Count == NULL) {
@@ -213,18 +221,18 @@ SmcIoVirtualSmcGetKeyInfo (
   OUT SMC_KEY_ATTRIBUTES     *Attributes
   )
 {
-  UINTN Index;
+  UINTN  Index;
 
   DEBUG ((DEBUG_VERBOSE, "OCSMC: SmcIoVirtualSmcGetKeyFromIndex %X\n", Key));
 
-  if (Size == NULL || Type == NULL || Attributes == NULL) {
+  if ((Size == NULL) || (Type == NULL) || (Attributes == NULL)) {
     return EFI_SMC_BAD_PARAMETER;
   }
 
   for (Index = 0; Index < ARRAY_SIZE (mVirtualSmcKeyValue); Index++) {
     if (mVirtualSmcKeyValue[Index].Key == Key) {
-      *Size = mVirtualSmcKeyValue[Index].Size;
-      *Type = mVirtualSmcKeyValue[Index].Type;
+      *Size       = mVirtualSmcKeyValue[Index].Size;
+      *Type       = mVirtualSmcKeyValue[Index].Type;
       *Attributes = mVirtualSmcKeyValue[Index].Attributes;
       return EFI_SMC_SUCCESS;
     }
@@ -366,7 +374,7 @@ SmcIoVirtualSmcUnknown5 (
   return EFI_SMC_UNSUPPORTED_FEATURE;
 }
 
-STATIC APPLE_SMC_IO_PROTOCOL mSmcIoProtocol = {
+STATIC APPLE_SMC_IO_PROTOCOL  mSmcIoProtocol = {
   APPLE_SMC_IO_PROTOCOL_REVISION,
   SmcIoVirtualSmcReadValue,
   SmcIoVirtualSmcWriteValue,
@@ -393,8 +401,8 @@ STATIC
 VOID
 EFIAPI
 EraseAuthenticationKey (
-  IN EFI_EVENT Event,
-  IN VOID      *Context
+  IN EFI_EVENT  Event,
+  IN VOID       *Context
   )
 {
   SecureZeroMem (mVirtualSmcKeyValue[mAuthenticationKeyIndex].Data, SMC_HBKP_SIZE);
@@ -407,30 +415,30 @@ ExtractAuthentificationKey (
   UINT32  Size
   )
 {
-  UINT8           Index;
-  AES_CONTEXT     Context;
-  UINT8           EncryptKey[CONFIG_AES_KEY_SIZE];
-  CONST UINT8     *InitVector;
-  UINT8           *Payload;
-  UINT32          PayloadSize;
-  UINT32          RealSize;
+  UINT8        Index;
+  AES_CONTEXT  Context;
+  UINT8        EncryptKey[CONFIG_AES_KEY_SIZE];
+  CONST UINT8  *InitVector;
+  UINT8        *Payload;
+  UINT32       PayloadSize;
+  UINT32       RealSize;
 
   if (Size < sizeof (UINT32) + SMC_HBKP_SIZE) {
-    DEBUG ((DEBUG_INFO, "OCSMC: Invalid key length - %u\n", (UINT32) Size));
+    DEBUG ((DEBUG_INFO, "OCSMC: Invalid key length - %u\n", (UINT32)Size));
     return FALSE;
   }
 
-  if (Buffer[0] == 'V' && Buffer[1] == 'S' && Buffer[2] == 'P' && Buffer[3] == 'T') {
+  if ((Buffer[0] == 'V') && (Buffer[1] == 'S') && (Buffer[2] == 'P') && (Buffer[3] == 'T')) {
     //
     // Perform an as-is copy of stored contents.
     //
     CopyMem (mVirtualSmcKeyValue[mAuthenticationKeyIndex].Data, Buffer + sizeof (UINT32), SMC_HBKP_SIZE);
-  } else if (Buffer[0] == 'V' && Buffer[1] == 'S' && Buffer[2] == 'E' && Buffer[3] == 'N') {
+  } else if ((Buffer[0] == 'V') && (Buffer[1] == 'S') && (Buffer[2] == 'E') && (Buffer[3] == 'N')) {
     //
     // The magic is followed by an IV and at least one AES block containing at least SMC_HBKP_SIZE bytes.
     //
-    if (Size < sizeof (UINT32) + AES_BLOCK_SIZE + SMC_HBKP_SIZE || (Size - sizeof (UINT32)) % AES_BLOCK_SIZE != 0) {
-      DEBUG ((DEBUG_INFO, "OCSMC: Invalid encrypted key length - %u\n", (UINT32) Size));
+    if ((Size < sizeof (UINT32) + AES_BLOCK_SIZE + SMC_HBKP_SIZE) || ((Size - sizeof (UINT32)) % AES_BLOCK_SIZE != 0)) {
+      DEBUG ((DEBUG_INFO, "OCSMC: Invalid encrypted key length - %u\n", (UINT32)Size));
       return FALSE;
     }
 
@@ -445,9 +453,9 @@ ExtractAuthentificationKey (
     //
     // Perform the decryption.
     //
-    InitVector   = Buffer + sizeof (UINT32);
-    Payload      = Buffer + sizeof (UINT32) + AES_BLOCK_SIZE;
-    PayloadSize  = Size - (sizeof (UINT32) + AES_BLOCK_SIZE);
+    InitVector  = Buffer + sizeof (UINT32);
+    Payload     = Buffer + sizeof (UINT32) + AES_BLOCK_SIZE;
+    PayloadSize = Size - (sizeof (UINT32) + AES_BLOCK_SIZE);
     AesInitCtxIv (&Context, EncryptKey, InitVector);
     AesCbcDecryptBuffer (&Context, Payload, PayloadSize);
     SecureZeroMem (&Context, sizeof (Context));
@@ -481,9 +489,9 @@ LoadAuthenticationKey (
   )
 {
   EFI_STATUS  Status;
-  VOID        *Buffer = NULL;
+  VOID        *Buffer    = NULL;
   UINT32      Attributes = 0;
-  UINTN       Size = 0;
+  UINTN       Size       = 0;
 
   //
   // Load encryption key contents.
@@ -494,10 +502,10 @@ LoadAuthenticationKey (
     if (Buffer != NULL) {
       Status = gRT->GetVariable (VIRTUALSMC_ENCRYPTION_KEY, &gOcWriteOnlyVariableGuid, &Attributes, &Size, Buffer);
       if (EFI_ERROR (Status)) {
-        DEBUG ((DEBUG_INFO, "OCSMC: Layer key (%u, %X) obtain failure - %r\n", (UINT32) Size, Attributes, Status));
+        DEBUG ((DEBUG_INFO, "OCSMC: Layer key (%u, %X) obtain failure - %r\n", (UINT32)Size, Attributes, Status));
       }
     } else {
-      DEBUG ((DEBUG_INFO, "OCSMC: Key buffer (%u) allocation failure - %r\n", (UINT32) Size, Status));
+      DEBUG ((DEBUG_INFO, "OCSMC: Key buffer (%u) allocation failure - %r\n", (UINT32)Size, Status));
       Status = EFI_OUT_OF_RESOURCES;
     }
   } else {
@@ -521,6 +529,7 @@ LoadAuthenticationKey (
       DEBUG ((DEBUG_INFO, "OCSMC: Failed to zero key - %r\n", Status));
       Status = gRT->SetVariable (VIRTUALSMC_ENCRYPTION_KEY, &gOcWriteOnlyVariableGuid, 0, 0, NULL);
     }
+
     gBS->FreePool (Buffer);
     Buffer = NULL;
   } else {
@@ -535,12 +544,12 @@ LoadAuthenticationKey (
   // Erase local HBKP key copy at exit boot services.
   //
   Status = gBS->CreateEvent (
-    EVT_SIGNAL_EXIT_BOOT_SERVICES,
-    TPL_NOTIFY,
-    EraseAuthenticationKey,
-    NULL,
-    &mAuthenticationKeyEraseEvent
-    );
+                  EVT_SIGNAL_EXIT_BOOT_SERVICES,
+                  TPL_NOTIFY,
+                  EraseAuthenticationKey,
+                  NULL,
+                  &mAuthenticationKeyEraseEvent
+                  );
   if (EFI_ERROR (Status)) {
     DEBUG ((DEBUG_INFO, "OCSMC: Failed to create exit bs event for hbkp erase\n"));
   }
@@ -556,7 +565,7 @@ ExportStatusKey (
   UINT32      StatusBuffer[2];
   UINT8       *StatusBufferMagic;
 
-  StatusBufferMagic = (UINT8 *) &StatusBuffer[0];
+  StatusBufferMagic = (UINT8 *)&StatusBuffer[0];
 
   //
   // Build the structure.
@@ -565,18 +574,18 @@ ExportStatusKey (
   StatusBufferMagic[1] = 'S';
   StatusBufferMagic[2] = 'M';
   StatusBufferMagic[3] = 'C';
-  StatusBuffer[1] = 1;
+  StatusBuffer[1]      = 1;
 
   //
   // Set status key for kext frontend.
   //
-  Status = gRT->SetVariable (
-    VIRTUALSMC_STATUS_KEY,
-    &gOcReadOnlyVariableGuid,
-    EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_RUNTIME_ACCESS,
-    sizeof (StatusBuffer),
-    StatusBuffer
-    );
+  Status = OcSetSystemVariable (
+             VIRTUALSMC_STATUS_KEY,
+             EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_RUNTIME_ACCESS,
+             sizeof (StatusBuffer),
+             StatusBuffer,
+             NULL
+             );
   if (EFI_ERROR (Status)) {
     DEBUG ((DEBUG_INFO, "OCSMC: Failed to create status - %r\n", Status));
   }
@@ -600,15 +609,15 @@ OcSmcIoInstallProtocol (
   if (Reinstall) {
     Status = OcUninstallAllProtocolInstances (&gAppleSmcIoProtocolGuid);
     if (EFI_ERROR (Status)) {
-      DEBUG ((DEBUG_ERROR, "OCSMC: Uninstall failed: %r\n", Status));
+      DEBUG ((DEBUG_ERROR, "OCSMC: Uninstall failed - %r\n", Status));
       return NULL;
     }
   } else {
     Status = gBS->LocateProtocol (
-      &gAppleSmcIoProtocolGuid,
-      NULL,
-      (VOID *) &Protocol
-      );
+                    &gAppleSmcIoProtocolGuid,
+                    NULL,
+                    (VOID *)&Protocol
+                    );
 
     if (!EFI_ERROR (Status)) {
       return Protocol;
@@ -616,12 +625,12 @@ OcSmcIoInstallProtocol (
   }
 
   NewHandle = NULL;
-  Status = gBS->InstallMultipleProtocolInterfaces (
-     &NewHandle,
-     &gAppleSmcIoProtocolGuid,
-     (VOID *) &mSmcIoProtocol,
-     NULL
-     );
+  Status    = gBS->InstallMultipleProtocolInterfaces (
+                     &NewHandle,
+                     &gAppleSmcIoProtocolGuid,
+                     (VOID *)&mSmcIoProtocol,
+                     NULL
+                     );
 
   if (EFI_ERROR (Status)) {
     return NULL;

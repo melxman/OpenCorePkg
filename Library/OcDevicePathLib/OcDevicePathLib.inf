@@ -45,14 +45,17 @@
   DevicePathLib
   MemoryAllocationLib
   OcFileLib
+  OcStringLib
   UefiBootServicesTableLib
 
 [Guids]
+  gAppleSdCardVendorDevicePathGuid
   gEfiPartTypeSystemPartGuid
 
 [Protocols]
   gEfiDevicePathToTextProtocolGuid
   gEfiSimpleFileSystemProtocolGuid
   gEfiBlockIoProtocolGuid
+  gEfiPciIoProtocolGuid
   gEfiUsbIoProtocolGuid
   gEfiLoadFileProtocolGuid

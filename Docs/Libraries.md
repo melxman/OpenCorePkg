@@ -9,7 +9,7 @@
 * OcCpuLib — CPU feature scanning
 * OcCryptoLib — Misc cryptographic primitives (AES, RSA, MD5, SHA-1, SHA-256)
 * OcDataHubLib — Apple-specific DataHub data configuration
-* OcAppleDiskImageLib — Expose DMG as an UEFI RAM disk
+* OcAppleDiskImageLib — Expose DMG as a UEFI RAM disk
 * OcConfigurationLib — Deserialize OpenCore configuration
 * OcDebugLogLib — Debug output redirection through OC Log protocol
 * OcDevicePathLib — Device path management and transformation
@@ -19,7 +19,6 @@
 * OcGuardLib — Basic sanity checking (static assertions, overflow maths)
 * OcMachoLib — Mach-O image handling and transformation
 * OcMiscLib — Miscellaneous stuff not fitting elsewhere
-* OcPeCoffLib - EFI image management
 * OcPeCoffExtLib — EFI image management extras for Apple
 * OcPngLib — PNG image decoding
 * OcRtcLib — CMOS memory access

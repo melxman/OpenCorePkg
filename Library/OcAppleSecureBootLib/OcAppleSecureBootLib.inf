@@ -37,6 +37,7 @@
 
 [Guids]
   gAppleSecureBootVariableGuid  ## SOMETIMES_CONSUMES
+  gAppleVendorVariableGuid      ## SOMETIMES_CONSUMES
 
 [Protocols]
   gAppleSecureBootProtocolGuid        ## SOMETIMES_PRODUCES
@@ -45,11 +46,11 @@
 
 [LibraryClasses]
   BaseMemoryLib
+  BaseOverflowLib
   DebugLib
   MemoryAllocationLib
   OcDevicePathLib
   OcFileLib
-  OcGuardLib
   OcMiscLib
   OcStringLib
   PrintLib

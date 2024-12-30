@@ -33,22 +33,22 @@ WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 
 #include <Guid/AppleVariable.h>
 
-STATIC CHAR8    mCurrentSmbiosProductName[OC_OEM_NAME_MAX];
+STATIC CHAR8  mCurrentSmbiosProductName[OC_OEM_NAME_MAX];
 
 STATIC
 VOID
 OcPlatformUpdateDataHub (
-  IN OC_GLOBAL_CONFIG    *Config,
-  IN OC_CPU_INFO         *CpuInfo,
-  IN MAC_INFO_DATA       *MacInfo
+  IN OC_GLOBAL_CONFIG  *Config,
+  IN OC_CPU_INFO       *CpuInfo,
+  IN MAC_INFO_DATA     *MacInfo
   )
 {
-  EFI_STATUS            Status;
-  OC_DATA_HUB_DATA      Data;
-  EFI_GUID              Uuid;
-  UINT64                StartupPowerEvents;
-  UINT64                InitialTSC;
-  EFI_DATA_HUB_PROTOCOL *DataHub;
+  EFI_STATUS             Status;
+  OC_DATA_HUB_DATA       Data;
+  EFI_GUID               Uuid;
+  UINT64                 StartupPowerEvents;
+  UINT64                 InitialTSC;
+  EFI_DATA_HUB_PROTOCOL  *DataHub;
 
   DataHub = OcDataHubInstallProtocol (FALSE);
   if (DataHub == NULL) {
@@ -87,52 +87,55 @@ OcPlatformUpdateDataHub (
     Data.InitialTSC         = &Config->PlatformInfo.DataHub.InitialTSC;
 
     if (Config->PlatformInfo.DataHub.FSBFrequency != 0) {
-      Data.FSBFrequency     = &Config->PlatformInfo.DataHub.FSBFrequency;
+      Data.FSBFrequency = &Config->PlatformInfo.DataHub.FSBFrequency;
     }
 
     if (Config->PlatformInfo.DataHub.ARTFrequency != 0) {
-      Data.ARTFrequency     = &Config->PlatformInfo.DataHub.ARTFrequency;
+      Data.ARTFrequency = &Config->PlatformInfo.DataHub.ARTFrequency;
     }
 
     if (Config->PlatformInfo.DataHub.DevicePathsSupported != 0) {
       Data.DevicePathsSupported = &Config->PlatformInfo.DataHub.DevicePathsSupported;
     }
 
-    if (Config->PlatformInfo.DataHub.SmcRevision[0] != 0
-      || Config->PlatformInfo.DataHub.SmcRevision[1] != 0
-      || Config->PlatformInfo.DataHub.SmcRevision[2] != 0
-      || Config->PlatformInfo.DataHub.SmcRevision[3] != 0
-      || Config->PlatformInfo.DataHub.SmcRevision[4] != 0
-      || Config->PlatformInfo.DataHub.SmcRevision[5] != 0) {
-      Data.SmcRevision      = &Config->PlatformInfo.DataHub.SmcRevision[0];
+    if (  (Config->PlatformInfo.DataHub.SmcRevision[0] != 0)
+       || (Config->PlatformInfo.DataHub.SmcRevision[1] != 0)
+       || (Config->PlatformInfo.DataHub.SmcRevision[2] != 0)
+       || (Config->PlatformInfo.DataHub.SmcRevision[3] != 0)
+       || (Config->PlatformInfo.DataHub.SmcRevision[4] != 0)
+       || (Config->PlatformInfo.DataHub.SmcRevision[5] != 0))
+    {
+      Data.SmcRevision = &Config->PlatformInfo.DataHub.SmcRevision[0];
     }
 
-    if (Config->PlatformInfo.DataHub.SmcBranch[0] != 0
-      || Config->PlatformInfo.DataHub.SmcBranch[1] != 0
-      || Config->PlatformInfo.DataHub.SmcBranch[2] != 0
-      || Config->PlatformInfo.DataHub.SmcBranch[3] != 0
-      || Config->PlatformInfo.DataHub.SmcBranch[4] != 0
-      || Config->PlatformInfo.DataHub.SmcBranch[5] != 0
-      || Config->PlatformInfo.DataHub.SmcBranch[6] != 0
-      || Config->PlatformInfo.DataHub.SmcBranch[7] != 0) {
-      Data.SmcBranch        = &Config->PlatformInfo.DataHub.SmcBranch[0];
+    if (  (Config->PlatformInfo.DataHub.SmcBranch[0] != 0)
+       || (Config->PlatformInfo.DataHub.SmcBranch[1] != 0)
+       || (Config->PlatformInfo.DataHub.SmcBranch[2] != 0)
+       || (Config->PlatformInfo.DataHub.SmcBranch[3] != 0)
+       || (Config->PlatformInfo.DataHub.SmcBranch[4] != 0)
+       || (Config->PlatformInfo.DataHub.SmcBranch[5] != 0)
+       || (Config->PlatformInfo.DataHub.SmcBranch[6] != 0)
+       || (Config->PlatformInfo.DataHub.SmcBranch[7] != 0))
+    {
+      Data.SmcBranch = &Config->PlatformInfo.DataHub.SmcBranch[0];
     }
 
-    if (Config->PlatformInfo.DataHub.SmcPlatform[0] != 0
-      || Config->PlatformInfo.DataHub.SmcPlatform[1] != 0
-      || Config->PlatformInfo.DataHub.SmcPlatform[2] != 0
-      || Config->PlatformInfo.DataHub.SmcPlatform[3] != 0
-      || Config->PlatformInfo.DataHub.SmcPlatform[4] != 0
-      || Config->PlatformInfo.DataHub.SmcPlatform[5] != 0
-      || Config->PlatformInfo.DataHub.SmcPlatform[6] != 0
-      || Config->PlatformInfo.DataHub.SmcPlatform[7] != 0) {
-      Data.SmcPlatform      = &Config->PlatformInfo.DataHub.SmcPlatform[0];
+    if (  (Config->PlatformInfo.DataHub.SmcPlatform[0] != 0)
+       || (Config->PlatformInfo.DataHub.SmcPlatform[1] != 0)
+       || (Config->PlatformInfo.DataHub.SmcPlatform[2] != 0)
+       || (Config->PlatformInfo.DataHub.SmcPlatform[3] != 0)
+       || (Config->PlatformInfo.DataHub.SmcPlatform[4] != 0)
+       || (Config->PlatformInfo.DataHub.SmcPlatform[5] != 0)
+       || (Config->PlatformInfo.DataHub.SmcPlatform[6] != 0)
+       || (Config->PlatformInfo.DataHub.SmcPlatform[7] != 0))
+    {
+      Data.SmcPlatform = &Config->PlatformInfo.DataHub.SmcPlatform[0];
     }
   } else {
     //
     // Automatic mode read data from Generic & MacInfo.
     //
-    Data.PlatformName = MacInfo->DataHub.PlatformName;
+    Data.PlatformName      = MacInfo->DataHub.PlatformName;
     Data.SystemProductName = MacInfo->DataHub.SystemProductName;
 
     if (MacInfo->Oem.SystemSerialNumber[0] != '\0') {
@@ -144,20 +147,20 @@ OcPlatformUpdateDataHub (
       Data.SystemUUID = &Uuid;
     }
 
-    Data.BoardProduct  = MacInfo->DataHub.BoardProduct;
-    Data.BoardRevision = &MacInfo->DataHub.BoardRevision[0];
-    StartupPowerEvents = 0;
-    Data.StartupPowerEvents = &StartupPowerEvents;
-    InitialTSC = 0;
-    Data.InitialTSC = &InitialTSC;
+    Data.BoardProduct         = MacInfo->DataHub.BoardProduct;
+    Data.BoardRevision        = &MacInfo->DataHub.BoardRevision[0];
+    StartupPowerEvents        = 0;
+    Data.StartupPowerEvents   = &StartupPowerEvents;
+    InitialTSC                = 0;
+    Data.InitialTSC           = &InitialTSC;
     Data.DevicePathsSupported = &MacInfo->DataHub.DevicePathsSupported[0];
 
-    Data.SmcRevision      = &MacInfo->DataHub.SmcRevision[0];
-    Data.SmcBranch        = &MacInfo->DataHub.SmcBranch[0];
-    Data.SmcPlatform      = &MacInfo->DataHub.SmcPlatform[0];
+    Data.SmcRevision = &MacInfo->DataHub.SmcRevision[0];
+    Data.SmcBranch   = &MacInfo->DataHub.SmcBranch[0];
+    Data.SmcPlatform = &MacInfo->DataHub.SmcPlatform[0];
   }
 
-  Status = UpdateDataHub (DataHub , &Data, CpuInfo);
+  Status = UpdateDataHub (DataHub, &Data, CpuInfo);
   if (EFI_ERROR (Status)) {
     DEBUG ((DEBUG_WARN, "OC: Failed to update Data Hub - %r\n", Status));
   }
@@ -173,15 +176,15 @@ OcPlatformUpdateSmbios (
   IN     OC_SMBIOS_UPDATE_MODE  UpdateMode
   )
 {
-  EFI_STATUS       Status;
-  OC_SMBIOS_DATA   Data;
-  UINT32           PlatformFeature;
-  EFI_GUID         Uuid;
-  UINT8            SmcVersion[APPLE_SMBIOS_SMC_VERSION_SIZE];
-  CONST CHAR8      *SystemMemoryStatus;
-  UINT16           Index;
+  EFI_STATUS      Status;
+  OC_SMBIOS_DATA  Data;
+  UINT32          PlatformFeature;
+  EFI_GUID        Uuid;
+  UINT8           SmcVersion[APPLE_SMBIOS_SMC_VERSION_SIZE];
+  CONST CHAR8     *SystemMemoryStatus;
+  UINT16          Index;
 
-  OC_PLATFORM_MEMORY_DEVICE_ENTRY *MemoryEntry;
+  OC_PLATFORM_MEMORY_DEVICE_ENTRY  *MemoryEntry;
 
   ZeroMem (&Data, sizeof (Data));
 
@@ -224,18 +227,18 @@ OcPlatformUpdateSmbios (
 
     if (Config->PlatformInfo.UseRawUuidEncoding) {
       Status = OcAsciiStrToRawGuid (
-        OC_BLOB_GET (&Config->PlatformInfo.Smbios.SystemUuid),
-        &Uuid
-        );
-    } else {    
+                 OC_BLOB_GET (&Config->PlatformInfo.Smbios.SystemUuid),
+                 &Uuid
+                 );
+    } else {
       Status = AsciiStrToGuid (
-        OC_BLOB_GET (&Config->PlatformInfo.Smbios.SystemUuid),
-        &Uuid
-        );
+                 OC_BLOB_GET (&Config->PlatformInfo.Smbios.SystemUuid),
+                 &Uuid
+                 );
     }
 
     if (!EFI_ERROR (Status)) {
-      Data.SystemUUID         = &Uuid;
+      Data.SystemUUID = &Uuid;
     }
 
     if (Config->PlatformInfo.Smbios.BoardType != 0) {
@@ -302,7 +305,7 @@ OcPlatformUpdateSmbios (
     }
 
     if (Config->PlatformInfo.Smbios.PlatformFeature != 0xFFFFFFFFU) {
-      Data.PlatformFeature    = &Config->PlatformInfo.Smbios.PlatformFeature;
+      Data.PlatformFeature = &Config->PlatformInfo.Smbios.PlatformFeature;
     }
 
     if (Config->PlatformInfo.Smbios.SmcVersion[0] != '\0') {
@@ -319,10 +322,10 @@ OcPlatformUpdateSmbios (
       Data.BoardManufacturer   = OC_SMBIOS_VENDOR_NAME;
     }
 
-    Data.BIOSVersion = MacInfo->Smbios.BIOSVersion;
-    Data.BIOSReleaseDate = MacInfo->Smbios.BIOSReleaseDate;
+    Data.BIOSVersion       = MacInfo->Smbios.BIOSVersion;
+    Data.BIOSReleaseDate   = MacInfo->Smbios.BIOSReleaseDate;
     Data.SystemProductName = MacInfo->Smbios.SystemProductName;
-    Data.SystemVersion = MacInfo->Smbios.SystemVersion;
+    Data.SystemVersion     = MacInfo->Smbios.SystemVersion;
 
     if (MacInfo->Oem.SystemSerialNumber[0] != '\0') {
       Data.SystemSerialNumber = MacInfo->Oem.SystemSerialNumber;
@@ -332,21 +335,22 @@ OcPlatformUpdateSmbios (
       CopyGuid (&Uuid, &MacInfo->Oem.SystemUuid);
       if (!Config->PlatformInfo.UseRawUuidEncoding) {
         //
-        // Change from RAW to LE. 
+        // Change from RAW to LE.
         //
         Uuid.Data1 = SwapBytes32 (Uuid.Data1);
         Uuid.Data2 = SwapBytes16 (Uuid.Data2);
         Uuid.Data3 = SwapBytes16 (Uuid.Data3);
       }
+
       Data.SystemUUID = &Uuid;
     }
 
-    Data.BoardType              = MacInfo->Smbios.BoardType;
-    Data.ChassisType            = MacInfo->Smbios.ChassisType;
-    Data.SystemSKUNumber        = MacInfo->Smbios.SystemSKUNumber;
-    Data.SystemFamily           = MacInfo->Smbios.SystemFamily;
-    Data.BoardProduct           = MacInfo->Smbios.BoardProduct;
-    Data.BoardVersion           = MacInfo->Smbios.BoardVersion;
+    Data.BoardType       = MacInfo->Smbios.BoardType;
+    Data.ChassisType     = MacInfo->Smbios.ChassisType;
+    Data.SystemSKUNumber = MacInfo->Smbios.SystemSKUNumber;
+    Data.SystemFamily    = MacInfo->Smbios.SystemFamily;
+    Data.BoardProduct    = MacInfo->Smbios.BoardProduct;
+    Data.BoardVersion    = MacInfo->Smbios.BoardVersion;
 
     if (MacInfo->Oem.Mlb[0] != '\0') {
       Data.BoardSerialNumber = MacInfo->Oem.Mlb;
@@ -369,12 +373,14 @@ OcPlatformUpdateSmbios (
     // Adopt to arbitrary hardware specifics. See description in NVRAM handling code.
     //
     if (Config->PlatformInfo.Generic.AdviseFeatures) {
-      Data.FirmwareFeatures     |= FW_FEATURE_SUPPORTS_CSM_LEGACY_MODE
-        | FW_FEATURE_SUPPORTS_UEFI_WINDOWS_BOOT
-        | FW_FEATURE_SUPPORTS_APFS;
+      Data.FirmwareFeatures |= FW_FEATURE_SUPPORTS_CSM_LEGACY_MODE
+                               | FW_FEATURE_SUPPORTS_UEFI_WINDOWS_BOOT
+                               | FW_FEATURE_SUPPORTS_APFS
+                               | FW_FEATURE_SUPPORTS_LARGE_BASESYSTEM;
       Data.FirmwareFeaturesMask |= FW_FEATURE_SUPPORTS_CSM_LEGACY_MODE
-        | FW_FEATURE_SUPPORTS_UEFI_WINDOWS_BOOT
-        | FW_FEATURE_SUPPORTS_APFS;
+                                   | FW_FEATURE_SUPPORTS_UEFI_WINDOWS_BOOT
+                                   | FW_FEATURE_SUPPORTS_APFS
+                                   | FW_FEATURE_SUPPORTS_LARGE_BASESYSTEM;
     }
 
     //
@@ -395,15 +401,16 @@ OcPlatformUpdateSmbios (
       SystemMemoryStatus = OC_BLOB_GET (&Config->PlatformInfo.Generic.SystemMemoryStatus);
 
       if (AsciiStrCmp (SystemMemoryStatus, "Upgradable") == 0) {
-        PlatformFeature &= ~PT_FEATURE_HAS_SOLDERED_SYSTEM_MEMORY;
+        PlatformFeature     &= ~PT_FEATURE_HAS_SOLDERED_SYSTEM_MEMORY;
         Data.PlatformFeature = &PlatformFeature;
       } else if (AsciiStrCmp (SystemMemoryStatus, "Soldered") == 0) {
-        PlatformFeature |= PT_FEATURE_HAS_SOLDERED_SYSTEM_MEMORY;
+        PlatformFeature     |= PT_FEATURE_HAS_SOLDERED_SYSTEM_MEMORY;
         Data.PlatformFeature = &PlatformFeature;
       } else if (AsciiStrCmp (SystemMemoryStatus, "Auto") != 0) {
         DEBUG ((DEBUG_WARN, "OC: Invalid SMBIOS system memory status %a\n", SystemMemoryStatus));
       }
     }
+
     //
     // Override default BIOSVersion.
     //
@@ -424,18 +431,18 @@ OcPlatformUpdateSmbios (
     Data.HasCustomMemory = TRUE;
 
     if (Config->PlatformInfo.Memory.Devices.Count <= MAX_UINT16) {
-      Data.MemoryDevicesCount   = (UINT16) Config->PlatformInfo.Memory.Devices.Count;
+      Data.MemoryDevicesCount = (UINT16)Config->PlatformInfo.Memory.Devices.Count;
     } else {
-      Data.MemoryDevicesCount   = MAX_UINT16;
+      Data.MemoryDevicesCount = MAX_UINT16;
     }
-    
-    Data.MemoryErrorCorrection  = &Config->PlatformInfo.Memory.ErrorCorrection;
-    Data.MemoryMaxCapacity      = &Config->PlatformInfo.Memory.MaxCapacity;
-    Data.MemoryDataWidth        = &Config->PlatformInfo.Memory.DataWidth;
-    Data.MemoryFormFactor       = &Config->PlatformInfo.Memory.FormFactor;
-    Data.MemoryTotalWidth       = &Config->PlatformInfo.Memory.TotalWidth;
-    Data.MemoryType             = &Config->PlatformInfo.Memory.Type;
-    Data.MemoryTypeDetail       = &Config->PlatformInfo.Memory.TypeDetail;
+
+    Data.MemoryErrorCorrection = &Config->PlatformInfo.Memory.ErrorCorrection;
+    Data.MemoryMaxCapacity     = &Config->PlatformInfo.Memory.MaxCapacity;
+    Data.MemoryDataWidth       = &Config->PlatformInfo.Memory.DataWidth;
+    Data.MemoryFormFactor      = &Config->PlatformInfo.Memory.FormFactor;
+    Data.MemoryTotalWidth      = &Config->PlatformInfo.Memory.TotalWidth;
+    Data.MemoryType            = &Config->PlatformInfo.Memory.Type;
+    Data.MemoryTypeDetail      = &Config->PlatformInfo.Memory.TypeDetail;
 
     if (Data.MemoryDevicesCount) {
       Data.MemoryDevices = AllocateZeroPool (sizeof (OC_SMBIOS_MEMORY_DEVICE_DATA) * Data.MemoryDevicesCount);
@@ -480,49 +487,50 @@ OcPlatformUpdateSmbios (
 STATIC
 VOID
 OcPlatformUpdateNvram (
-  IN OC_GLOBAL_CONFIG    *Config,
-  IN MAC_INFO_DATA       *MacInfo
+  IN OC_GLOBAL_CONFIG  *Config,
+  IN MAC_INFO_DATA     *MacInfo
   )
 {
-  EFI_STATUS   Status;
-  CONST CHAR8  *Bid;
-  UINTN        BidSize;
-  CONST CHAR8  *Mlb;
-  UINTN        MlbSize;
-  CONST CHAR8  *Ssn;
-  UINTN        SsnSize;
-  CONST  UINT8 *Rom;
-  UINTN        RomSize;
-  EFI_GUID     Uuid;
-  UINT64       ExFeatures;
-  UINT64       ExFeaturesMask;
-  UINT32       Features;
-  UINT32       FeaturesMask;
+  EFI_STATUS    Status;
+  CONST CHAR8   *Bid;
+  UINTN         BidSize;
+  CONST CHAR8   *Mlb;
+  UINTN         MlbSize;
+  CONST CHAR8   *Ssn;
+  UINTN         SsnSize;
+  CONST  UINT8  *Rom;
+  UINTN         RomSize;
+  EFI_GUID      Uuid;
+  UINT64        ExFeatures;
+  UINT64        ExFeaturesMask;
+  UINT32        Features;
+  UINT32        FeaturesMask;
 
   if (MacInfo == NULL) {
-    Bid            = OC_BLOB_GET (&Config->PlatformInfo.Nvram.Bid);
-    BidSize        = Config->PlatformInfo.Nvram.Bid.Size - 1;
-    Mlb            = OC_BLOB_GET (&Config->PlatformInfo.Nvram.Mlb);
-    MlbSize        = Config->PlatformInfo.Nvram.Mlb.Size - 1;
-    Ssn            = OC_BLOB_GET (&Config->PlatformInfo.Nvram.SystemSerialNumber);
-    SsnSize        = Config->PlatformInfo.Nvram.SystemSerialNumber.Size - 1;
-    Rom            = &Config->PlatformInfo.Nvram.Rom[0];
-    RomSize        = sizeof (Config->PlatformInfo.Nvram.Rom);
-    Status = OcAsciiStrToRawGuid (OC_BLOB_GET (&Config->PlatformInfo.Nvram.SystemUuid), &Uuid);
+    Bid     = OC_BLOB_GET (&Config->PlatformInfo.Nvram.Bid);
+    BidSize = Config->PlatformInfo.Nvram.Bid.Size - 1;
+    Mlb     = OC_BLOB_GET (&Config->PlatformInfo.Nvram.Mlb);
+    MlbSize = Config->PlatformInfo.Nvram.Mlb.Size - 1;
+    Ssn     = OC_BLOB_GET (&Config->PlatformInfo.Nvram.SystemSerialNumber);
+    SsnSize = Config->PlatformInfo.Nvram.SystemSerialNumber.Size - 1;
+    Rom     = &Config->PlatformInfo.Nvram.Rom[0];
+    RomSize = sizeof (Config->PlatformInfo.Nvram.Rom);
+    Status  = OcAsciiStrToRawGuid (OC_BLOB_GET (&Config->PlatformInfo.Nvram.SystemUuid), &Uuid);
     if (EFI_ERROR (Status)) {
       ZeroMem (&Uuid, sizeof (Uuid));
     }
+
     ExFeatures     = Config->PlatformInfo.Nvram.FirmwareFeatures;
     ExFeaturesMask = Config->PlatformInfo.Nvram.FirmwareFeaturesMask;
   } else {
-    Bid            = MacInfo->Smbios.BoardProduct;
-    BidSize        = AsciiStrLen (Bid);
-    Mlb            = MacInfo->Oem.Mlb;
-    MlbSize        = AsciiStrLen (Mlb);
-    Ssn            = MacInfo->Oem.SystemSerialNumber;
-    SsnSize        = AsciiStrLen (Ssn);
-    Rom            = &MacInfo->Oem.Rom[0];
-    RomSize        = OC_OEM_ROM_MAX;
+    Bid     = MacInfo->Smbios.BoardProduct;
+    BidSize = AsciiStrLen (Bid);
+    Mlb     = MacInfo->Oem.Mlb;
+    MlbSize = AsciiStrLen (Mlb);
+    Ssn     = MacInfo->Oem.SystemSerialNumber;
+    SsnSize = AsciiStrLen (Ssn);
+    Rom     = &MacInfo->Oem.Rom[0];
+    RomSize = OC_OEM_ROM_MAX;
     CopyGuid (&Uuid, &MacInfo->Oem.SystemUuid);
     ExFeatures     = MacInfo->Smbios.FirmwareFeatures;
     ExFeaturesMask = MacInfo->Smbios.FirmwareFeaturesMask;
@@ -536,26 +544,28 @@ OcPlatformUpdateNvram (
     // https://sourceforge.net/p/cloverefiboot/tickets/435
     //
     if (Config->PlatformInfo.Generic.AdviseFeatures) {
-      ExFeatures     |= FW_FEATURE_SUPPORTS_CSM_LEGACY_MODE
-        | FW_FEATURE_SUPPORTS_UEFI_WINDOWS_BOOT
-        | FW_FEATURE_SUPPORTS_APFS;
+      ExFeatures |= FW_FEATURE_SUPPORTS_CSM_LEGACY_MODE
+                    | FW_FEATURE_SUPPORTS_UEFI_WINDOWS_BOOT
+                    | FW_FEATURE_SUPPORTS_APFS
+                    | FW_FEATURE_SUPPORTS_LARGE_BASESYSTEM;
       ExFeaturesMask |= FW_FEATURE_SUPPORTS_CSM_LEGACY_MODE
-        | FW_FEATURE_SUPPORTS_UEFI_WINDOWS_BOOT
-        | FW_FEATURE_SUPPORTS_APFS;
+                        | FW_FEATURE_SUPPORTS_UEFI_WINDOWS_BOOT
+                        | FW_FEATURE_SUPPORTS_APFS
+                        | FW_FEATURE_SUPPORTS_LARGE_BASESYSTEM;
     }
   }
 
-  Features       = (UINT32) ExFeatures;
-  FeaturesMask   = (UINT32) ExFeaturesMask;
+  Features     = (UINT32)ExFeatures;
+  FeaturesMask = (UINT32)ExFeaturesMask;
 
   if (Bid[0] != '\0') {
     Status = gRT->SetVariable (
-      L"HW_BID",
-      &gAppleVendorVariableGuid,
-      EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_RUNTIME_ACCESS,
-      BidSize,
-      (CHAR8 *) Bid
-      );
+                    L"HW_BID",
+                    &gAppleVendorVariableGuid,
+                    EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_RUNTIME_ACCESS,
+                    BidSize,
+                    (CHAR8 *)Bid
+                    );
     DEBUG ((
       EFI_ERROR (Status) ? DEBUG_WARN : DEBUG_INFO,
       "OC: Setting HW_BID %a - %r\n",
@@ -564,44 +574,54 @@ OcPlatformUpdateNvram (
       ));
   }
 
-  if (Rom[0] != 0 || Rom[1] != 0 || Rom[2] != 0 || Rom[3] != 0 || Rom[4] != 0 || Rom[5] != 0) {
+  if ((Rom[0] != 0) || (Rom[1] != 0) || (Rom[2] != 0) || (Rom[3] != 0) || (Rom[4] != 0) || (Rom[5] != 0)) {
     Status = gRT->SetVariable (
-      L"HW_ROM",
-      &gAppleVendorVariableGuid,
-      EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_RUNTIME_ACCESS,
-      RomSize,
-      (UINT8 *) Rom
-      );
+                    L"HW_ROM",
+                    &gAppleVendorVariableGuid,
+                    EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_RUNTIME_ACCESS,
+                    RomSize,
+                    (UINT8 *)Rom
+                    );
     DEBUG ((
       EFI_ERROR (Status) ? DEBUG_WARN : DEBUG_INFO,
       "OC: Setting HW_ROM %02x:%02x:%02x:%02x:%02x:%02x - %r\n",
-      Rom[0], Rom[1], Rom[2], Rom[3], Rom[4], Rom[5],
+      Rom[0],
+      Rom[1],
+      Rom[2],
+      Rom[3],
+      Rom[4],
+      Rom[5],
       Status
       ));
 
     Status = gRT->SetVariable (
-      L"ROM",
-      &gAppleVendorVariableGuid,
-      EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_RUNTIME_ACCESS,
-      RomSize,
-      (UINT8 *) Rom
-      );
+                    L"ROM",
+                    &gAppleVendorVariableGuid,
+                    EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_RUNTIME_ACCESS,
+                    RomSize,
+                    (UINT8 *)Rom
+                    );
     DEBUG ((
       EFI_ERROR (Status) ? DEBUG_WARN : DEBUG_INFO,
       "OC: Setting ROM %02x:%02x:%02x:%02x:%02x:%02x - %r\n",
-      Rom[0], Rom[1], Rom[2], Rom[3], Rom[4], Rom[5],
+      Rom[0],
+      Rom[1],
+      Rom[2],
+      Rom[3],
+      Rom[4],
+      Rom[5],
       Status
       ));
   }
 
   if (Mlb[0] != '\0') {
     Status = gRT->SetVariable (
-      L"HW_MLB",
-      &gAppleVendorVariableGuid,
-      EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_RUNTIME_ACCESS,
-      MlbSize,
-      (CHAR8 *) Mlb
-      );
+                    L"HW_MLB",
+                    &gAppleVendorVariableGuid,
+                    EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_RUNTIME_ACCESS,
+                    MlbSize,
+                    (CHAR8 *)Mlb
+                    );
     DEBUG ((
       EFI_ERROR (Status) ? DEBUG_WARN : DEBUG_INFO,
       "OC: Setting HW_MLB %a - %r\n",
@@ -610,12 +630,12 @@ OcPlatformUpdateNvram (
       ));
 
     Status = gRT->SetVariable (
-      L"MLB",
-      &gAppleVendorVariableGuid,
-      EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_RUNTIME_ACCESS,
-      MlbSize,
-      (CHAR8 *) Mlb
-      );
+                    L"MLB",
+                    &gAppleVendorVariableGuid,
+                    EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_RUNTIME_ACCESS,
+                    MlbSize,
+                    (CHAR8 *)Mlb
+                    );
     DEBUG ((
       EFI_ERROR (Status) ? DEBUG_WARN : DEBUG_INFO,
       "OC: Setting MLB %a - %r\n",
@@ -626,12 +646,12 @@ OcPlatformUpdateNvram (
 
   if (Ssn[0] != '\0') {
     Status = gRT->SetVariable (
-      L"HW_SSN",
-      &gAppleVendorVariableGuid,
-      EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_RUNTIME_ACCESS,
-      SsnSize,
-      (CHAR8 *) Ssn
-      );
+                    L"HW_SSN",
+                    &gAppleVendorVariableGuid,
+                    EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_RUNTIME_ACCESS,
+                    SsnSize,
+                    (CHAR8 *)Ssn
+                    );
     DEBUG ((
       EFI_ERROR (Status) ? DEBUG_WARN : DEBUG_INFO,
       "OC: Setting HW_SSN %a - %r\n",
@@ -640,12 +660,12 @@ OcPlatformUpdateNvram (
       ));
 
     Status = gRT->SetVariable (
-      L"SSN",
-      &gAppleVendorVariableGuid,
-      EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_RUNTIME_ACCESS,
-      SsnSize,
-      (CHAR8 *) Ssn
-      );
+                    L"SSN",
+                    &gAppleVendorVariableGuid,
+                    EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_RUNTIME_ACCESS,
+                    SsnSize,
+                    (CHAR8 *)Ssn
+                    );
     DEBUG ((
       EFI_ERROR (Status) ? DEBUG_WARN : DEBUG_INFO,
       "OC: Setting SSN %a - %r\n",
@@ -660,12 +680,12 @@ OcPlatformUpdateNvram (
   //
   if (!IsZeroGuid (&Uuid)) {
     Status = gRT->SetVariable (
-      L"system-id",
-      &gAppleVendorVariableGuid,
-      EFI_VARIABLE_BOOTSERVICE_ACCESS,
-      sizeof (Uuid),
-      &Uuid
-      );
+                    L"system-id",
+                    &gAppleVendorVariableGuid,
+                    EFI_VARIABLE_BOOTSERVICE_ACCESS,
+                    sizeof (Uuid),
+                    &Uuid
+                    );
     DEBUG ((
       EFI_ERROR (Status) ? DEBUG_WARN : DEBUG_INFO,
       "OC: Setting system-id %g - %r\n",
@@ -674,14 +694,14 @@ OcPlatformUpdateNvram (
       ));
   }
 
-  if (ExFeatures != 0 || ExFeaturesMask != 0) {
+  if ((ExFeatures != 0) || (ExFeaturesMask != 0)) {
     Status = gRT->SetVariable (
-      L"FirmwareFeatures",
-      &gAppleVendorVariableGuid,
-      EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_RUNTIME_ACCESS,
-      sizeof (Features),
-      &Features
-      );
+                    L"FirmwareFeatures",
+                    &gAppleVendorVariableGuid,
+                    EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_RUNTIME_ACCESS,
+                    sizeof (Features),
+                    &Features
+                    );
     DEBUG ((
       EFI_ERROR (Status) ? DEBUG_WARN : DEBUG_INFO,
       "OC: Setting FirmwareFeatures %08x - %r\n",
@@ -690,12 +710,12 @@ OcPlatformUpdateNvram (
       ));
 
     Status = gRT->SetVariable (
-      L"ExtendedFirmwareFeatures",
-      &gAppleVendorVariableGuid,
-      EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_RUNTIME_ACCESS,
-      sizeof (ExFeatures),
-      &ExFeatures
-      );
+                    L"ExtendedFirmwareFeatures",
+                    &gAppleVendorVariableGuid,
+                    EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_RUNTIME_ACCESS,
+                    sizeof (ExFeatures),
+                    &ExFeatures
+                    );
     DEBUG ((
       EFI_ERROR (Status) ? DEBUG_WARN : DEBUG_INFO,
       "OC: Setting ExtendedFirmwareFeatures %016Lx - %r\n",
@@ -704,12 +724,12 @@ OcPlatformUpdateNvram (
       ));
 
     Status = gRT->SetVariable (
-      L"FirmwareFeaturesMask",
-      &gAppleVendorVariableGuid,
-      EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_RUNTIME_ACCESS,
-      sizeof (FeaturesMask),
-      &FeaturesMask
-      );
+                    L"FirmwareFeaturesMask",
+                    &gAppleVendorVariableGuid,
+                    EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_RUNTIME_ACCESS,
+                    sizeof (FeaturesMask),
+                    &FeaturesMask
+                    );
     DEBUG ((
       EFI_ERROR (Status) ? DEBUG_WARN : DEBUG_INFO,
       "OC: Setting FirmwareFeaturesMask %08x - %r\n",
@@ -718,12 +738,12 @@ OcPlatformUpdateNvram (
       ));
 
     Status = gRT->SetVariable (
-      L"ExtendedFirmwareFeaturesMask",
-      &gAppleVendorVariableGuid,
-      EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_RUNTIME_ACCESS,
-      sizeof (ExFeaturesMask),
-      &ExFeaturesMask
-      );
+                    L"ExtendedFirmwareFeaturesMask",
+                    &gAppleVendorVariableGuid,
+                    EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_RUNTIME_ACCESS,
+                    sizeof (ExFeaturesMask),
+                    &ExFeaturesMask
+                    );
     DEBUG ((
       EFI_ERROR (Status) ? DEBUG_WARN : DEBUG_INFO,
       "OC: Setting ExtendedFirmwareFeaturesMask %016Lx - %r\n",
@@ -735,8 +755,8 @@ OcPlatformUpdateNvram (
 
 VOID
 OcLoadPlatformSupport (
-  IN OC_GLOBAL_CONFIG    *Config,
-  IN OC_CPU_INFO         *CpuInfo
+  IN OC_GLOBAL_CONFIG  *Config,
+  IN OC_CPU_INFO       *CpuInfo
   )
 {
   OC_SMBIOS_UPDATE_MODE  SmbiosUpdateMode;
@@ -756,7 +776,7 @@ OcLoadPlatformSupport (
     UseOemSerial = AsciiStrCmp (OC_BLOB_GET (&Config->PlatformInfo.Generic.SystemSerialNumber), "OEM") == 0;
     UseOemUuid   = AsciiStrCmp (OC_BLOB_GET (&Config->PlatformInfo.Generic.SystemUuid), "OEM") == 0;
     UseOemMlb    = AsciiStrCmp (OC_BLOB_GET (&Config->PlatformInfo.Generic.Mlb), "OEM") == 0;
-    UseOemRom    = AsciiStrCmp ((CHAR8 *) Config->PlatformInfo.Generic.Rom, "OEM") == 0;
+    UseOemRom    = AsciiStrCmp ((CHAR8 *)Config->PlatformInfo.Generic.Rom, "OEM") == 0;
   } else {
     UsedMacInfo  = NULL;
     UseOemSerial = FALSE;
@@ -824,8 +844,8 @@ OcLoadPlatformSupport (
   if (!EFI_ERROR (Status)) {
     if (Config->PlatformInfo.UpdateSmbios) {
       SmbiosUpdateMode = OcSmbiosGetUpdateMode (
-        OC_BLOB_GET (&Config->PlatformInfo.UpdateSmbiosMode)
-        );
+                           OC_BLOB_GET (&Config->PlatformInfo.UpdateSmbiosMode)
+                           );
       OcPlatformUpdateSmbios (
         Config,
         CpuInfo,
@@ -849,16 +869,165 @@ OcLoadPlatformSupport (
   }
 }
 
-BOOLEAN
-OcPlatformIs64BitSupported (
-  IN UINT32     KernelVersion
+VOID
+OcGetLegacySecureBootECID (
+  IN  OC_GLOBAL_CONFIG  *Config,
+  OUT UINT64            *ApECID
   )
 {
-#if defined(MDE_CPU_IA32)
+  EFI_STATUS       Status;
+  OC_SMBIOS_TABLE  SmbiosTable;
+  EFI_GUID         Uuid;
+  UINTN            ReadSize;
+
+  ASSERT (Config != NULL);
+  ASSERT (ApECID != NULL);
+
+  ZeroMem (&Uuid, sizeof (Uuid));
+
+  //
+  // TODO: Cache platform IDs for both interfaces: OcGetSystemId and OcLoadPlatformSupport,
+  // as currently this duplicates the code above.
+  //
+  if (Config->PlatformInfo.UpdateNvram) {
+    if (Config->PlatformInfo.Automatic) {
+      if (AsciiStrCmp (OC_BLOB_GET (&Config->PlatformInfo.Generic.SystemUuid), "OEM") == 0) {
+        Status = OcSmbiosTablePrepare (&SmbiosTable);
+        if (!EFI_ERROR (Status)) {
+          OcSmbiosExtractOemInfo (
+            &SmbiosTable,
+            mCurrentSmbiosProductName,
+            NULL,
+            &Uuid,
+            NULL,
+            NULL,
+            Config->PlatformInfo.UseRawUuidEncoding,
+            FALSE
+            );
+          OcSmbiosTableFree (&SmbiosTable);
+        }
+
+        DEBUG ((DEBUG_INFO, "OC: Grabbed SB uuid %g from SMBIOS - %r\n", &Uuid, Status));
+      } else {
+        Status = OcAsciiStrToRawGuid (
+                   OC_BLOB_GET (&Config->PlatformInfo.Generic.SystemUuid),
+                   &Uuid
+                   );
+        if (EFI_ERROR (Status)) {
+          ZeroMem (&Uuid, sizeof (Uuid));
+        }
+
+        DEBUG ((DEBUG_INFO, "OC: Grabbed SB uuid %g from auto config - %r\n", &Uuid, Status));
+      }
+    } else {
+      Status = OcAsciiStrToRawGuid (OC_BLOB_GET (&Config->PlatformInfo.Nvram.SystemUuid), &Uuid);
+      if (EFI_ERROR (Status)) {
+        ZeroMem (&Uuid, sizeof (Uuid));
+      }
+
+      DEBUG ((DEBUG_INFO, "OC: Grabbed SB uuid %g from manual config - %r\n", &Uuid, Status));
+    }
+  }
+
+  if (!Config->PlatformInfo.UpdateNvram || IsZeroGuid (&Uuid)) {
+    ReadSize = sizeof (Uuid);
+    Status   = gRT->GetVariable (
+                      L"system-id",
+                      &gAppleVendorVariableGuid,
+                      NULL,
+                      &ReadSize,
+                      &Uuid
+                      );
+    if (EFI_ERROR (Status)) {
+      ZeroMem (&Uuid, sizeof (Uuid));
+    }
+
+    DEBUG ((DEBUG_INFO, "OC: Grabbed SB uuid %g direct from NVRAM - %r\n", &Uuid, Status));
+  }
+
+  if (IsZeroGuid (&Uuid)) {
+    DEBUG ((DEBUG_ERROR, "OC: Grabbed zero system-id for SB, this is not allowed\n"));
+    CpuDeadLoop ();
+  }
+
+  CopyMem (ApECID, &Uuid, sizeof (*ApECID));
+  DEBUG ((DEBUG_INFO, "OC: ApECID %Ld from system-id\n", *ApECID));
+}
+
+CONST CHAR8 *
+OcGetDefaultSecureBootModel (
+  IN  OC_GLOBAL_CONFIG  *Config,
+  IN OC_CPU_INFO        *CpuInfo
+  )
+{
+  EFI_STATUS       Status;
+  CONST CHAR8      *Model;
+  CONST CHAR8      *Board;
+  CONST CHAR8      *SbModel;
+  OC_SMBIOS_TABLE  SmbiosTable;
+
+  //
+  // Make sure hypervisor secure boot model is x86legacy.
+  // macOS 11.x will not install otherwise.
+  //
+  if (CpuInfo->Hypervisor) {
+    DEBUG ((DEBUG_INFO, "OC: Hypervisor SB model is x86legacy\n"));
+    return "x86legacy";
+  }
+
+  //
+  // For automatic setups it is direct DB retrieval.
+  //
+  if (Config->PlatformInfo.Automatic) {
+    Model   = OC_BLOB_GET (&Config->PlatformInfo.Generic.SystemProductName);
+    SbModel = GetSecureBootModel (Model);
+    DEBUG ((DEBUG_INFO, "OC: Automatic SB model %a from model %a\n", SbModel, Model));
+    return SbModel;
+  }
+
+  //
+  // For manual setups only use the SMBIOS board identifier.
+  //
+  Board = OC_BLOB_GET (&Config->PlatformInfo.Smbios.BoardProduct);
+  if (Config->PlatformInfo.UpdateSmbios && (Board[0] != '\0')) {
+    SbModel = GetSecureBootModelFromBoardId (Board);
+    DEBUG ((DEBUG_INFO, "OC: Manual SB model %a from board %a\n", SbModel, Board));
+    return SbModel;
+  }
+
+  //
+  // For Mac setups without spoofing use SMBIOS.
+  //
+  Status = OcSmbiosTablePrepare (&SmbiosTable);
+  if (!EFI_ERROR (Status)) {
+    OcSmbiosExtractOemInfo (
+      &SmbiosTable,
+      mCurrentSmbiosProductName,
+      NULL,
+      NULL,
+      NULL,
+      NULL,
+      Config->PlatformInfo.UseRawUuidEncoding,
+      FALSE
+      );
+    OcSmbiosTableFree (&SmbiosTable);
+  }
+
+  SbModel = GetSecureBootModel (mCurrentSmbiosProductName);
+  DEBUG ((DEBUG_INFO, "OC: OEM SB model %a from model %a\n", SbModel, mCurrentSmbiosProductName));
+  return SbModel;
+}
+
+BOOLEAN
+OcPlatformIs64BitSupported (
+  IN UINT32  KernelVersion
+  )
+{
+ #if defined (MDE_CPU_IA32)
   return FALSE;
-#elif defined(MDE_CPU_X64)
+ #elif defined (MDE_CPU_X64)
   return IsMacModel64BitCompatible (mCurrentSmbiosProductName, KernelVersion);
-#else
-#error "Unsupported architecture"
-#endif
+ #else
+  #error "Unsupported architecture"
+ #endif
 }

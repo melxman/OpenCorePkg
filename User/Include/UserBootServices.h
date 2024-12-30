@@ -21,31 +21,45 @@ extern EFI_SIMPLE_TEXT_OUTPUT_PROTOCOL  mConOut;
 EFI_TPL
 EFIAPI
 DummyRaiseTPL (
-  IN EFI_TPL      NewTpl
+  IN EFI_TPL  NewTpl
+  );
+
+VOID
+EFIAPI
+DummyRestoreTPL (
+  IN EFI_TPL  NewTpl
   );
 
 EFI_STATUS
 EFIAPI
 DummyLocateProtocol (
-  IN  EFI_GUID  *Protocol,
-  IN  VOID      *Registration, OPTIONAL
+  IN  EFI_GUID *Protocol,
+  IN  VOID *Registration, OPTIONAL
   OUT VOID      **Interface
   );
 
 EFI_STATUS
 EFIAPI
 DummyAllocatePages (
-  IN     EFI_ALLOCATE_TYPE            Type,
-  IN     EFI_MEMORY_TYPE              MemoryType,
-  IN     UINTN                        Pages,
-  IN OUT EFI_PHYSICAL_ADDRESS         *Memory
+  IN     EFI_ALLOCATE_TYPE     Type,
+  IN     EFI_MEMORY_TYPE       MemoryType,
+  IN     UINTN                 Pages,
+  IN OUT EFI_PHYSICAL_ADDRESS  *Memory
   );
 
 EFI_STATUS
 EFIAPI
 DummyInstallConfigurationTable (
-  IN EFI_GUID                 *Guid,
-  IN VOID                     *Table
+  IN EFI_GUID  *Guid,
+  IN VOID      *Table
+  );
+
+EFI_STATUS
+EFIAPI
+DummyCalculateCrc32 (
+  IN  VOID    *Data,
+  IN  UINTN   DataSize,
+  OUT UINT32  *CrcOut
   );
 
 EFI_STATUS
@@ -53,6 +67,13 @@ EFIAPI
 NullTextOutputString (
   IN EFI_SIMPLE_TEXT_OUTPUT_PROTOCOL  *This,
   IN CHAR16                           *String
+  );
+
+EFI_STATUS
+EFIAPI
+DummyGetTime (
+  OUT EFI_TIME               *Time,
+  OUT EFI_TIME_CAPABILITIES  *Capabilities
   );
 
 #endif // OC_USER_BOOT_SERVICES_H

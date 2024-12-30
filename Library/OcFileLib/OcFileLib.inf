@@ -33,8 +33,9 @@
   LocateFileSystem.c
   OpenFile.c
   ReadFile.c
-  GptPartitionEntry.c
+  DiskMisc.c
   FirmwareFile.c
+  FileMisc.c
 
 [Packages]
   OpenCorePkg/OpenCorePkg.dec
@@ -42,9 +43,9 @@
 
 [LibraryClasses]
   BaseLib
+  BaseOverflowLib
   DevicePathLib
   OcDevicePathLib
-  OcGuardLib
   MemoryAllocationLib
 
 [Guids]
@@ -59,3 +60,4 @@
   gEfiDevicePathProtocolGuid
   gEfiBlockIo2ProtocolGuid
   gEfiBlockIoProtocolGuid
+  gOcBootstrapProtocolGuid

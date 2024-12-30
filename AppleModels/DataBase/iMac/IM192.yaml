@@ -1,7 +1,7 @@
 BIOSVendor: "Apple Inc."
-BIOSVersion: "1554.100.64.0.0"
-BIOSLegacyVersion: "IM191.88Z.F000.B00.2103102101"
-BIOSReleaseDate: "03/10/2021"
+BIOSVersion: "2069.0.0.0.0"
+BIOSLegacyVersion: "IM191.88Z.F000.B00.2407211949"
+BIOSReleaseDate: "07/21/2024"
 SystemManufacturer: "Apple Inc."
 SystemProductName: "iMac19,2"
 SystemVersion: "1.0"
@@ -27,8 +27,8 @@ ChassisAssetTag: ""
 PlatformFeature: 0x20
 FirmwareFeatures: 0xFD8FF576
 FirmwareFeaturesMask: 0xFFDFFF7F
-ExtendedFirmwareFeatures: 0x00000000FD8FF576
-ExtendedFirmwareFeaturesMask: 0x00000000FFDFFF7F
+ExtendedFirmwareFeatures: 0x00000008FD8FF576
+ExtendedFirmwareFeaturesMask: 0x00000008FFDFFF7F
 MemoryFormFactor: 0x9
 # FIXME: check values (most should be correct?) and add missing, if any
 ProcessorType:
@@ -72,17 +72,17 @@ SmcPlatform:
 SmcEPCI: 0xF070090
 OEMStrings: |-
   Apple ROM Version
-    BIOS ID:      IM191.88Z.F000.B00.2103102101
+    BIOS ID:      IM191.88Z.F000.B00.2407211949
     Model:        IM191
-    EFI Version:  1554.100.64.0.0
-    Built by:     root@bb-g8-pdb126
-    Date:         Wed Mar 10 21:01:24 2021
-    Revision:     1554.100.64 (B&I)
+    EFI Version:  2069.0.0.0.0
+    Built by:     root@jvznt
+    Date:         Sun Jul 21 19:49:42 2024
+    Revision:     2069 (B&I)
     ROM Version:  F000_B00
     Build Type:   Official Build, RELEASE
-    Compiler:     clang-1205.0.19.59.6
-    UUID:         4F097507-9A75-3AF1-A5E9-21764125458E
-    UUID:         552D3B7B-6212-3B20-B9D2-3C455FE56EEE
+    Compiler:     clang-1600.0.24.1
+    UUID:         DABD33A1-402C-317E-A87A-C3882688946F
+    UUID:         034E988A-9BB5-380B-AF2B-C700E6A0443C
 Specifications:
   CPUCodename:
     - "Coffee Lake"
@@ -156,6 +156,5 @@ AppleModelYear:
   - 2019
   - 2020
   - 2021
-CloverSerialNumber: "C02Y9HACJWDW"
 MinimumOSVersion: "10.14.4"
 MaximumOSVersion: null

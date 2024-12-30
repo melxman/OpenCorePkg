@@ -25,29 +25,37 @@
 
 
 #
-#  VALID_ARCHITECTURES           = X64
+#  VALID_ARCHITECTURES           = IA32 X64
 #
 
 [Sources]
+  OcPeCoffExtInternal.h
   OcPeCoffExtLib.c
+  OcPeCoffFixupInit.c
 
 [Packages]
   MdePkg/MdePkg.dec
   OpenCorePkg/OpenCorePkg.dec
 
 [LibraryClasses]
+  PeCoffLib2
   UefiRuntimeServicesTableLib
   UefiBootServicesTableLib
   MemoryAllocationLib
   BaseMemoryLib
+  BaseOverflowLib
   BaseLib
   UefiLib
   DebugLib
   OcAppleKeysLib
-  OcPeCoffLib
   OcCryptoLib
-  OcGuardLib
+  OcStringLib
 
 [Guids]
   gAppleEfiCertificateGuid
   gEfiCertTypeRsa2048Sha256Guid
+
+[FixedPcd]
+  gEfiMdePkgTokenSpaceGuid.PcdImageLoaderAlignmentPolicy
+  gEfiMdePkgTokenSpaceGuid.PcdImageLoaderAllowMisalignedOffset
+  gEfiMdePkgTokenSpaceGuid.PcdDebugRaisePropertyMask

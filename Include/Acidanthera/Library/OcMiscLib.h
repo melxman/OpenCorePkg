@@ -25,9 +25,16 @@
 #define OC_CHAR_BIT  8
 
 /**
-  Convert seconds to microseconds for use in e.g. gBS->Stall.
+  Conversions to microseconds for use in e.g. gBS->Stall.
 **/
-#define SECONDS_TO_MICROSECONDS(x) ((x)*1000000)
+#define SECONDS_TO_MICROSECONDS(x)  ((x) * 1000000)
+#define MS_TO_MICROSECONDS(x)       ((x) * 1000)
+
+/**
+  Conversions to nanoseconds for use in e.g. PciIo->PollMem.
+**/
+#define SECONDS_TO_NANOSECONDS(x)  ((x) * 1000000000)
+#define MS_TO_NANOSECONDS(x)       ((x) * 1000000)
 
 BOOLEAN
 FindPattern (
@@ -36,7 +43,7 @@ FindPattern (
   IN CONST UINT32  PatternSize,
   IN CONST UINT8   *Data,
   IN UINT32        DataSize,
-  IN UINT32        *DataOff
+  IN OUT UINT32    *DataOff
   );
 
 UINT32
@@ -125,26 +132,28 @@ OcCountProtocolInstances (
 **/
 VOID *
 OcGetProtocol (
-  IN  EFI_GUID      *Protocol,
-  IN  UINTN         ErrorLevel,
-  IN  CONST CHAR8   *CallerName     OPTIONAL,
-  IN  CONST CHAR8   *ProtocolName   OPTIONAL
+  IN  EFI_GUID     *Protocol,
+  IN  UINTN        ErrorLevel,
+  IN  CONST CHAR8  *CallerName     OPTIONAL,
+  IN  CONST CHAR8  *ProtocolName   OPTIONAL
   );
 
 /**
   Run and execute image file from buffer.
 
-  @param[in]  DevicePath   Image device path, optional.
-  @param[in]  Buffer       Buffer with image data, optional when DP is given.
-  @param[in]  BufferSize   Image data size in the buffer.
-  @param[out] ImageHandle  Loaded image handle for drivers, optional.
+  @param[in]  DevicePath    Image device path, optional.
+  @param[in]  Buffer        Buffer with image data, optional when DP is given.
+  @param[in]  BufferSize    Image data size in the buffer.
+  @param[out] ImageHandle   Loaded image handle for drivers, optional.
+  @param[out] OptionalData  Data that is passed to the loaded image, optional.
 **/
 EFI_STATUS
 OcLoadAndRunImage (
-  IN   EFI_DEVICE_PATH_PROTOCOL  *DevicePath  OPTIONAL,
-  IN   VOID                      *Buffer      OPTIONAL,
+  IN   EFI_DEVICE_PATH_PROTOCOL  *DevicePath   OPTIONAL,
+  IN   VOID                      *Buffer       OPTIONAL,
   IN   UINTN                     BufferSize,
-  OUT  EFI_HANDLE                *ImageHandle OPTIONAL
+  OUT  EFI_HANDLE                *ImageHandle  OPTIONAL,
+  IN   CHAR16                    *OptionalData OPTIONAL
   );
 
 /**
@@ -162,7 +171,7 @@ OcReadApplePlatformFirstData (
   IN      APPLE_PLATFORM_INFO_DATABASE_PROTOCOL  *PlatformInfo,
   IN      EFI_GUID                               *DataGuid,
   IN OUT  UINT32                                 *Size,
-     OUT  VOID                                   *Data
+  OUT  VOID                                      *Data
   );
 
 /**
@@ -200,7 +209,7 @@ OcReadApplePlatformData (
   IN      EFI_GUID                               *DataGuid,
   IN      EFI_GUID                               *HobGuid,
   IN OUT  UINT32                                 *Size,
-     OUT  VOID                                   *Data
+  OUT  VOID                                      *Data
   );
 
 /**
@@ -246,8 +255,8 @@ OcConsoleFlush (
   @param  ExpectedValue  Expected value (should be convertible to INTN).
 
 **/
-#if !defined(MDEPKG_NDEBUG)
-  #define ASSERT_EQUALS(Expression, ExpectedValue)    \
+#if !defined (MDEPKG_NDEBUG)
+#define ASSERT_EQUALS(Expression, ExpectedValue)    \
     do {                                      \
       if (DebugAssertEnabled ()) {            \
         if ((Expression) != (ExpectedValue)) {        \
@@ -258,7 +267,7 @@ OcConsoleFlush (
       }                                       \
     } while (FALSE)
 #else
-  #define ASSERT_EQUALS(Expression, ExpectedValue)
+#define ASSERT_EQUALS(Expression, ExpectedValue)
 #endif
 
 #endif // OC_MISC_LIB_H

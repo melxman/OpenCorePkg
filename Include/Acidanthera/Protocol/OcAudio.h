@@ -19,7 +19,7 @@
 #include <Protocol/AppleVoiceOver.h>
 #include <Protocol/DevicePath.h>
 
-#define OC_AUDIO_PROTOCOL_REVISION  0x020000
+#define OC_AUDIO_PROTOCOL_REVISION  0x070000
 
 //
 // OC_AUDIO_PROTOCOL_GUID
@@ -32,95 +32,56 @@
 typedef struct OC_AUDIO_PROTOCOL_ OC_AUDIO_PROTOCOL;
 
 /**
+  Voice over base types.
+**/
+#define OC_VOICE_OVER_AUDIO_BASE_TYPE_APPLE      "AXEFIAudio"
+#define OC_VOICE_OVER_AUDIO_BASE_TYPE_OPEN_CORE  "OCEFIAudio"
+
+/**
   Custom OpenCore audio files.
 **/
-typedef enum {
-  OcVoiceOverAudioFileBase                  = 0x1000,
-
-  OcVoiceOverAudioFileIndexBase             = 0x1000,
-  OcVoiceOverAudioFile1                     = 0x1001,
-  OcVoiceOverAudioFile2                     = 0x1002,
-  OcVoiceOverAudioFile3                     = 0x1003,
-  OcVoiceOverAudioFile4                     = 0x1004,
-  OcVoiceOverAudioFile5                     = 0x1005,
-  OcVoiceOverAudioFile6                     = 0x1006,
-  OcVoiceOverAudioFile7                     = 0x1007,
-  OcVoiceOverAudioFile8                     = 0x1008,
-  OcVoiceOverAudioFile9                     = 0x1009,
-  OcVoiceOverAudioFileIndexAlphabetical     = 0x100A,
-  OcVoiceOverAudioFileLetterA               = 0x100A,
-  OcVoiceOverAudioFileLetterB               = 0x100B,
-  OcVoiceOverAudioFileLetterC               = 0x100C,
-  OcVoiceOverAudioFileLetterD               = 0x100D,
-  OcVoiceOverAudioFileLetterE               = 0x100E,
-  OcVoiceOverAudioFileLetterF               = 0x100F,
-  OcVoiceOverAudioFileLetterG               = 0x1010,
-  OcVoiceOverAudioFileLetterH               = 0x1011,
-  OcVoiceOverAudioFileLetterI               = 0x1012,
-  OcVoiceOverAudioFileLetterJ               = 0x1013,
-  OcVoiceOverAudioFileLetterK               = 0x1014,
-  OcVoiceOverAudioFileLetterL               = 0x1015,
-  OcVoiceOverAudioFileLetterM               = 0x1016,
-  OcVoiceOverAudioFileLetterN               = 0x1017,
-  OcVoiceOverAudioFileLetterO               = 0x1018,
-  OcVoiceOverAudioFileLetterP               = 0x1019,
-  OcVoiceOverAudioFileLetterQ               = 0x101A,
-  OcVoiceOverAudioFileLetterR               = 0x101B,
-  OcVoiceOverAudioFileLetterS               = 0x101C,
-  OcVoiceOverAudioFileLetterT               = 0x101D,
-  OcVoiceOverAudioFileLetterU               = 0x101E,
-  OcVoiceOverAudioFileLetterV               = 0x101F,
-  OcVoiceOverAudioFileLetterW               = 0x1020,
-  OcVoiceOverAudioFileLetterX               = 0x1021,
-  OcVoiceOverAudioFileLetterY               = 0x1022,
-  OcVoiceOverAudioFileLetterZ               = 0x1023,
-  OcVoiceOverAudioFileIndexMax              = 0x1023,
-
-  OcVoiceOverAudioFileAbortTimeout          = 0x1030,
-  OcVoiceOverAudioFileChooseOS              = 0x1031,
-  OcVoiceOverAudioFileDefault               = 0x1032,
-  OcVoiceOverAudioFileDiskImage             = 0x1033,
-  OcVoiceOverAudioFileEnterPassword         = 0x1034,
-  OcVoiceOverAudioFileExecutionFailure      = 0x1035,
-  OcVoiceOverAudioFileExecutionSuccessful   = 0x1036,
-  OcVoiceOverAudioFileExternal              = 0x1037,
-  OcVoiceOverAudioFileExternalOS            = 0x1038,
-  OcVoiceOverAudioFileExternalTool          = 0x1039,
-  OcVoiceOverAudioFileLoading               = 0x103A,
-  OcVoiceOverAudioFilemacOS                 = 0x103B,
-  OcVoiceOverAudioFilemacOS_Recovery        = 0x103C,
-  OcVoiceOverAudioFilemacOS_TimeMachine     = 0x103D,
-  OcVoiceOverAudioFilemacOS_UpdateFw        = 0x103E,
-  OcVoiceOverAudioFileOtherOS               = 0x103F,
-  OcVoiceOverAudioFilePasswordAccepted      = 0x1040,
-  OcVoiceOverAudioFilePasswordIncorrect     = 0x1041,
-  OcVoiceOverAudioFilePasswordRetryLimit    = 0x1042,
-  OcVoiceOverAudioFileReloading             = 0x1043,
-  OcVoiceOverAudioFileResetNVRAM            = 0x1044,
-  OcVoiceOverAudioFileRestart               = 0x1045,
-  OcVoiceOverAudioFileSelected              = 0x1046,
-  OcVoiceOverAudioFileShowAuxiliary         = 0x1047,
-  OcVoiceOverAudioFileShutDown              = 0x1048,
-  OcVoiceOverAudioFileSIPIsDisabled         = 0x1049,
-  OcVoiceOverAudioFileSIPIsEnabled          = 0x104A,
-  OcVoiceOverAudioFileTimeout               = 0x104B,
-  OcVoiceOverAudioFileUEFI_Shell            = 0x104C,
-  OcVoiceOverAudioFileWelcome               = 0x104D,
-  OcVoiceOverAudioFileWindows               = 0x104E,
-
-  OcVoiceOverAudioFileMax                   = 0x104F,
-} OC_VOICE_OVER_AUDIO_FILE;
-
-STATIC_ASSERT (OcVoiceOverAudioFileIndexMax - OcVoiceOverAudioFileIndexBase == 9 + 26, "Invalid index count");
+#define  OC_VOICE_OVER_AUDIO_FILE_ABORT_TIMEOUT         "AbortTimeout"
+#define  OC_VOICE_OVER_AUDIO_FILE_CHOOSE_OS             "ChooseOS"
+#define  OC_VOICE_OVER_AUDIO_FILE_DEFAULT               "Default"
+#define  OC_VOICE_OVER_AUDIO_FILE_DISK_IMAGE            "DiskImage"
+#define  OC_VOICE_OVER_AUDIO_FILE_ENTER_PASSWORD        "EnterPassword"
+#define  OC_VOICE_OVER_AUDIO_FILE_EXECUTION_FAILURE     "ExecutionFailure"
+#define  OC_VOICE_OVER_AUDIO_FILE_EXECUTION_SUCCESSFUL  "ExecutionSuccessful"
+#define  OC_VOICE_OVER_AUDIO_FILE_EXTERNAL              "External"
+#define  OC_VOICE_OVER_AUDIO_FILE_EXTERNAL_OS           "ExternalOS"
+#define  OC_VOICE_OVER_AUDIO_FILE_EXTERNAL_TOOL         "ExternalTool"
+#define  OC_VOICE_OVER_AUDIO_FILE_FIRMWARE_SETTINGS     "FirmwareSettings"
+#define  OC_VOICE_OVER_AUDIO_FILE_LOADING               "Loading"
+#define  OC_VOICE_OVER_AUDIO_FILE_MAC_OS                "macOS"
+#define  OC_VOICE_OVER_AUDIO_FILE_MAC_OS_RECOVERY       "macOS_Recovery"
+#define  OC_VOICE_OVER_AUDIO_FILE_MAC_OS_TIME_MACHINE   "macOS_TimeMachine"
+#define  OC_VOICE_OVER_AUDIO_FILE_MAC_OS_UPDATE_FW      "macOS_UpdateFw"
+#define  OC_VOICE_OVER_AUDIO_FILE_NETWORK_BOOT          "NetworkBoot"
+#define  OC_VOICE_OVER_AUDIO_FILE_OTHER_OS              "OtherOS"
+#define  OC_VOICE_OVER_AUDIO_FILE_PASSWORD_ACCEPTED     "PasswordAccepted"
+#define  OC_VOICE_OVER_AUDIO_FILE_PASSWORD_INCORRECT    "PasswordIncorrect"
+#define  OC_VOICE_OVER_AUDIO_FILE_PASSWORD_RETRY_LIMIT  "PasswordRetryLimit"
+#define  OC_VOICE_OVER_AUDIO_FILE_RELOADING             "Reloading"
+#define  OC_VOICE_OVER_AUDIO_FILE_RESET_NVRAM           "ResetNVRAM"
+#define  OC_VOICE_OVER_AUDIO_FILE_RESTART               "Restart"
+#define  OC_VOICE_OVER_AUDIO_FILE_SELECTED              "Selected"
+#define  OC_VOICE_OVER_AUDIO_FILE_SHOW_AUXILIARY        "ShowAuxiliary"
+#define  OC_VOICE_OVER_AUDIO_FILE_SHUT_DOWN             "ShutDown"
+#define  OC_VOICE_OVER_AUDIO_FILE_SIP_IS_DISABLED       "SIPIsDisabled"
+#define  OC_VOICE_OVER_AUDIO_FILE_SIP_IS_ENABLED        "SIPIsEnabled"
+#define  OC_VOICE_OVER_AUDIO_FILE_TIMEOUT               "Timeout"
+#define  OC_VOICE_OVER_AUDIO_FILE_UEFI_SHELL            "UEFI_Shell"
+#define  OC_VOICE_OVER_AUDIO_FILE_VOICE_OVER_BOOT       "VoiceOver_Boot"
+#define  OC_VOICE_OVER_AUDIO_FILE_WELCOME               "Welcome"
+#define  OC_VOICE_OVER_AUDIO_FILE_WINDOWS               "Windows"
 
 /**
   Connect to Audio I/O.
 
-  @param[in,out] This         Audio protocol instance.
-  @param[in]     DevicePath   Controller device path, optional.
-  @param[in]     CodecAddress Codec address, optional.
-  @param[in]     OutputIndex  Output index, optional.
-  @param[in]     Volume       Raw volume level from 0 to 100.
+  @param[in,out] This             Audio protocol instance.
+  @param[in]     DevicePath       Controller device path, optional.
+  @param[in]     CodecAddress     Codec address, optional.
+  @param[in]     OutputIndexMask  Output index mask.
 
   @retval EFI_SUCESS on success.
   @retval EFI_NOT_FOUND when missing.
@@ -128,20 +89,37 @@ STATIC_ASSERT (OcVoiceOverAudioFileIndexMax - OcVoiceOverAudioFileIndexBase == 9
 **/
 typedef
 EFI_STATUS
-(EFIAPI* OC_AUDIO_CONNECT) (
+(EFIAPI *OC_AUDIO_CONNECT)(
   IN OUT OC_AUDIO_PROTOCOL         *This,
-  IN     EFI_DEVICE_PATH_PROTOCOL  *DevicePath  OPTIONAL,
-  IN     UINT8                     CodecAddress OPTIONAL,
-  IN     UINT8                     OutputIndex  OPTIONAL,
-  IN     UINT8                     Volume
+  IN     EFI_DEVICE_PATH_PROTOCOL  *DevicePath      OPTIONAL,
+  IN     UINT8                     CodecAddress     OPTIONAL,
+  IN     UINT64                    OutputIndexMask
   );
 
 /**
-  Retrive file contents callback.
+  Set Audio I/O default gain.
+
+  @param[in,out] This             Audio protocol instance.
+  @param[in]     Gain             The amplifier gain (or attenuation if negative) in dB to use, relative to 0 dB level (0 dB
+                                  is usually at at or near max available volume, but is not required to be so in the spec).
+
+  @retval EFI_SUCESS on success.
+**/
+typedef
+EFI_STATUS
+(EFIAPI *OC_AUDIO_SET_DEFAULT_GAIN)(
+  IN OUT OC_AUDIO_PROTOCOL         *This,
+  IN     INT8                      Gain
+  );
+
+/**
+  Retrieve file contents callback.
 
   @param[in,out]  Context      Externally specified context.
-  @param[in]      File         File identifier, see APPLE_VOICE_OVER_AUDIO_FILE.
-  @paran[in]      LanguageCode Language code for the file.
+  @param[in]      BasePath     File base path.
+  @param[in]      BaseType     Audio base type.
+  @param[in]      Localised    Is file localised?
+  @param[in]      LanguageCode Language code for the file.
   @param[out]     Buffer       Pointer to buffer.
   @param[out]     BufferSize   Pointer to buffer size.
   @param[out]     Frequency    Decoded PCM frequency.
@@ -152,9 +130,11 @@ EFI_STATUS
 **/
 typedef
 EFI_STATUS
-(EFIAPI* OC_AUDIO_PROVIDER_ACQUIRE) (
+(EFIAPI *OC_AUDIO_PROVIDER_ACQUIRE)(
   IN  VOID                            *Context,
-  IN  UINT32                          File,
+  IN  CONST CHAR8                     *BasePath,
+  IN  CONST CHAR8                     *BaseType,
+  IN  BOOLEAN                         Localised,
   IN  APPLE_VOICE_OVER_LANGUAGE_CODE  LanguageCode,
   OUT UINT8                           **Buffer,
   OUT UINT32                          *BufferSize,
@@ -173,7 +153,7 @@ EFI_STATUS
 **/
 typedef
 EFI_STATUS
-(EFIAPI* OC_AUDIO_PROVIDER_RELEASE) (
+(EFIAPI *OC_AUDIO_PROVIDER_RELEASE)(
   IN  VOID                            *Context,
   IN  UINT8                           *Buffer
   );
@@ -190,7 +170,7 @@ EFI_STATUS
 **/
 typedef
 EFI_STATUS
-(EFIAPI* OC_AUDIO_SET_PROVIDER) (
+(EFIAPI *OC_AUDIO_SET_PROVIDER)(
   IN OUT OC_AUDIO_PROTOCOL          *This,
   IN     OC_AUDIO_PROVIDER_ACQUIRE  Acquire,
   IN     OC_AUDIO_PROVIDER_RELEASE  Release  OPTIONAL,
@@ -198,20 +178,46 @@ EFI_STATUS
   );
 
 /**
+  Convert raw amplifier gain setting to decibel gain value; converts using the parameters of the first
+  channel specified for sound on the current codec which has non-zero amp capabilities.
+
+  @param[in,out] This         Audio protocol instance.
+  @param[in]     GainParam    Raw codec gain param.
+  @param[out]    Gain         The amplifier gain (or attenuation if negative) in dB to use, relative to 0 dB level.
+
+  @retval EFI_SUCCESS on successful conversion.
+**/
+typedef
+EFI_STATUS
+(EFIAPI *OC_AUDIO_RAW_GAIN_TO_DECIBELS)(
+  IN OUT OC_AUDIO_PROTOCOL          *This,
+  IN     UINT8                      GainParam,
+  OUT INT8                       *Gain
+  );
+
+/**
   Play file.
 
   @param[in,out] This         Audio protocol instance.
-  @param[in]     File         File to play.
+  @param[in]     BasePath     File base path.
+  @param[in]     BaseType     Audio base type.
+  @param[in]     Localised    Is file localised?
+  @param[in]     Gain         The amplifier gain (or attenuation if negative) in dB to use, relative to 0 dB level.
+  @param[in]     UseGain      If TRUE use provided volume level, otherwise use stored global volume level.
   @param[in]     Wait         Wait for completion of the previous track.
 
   @retval EFI_SUCCESS on successful playback startup.
 **/
 typedef
 EFI_STATUS
-(EFIAPI* OC_AUDIO_PLAY_FILE) (
-  IN OUT OC_AUDIO_PROTOCOL          *This,
-  IN     UINT32                     File,
-  IN     BOOLEAN                    Wait
+(EFIAPI *OC_AUDIO_PLAY_FILE)(
+  IN OUT OC_AUDIO_PROTOCOL              *This,
+  IN     CONST CHAR8                    *BasePath,
+  IN     CONST CHAR8                    *BaseType,
+  IN     BOOLEAN                        Localised,
+  IN     INT8                           Gain  OPTIONAL,
+  IN     BOOLEAN                        UseGain,
+  IN     BOOLEAN                        Wait
   );
 
 /**
@@ -224,7 +230,7 @@ EFI_STATUS
 **/
 typedef
 EFI_STATUS
-(EFIAPI* OC_AUDIO_STOP_PLAYBACK) (
+(EFIAPI *OC_AUDIO_STOP_PLAYBACK)(
   IN OUT OC_AUDIO_PROTOCOL          *This,
   IN     BOOLEAN                    Wait
   );
@@ -233,13 +239,13 @@ EFI_STATUS
   Set playback delay.
 
   @param[in,out] This         Audio protocol instance.
-  @param[in]     Delay        Delay after audio configuration in microseconds.
+  @param[in]     Delay        Delay after audio configuration in milliseconds.
 
   @return previous delay, defaults to 0.
 **/
 typedef
 UINTN
-(EFIAPI* OC_AUDIO_SET_DELAY) (
+(EFIAPI *OC_AUDIO_SET_DELAY)(
   IN OUT OC_AUDIO_PROTOCOL          *This,
   IN     UINTN                      Delay
   );
@@ -248,14 +254,16 @@ UINTN
 // Includes a revision for debugging reasons.
 //
 struct OC_AUDIO_PROTOCOL_ {
-  UINTN                   Revision;
-  OC_AUDIO_CONNECT        Connect;
-  OC_AUDIO_SET_PROVIDER   SetProvider;
-  OC_AUDIO_PLAY_FILE      PlayFile;
-  OC_AUDIO_STOP_PLAYBACK  StopPlayback;
-  OC_AUDIO_SET_DELAY      SetDelay;
+  UINTN                            Revision;
+  OC_AUDIO_CONNECT                 Connect;
+  OC_AUDIO_RAW_GAIN_TO_DECIBELS    RawGainToDecibels;
+  OC_AUDIO_SET_DEFAULT_GAIN        SetDefaultGain;
+  OC_AUDIO_SET_PROVIDER            SetProvider;
+  OC_AUDIO_PLAY_FILE               PlayFile;
+  OC_AUDIO_STOP_PLAYBACK           StopPlayback;
+  OC_AUDIO_SET_DELAY               SetDelay;
 };
 
-extern EFI_GUID gOcAudioProtocolGuid;
+extern EFI_GUID  gOcAudioProtocolGuid;
 
 #endif // OC_AUDIO_PROTOCOL_H

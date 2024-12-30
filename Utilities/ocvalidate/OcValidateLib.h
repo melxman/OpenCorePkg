@@ -23,7 +23,7 @@
 
 /**
   Get current timestamp in milliseconds.
-  
+
   @return     Current timestamp in milliseconds.
 **/
 INT64
@@ -65,8 +65,8 @@ AsciiCommentIsLegal (
 **/
 BOOLEAN
 AsciiIdentifierIsLegal (
-  IN  CONST CHAR8    *Identifier,
-  IN  BOOLEAN        IsKernelIdentifier
+  IN  CONST CHAR8  *Identifier,
+  IN  BOOLEAN      IsKernelIdentifier
   );
 
 /**
@@ -79,8 +79,8 @@ AsciiIdentifierIsLegal (
 **/
 BOOLEAN
 AsciiArchIsLegal (
-  IN  CONST CHAR8    *Arch,
-  IN  BOOLEAN        IsKernelArch
+  IN  CONST CHAR8  *Arch,
+  IN  BOOLEAN      IsKernelArch
   );
 
 /**
@@ -99,13 +99,15 @@ AsciiPropertyIsLegal (
 /**
   Check if a UEFI Driver matches specific conventions.
 
-  @param[in]  Driver                   Driver to be checked.
+  @param[in]  Driver                   Driver path name to be checked.
+  @param[in]  DriverIndex              Index of driver being checked.
 
   @retval     TRUE                     If path of Driver contains .efi suffix, and only contains 0-9, A-Z, a-z, '_', '-', '.', and '/'.
 **/
 BOOLEAN
 AsciiUefiDriverIsLegal (
-  IN  CONST CHAR8  *Driver
+  IN  CONST CHAR8  *Driver,
+  IN  CONST UINTN  DriverIndex
   );
 
 /**
@@ -139,15 +141,17 @@ AsciiGuidIsLegal (
 
   @param[in]  Data                     Data to be checked.
   @param[in]  Mask                     Mask to be applied to Data.
-  @param[in]  Size                     Size of Data and Mask.
+  @param[in]  DataSize                 Size of Data.
+  @param[in]  MaskSize                 Size of Mask.
 
   @retval     TRUE                     If corresponding bits of Mask to Data are active (set to non-zero).
 **/
 BOOLEAN
 DataHasProperMasking (
-  IN  CONST VOID   *Data,
-  IN  CONST VOID   *Mask,
-  IN  UINTN        Size
+  IN  CONST VOID  *Data,
+  IN  CONST VOID  *Mask,
+  IN  UINTN       DataSize,
+  IN  UINTN       MaskSize
   );
 
 /**
@@ -173,17 +177,17 @@ DataHasProperMasking (
 **/
 UINT32
 ValidatePatch (
-  IN   CONST   CHAR8   *PatchSection,
-  IN   UINT32          PatchIndex,
-  IN   BOOLEAN         FindSizeCanBeZero,
-  IN   CONST   UINT8   *Find,
-  IN   UINT32          FindSize,
-  IN   CONST   UINT8   *Replace,
-  IN   UINT32          ReplaceSize,
-  IN   CONST   UINT8   *Mask,
-  IN   UINT32          MaskSize,
-  IN   CONST   UINT8   *ReplaceMask,
-  IN   UINT32          ReplaceMaskSize
+  IN   CONST   CHAR8  *PatchSection,
+  IN   UINT32         PatchIndex,
+  IN   BOOLEAN        FindSizeCanBeZero,
+  IN   CONST   UINT8  *Find,
+  IN   UINT32         FindSize,
+  IN   CONST   UINT8  *Replace,
+  IN   UINT32         ReplaceSize,
+  IN   CONST   UINT8  *Mask,
+  IN   UINT32         MaskSize,
+  IN   CONST   UINT8  *ReplaceMask,
+  IN   UINT32         ReplaceMaskSize
   );
 
 /**
@@ -227,7 +231,7 @@ BOOLEAN
 StringIsDuplicated (
   IN  CONST CHAR8  *EntrySection,
   IN  CONST CHAR8  *FirstString,
-  IN  CONST CHAR8  *SecondString  
+  IN  CONST CHAR8  *SecondString
   );
 
 /**

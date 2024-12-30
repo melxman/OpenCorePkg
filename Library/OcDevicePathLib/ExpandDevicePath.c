@@ -11,6 +11,7 @@ SPDX-License-Identifier: BSD-2-Clause-Patent
 
 #include <IndustryStandard/Pci.h>
 
+#include <Guid/AppleDevicePath.h>
 #include <Guid/Gpt.h>
 
 #include <Protocol/BlockIo.h>
@@ -28,13 +29,14 @@ SPDX-License-Identifier: BSD-2-Clause-Patent
 #include <Library/OcFileLib.h>
 #include <Library/UefiBootServicesTableLib.h>
 
-#define ACPI_VMD0001_HID 0x000159A4 // EisaId ("VMD0001")
-#define ACPI_VBS0001_HID 0x00015853 // EisaId ("VBS0001")
+#define ACPI_VMD0001_HID  0x000159A4 // EisaId ("VMD0001")
+#define ACPI_VBS0001_HID  0x00015853 // EisaId ("VBS0001")
 
 // CHANGE: Track InternalConnectAll() execution status.
-STATIC BOOLEAN mConnectAllExecuted = FALSE;
+STATIC BOOLEAN  mConnectAllExecuted = FALSE;
 
 // CHANGE: Added from UefiBootManagerLib
+
 /**
   Connect all the drivers to all the controllers.
 
@@ -89,8 +91,8 @@ InternalConnectAll (
 STATIC
 BOOLEAN
 BmMatchUsbClass (
-  IN EFI_USB_IO_PROTOCOL        *UsbIo,
-  IN USB_CLASS_DEVICE_PATH      *UsbClass
+  IN EFI_USB_IO_PROTOCOL    *UsbIo,
+  IN USB_CLASS_DEVICE_PATH  *UsbClass
   )
 {
   EFI_STATUS                    Status;
@@ -101,7 +103,8 @@ BmMatchUsbClass (
   UINT8                         DeviceProtocol;
 
   if ((DevicePathType (UsbClass) != MESSAGING_DEVICE_PATH) ||
-      (DevicePathSubType (UsbClass) != MSG_USB_CLASS_DP)){
+      (DevicePathSubType (UsbClass) != MSG_USB_CLASS_DP))
+  {
     return FALSE;
   }
 
@@ -114,12 +117,14 @@ BmMatchUsbClass (
   }
 
   if ((UsbClass->VendorId != 0xffff) &&
-      (UsbClass->VendorId != DevDesc.IdVendor)) {
+      (UsbClass->VendorId != DevDesc.IdVendor))
+  {
     return FALSE;
   }
 
   if ((UsbClass->ProductId != 0xffff) &&
-      (UsbClass->ProductId != DevDesc.IdProduct)) {
+      (UsbClass->ProductId != DevDesc.IdProduct))
+  {
     return FALSE;
   }
 
@@ -145,17 +150,20 @@ BmMatchUsbClass (
   // Check Class, SubClass and Protocol.
   //
   if ((UsbClass->DeviceClass != 0xff) &&
-      (UsbClass->DeviceClass != DeviceClass)) {
+      (UsbClass->DeviceClass != DeviceClass))
+  {
     return FALSE;
   }
 
   if ((UsbClass->DeviceSubClass != 0xff) &&
-      (UsbClass->DeviceSubClass != DeviceSubClass)) {
+      (UsbClass->DeviceSubClass != DeviceSubClass))
+  {
     return FALSE;
   }
 
   if ((UsbClass->DeviceProtocol != 0xff) &&
-      (UsbClass->DeviceProtocol != DeviceProtocol)) {
+      (UsbClass->DeviceProtocol != DeviceProtocol))
+  {
     return FALSE;
   }
 
@@ -176,23 +184,24 @@ BmMatchUsbClass (
 STATIC
 BOOLEAN
 BmMatchUsbWwid (
-  IN EFI_USB_IO_PROTOCOL        *UsbIo,
-  IN USB_WWID_DEVICE_PATH       *UsbWwid
+  IN EFI_USB_IO_PROTOCOL   *UsbIo,
+  IN USB_WWID_DEVICE_PATH  *UsbWwid
   )
 {
-  EFI_STATUS                   Status;
-  EFI_USB_DEVICE_DESCRIPTOR    DevDesc;
-  EFI_USB_INTERFACE_DESCRIPTOR IfDesc;
-  UINT16                       *LangIdTable;
-  UINT16                       TableSize;
-  UINT16                       Index;
-  CHAR16                       *CompareStr;
-  UINTN                        CompareLen;
-  CHAR16                       *SerialNumberStr;
-  UINTN                        Length;
+  EFI_STATUS                    Status;
+  EFI_USB_DEVICE_DESCRIPTOR     DevDesc;
+  EFI_USB_INTERFACE_DESCRIPTOR  IfDesc;
+  UINT16                        *LangIdTable;
+  UINT16                        TableSize;
+  UINT16                        Index;
+  CHAR16                        *CompareStr;
+  UINTN                         CompareLen;
+  CHAR16                        *SerialNumberStr;
+  UINTN                         Length;
 
   if ((DevicePathType (UsbWwid) != MESSAGING_DEVICE_PATH) ||
-      (DevicePathSubType (UsbWwid) != MSG_USB_WWID_DP)) {
+      (DevicePathSubType (UsbWwid) != MSG_USB_WWID_DP))
+  {
     return FALSE;
   }
 
@@ -203,8 +212,10 @@ BmMatchUsbWwid (
   if (EFI_ERROR (Status)) {
     return FALSE;
   }
+
   if ((DevDesc.IdVendor != UsbWwid->VendorId) ||
-      (DevDesc.IdProduct != UsbWwid->ProductId)) {
+      (DevDesc.IdProduct != UsbWwid->ProductId))
+  {
     return FALSE;
   }
 
@@ -215,6 +226,7 @@ BmMatchUsbWwid (
   if (EFI_ERROR (Status)) {
     return FALSE;
   }
+
   if (IfDesc.InterfaceNumber != UsbWwid->InterfaceNumber) {
     return FALSE;
   }
@@ -229,9 +241,9 @@ BmMatchUsbWwid (
   //
   // Get all supported languages.
   //
-  TableSize = 0;
+  TableSize   = 0;
   LangIdTable = NULL;
-  Status = UsbIo->UsbGetSupportedLanguages (UsbIo, &LangIdTable, &TableSize);
+  Status      = UsbIo->UsbGetSupportedLanguages (UsbIo, &LangIdTable, &TableSize);
   if (EFI_ERROR (Status) || (TableSize == 0) || (LangIdTable == NULL)) {
     return FALSE;
   }
@@ -239,7 +251,7 @@ BmMatchUsbWwid (
   //
   // Serial number in USB WWID device path is the last 64-or-less UTF-16 characters.
   //
-  CompareStr = (CHAR16 *) (UINTN) (UsbWwid + 1);
+  CompareStr = (CHAR16 *)(UINTN)(UsbWwid + 1);
   CompareLen = (DevicePathNodeLength (UsbWwid) - sizeof (USB_WWID_DEVICE_PATH)) / sizeof (CHAR16);
   if (CompareStr[CompareLen - 1] == L'\0') {
     CompareLen--;
@@ -250,19 +262,20 @@ BmMatchUsbWwid (
   //
   for (Index = 0; Index < TableSize / sizeof (UINT16); Index++) {
     SerialNumberStr = NULL;
-    Status = UsbIo->UsbGetStringDescriptor (
-                      UsbIo,
-                      LangIdTable[Index],
-                      DevDesc.StrSerialNumber,
-                      &SerialNumberStr
-                      );
+    Status          = UsbIo->UsbGetStringDescriptor (
+                               UsbIo,
+                               LangIdTable[Index],
+                               DevDesc.StrSerialNumber,
+                               &SerialNumberStr
+                               );
     if (EFI_ERROR (Status) || (SerialNumberStr == NULL)) {
       continue;
     }
 
     Length = StrLen (SerialNumberStr);
     if ((Length >= CompareLen) &&
-        (CompareMem (SerialNumberStr + Length - CompareLen, CompareStr, CompareLen * sizeof (CHAR16)) == 0)) {
+        (CompareMem (SerialNumberStr + Length - CompareLen, CompareStr, CompareLen * sizeof (CHAR16)) == 0))
+    {
       FreePool (SerialNumberStr);
       return TRUE;
     }
@@ -324,28 +337,28 @@ BmFindUsbDevice (
     //
     // Get the Usb IO interface.
     //
-    Status = gBS->HandleProtocol(
+    Status = gBS->HandleProtocol (
                     UsbIoHandles[Index],
                     &gEfiUsbIoProtocolGuid,
-                    (VOID **) &UsbIo
+                    (VOID **)&UsbIo
                     );
     UsbIoDevicePath = DevicePathFromHandle (UsbIoHandles[Index]);
     Matched         = FALSE;
     if (!EFI_ERROR (Status) && (UsbIoDevicePath != NULL)) {
-
       //
       // Compare starting part of UsbIoHandle's device path with ParentDevicePath.
       //
       if (CompareMem (UsbIoDevicePath, DevicePath, ParentDevicePathSize) == 0) {
-        if (BmMatchUsbClass (UsbIo, (USB_CLASS_DEVICE_PATH *) ((UINTN) DevicePath + ParentDevicePathSize)) ||
-            BmMatchUsbWwid (UsbIo, (USB_WWID_DEVICE_PATH *) ((UINTN) DevicePath + ParentDevicePathSize))) {
+        if (BmMatchUsbClass (UsbIo, (USB_CLASS_DEVICE_PATH *)((UINTN)DevicePath + ParentDevicePathSize)) ||
+            BmMatchUsbWwid (UsbIo, (USB_WWID_DEVICE_PATH *)((UINTN)DevicePath + ParentDevicePathSize)))
+        {
           Matched = TRUE;
         }
       }
     }
 
     if (!Matched) {
-      (*UsbIoHandleCount) --;
+      (*UsbIoHandleCount)--;
       CopyMem (&UsbIoHandles[Index], &UsbIoHandles[Index + 1], (*UsbIoHandleCount - Index) * sizeof (EFI_HANDLE));
     } else {
       Index++;
@@ -389,19 +402,19 @@ BmExpandUsbDevicePath (
   IN  EFI_DEVICE_PATH_PROTOCOL  *ShortformNode
   )
 {
-  UINTN                             ParentDevicePathSize;
-  EFI_DEVICE_PATH_PROTOCOL          *RemainingDevicePath;
-  EFI_DEVICE_PATH_PROTOCOL          *NextFullPath;
-  EFI_HANDLE                        *Handles;
-  UINTN                             HandleCount;
-  UINTN                             Index;
-  BOOLEAN                           GetNext;
+  UINTN                     ParentDevicePathSize;
+  EFI_DEVICE_PATH_PROTOCOL  *RemainingDevicePath;
+  EFI_DEVICE_PATH_PROTOCOL  *NextFullPath;
+  EFI_HANDLE                *Handles;
+  UINTN                     HandleCount;
+  UINTN                     Index;
+  BOOLEAN                   GetNext;
 
-  NextFullPath = NULL;
-  GetNext = (BOOLEAN)(FullPath == NULL);
-  ParentDevicePathSize = (UINTN) ShortformNode - (UINTN) FilePath;
-  RemainingDevicePath = NextDevicePathNode (ShortformNode);
-  Handles = BmFindUsbDevice (FilePath, ParentDevicePathSize, &HandleCount);
+  NextFullPath         = NULL;
+  GetNext              = (BOOLEAN)(FullPath == NULL);
+  ParentDevicePathSize = (UINTN)ShortformNode - (UINTN)FilePath;
+  RemainingDevicePath  = NextDevicePathNode (ShortformNode);
+  Handles              = BmFindUsbDevice (FilePath, ParentDevicePathSize, &HandleCount);
 
   for (Index = 0; Index < HandleCount; Index++) {
     FilePath = AppendDevicePath (DevicePathFromHandle (Handles[Index]), RemainingDevicePath);
@@ -411,6 +424,7 @@ BmExpandUsbDevicePath (
       //
       continue;
     }
+
     NextFullPath = OcGetNextLoadOptionDevicePath (FilePath, NULL);
     FreePool (FilePath);
     if (NextFullPath == NULL) {
@@ -419,6 +433,7 @@ BmExpandUsbDevicePath (
       //
       continue;
     }
+
     if (GetNext) {
       break;
     } else {
@@ -448,22 +463,22 @@ BmExpandUsbDevicePath (
 STATIC
 EFI_DEVICE_PATH_PROTOCOL *
 BmExpandMediaDevicePath (
-  IN  EFI_DEVICE_PATH_PROTOCOL        *DevicePath,
-  IN  EFI_DEVICE_PATH_PROTOCOL        *FullPath,
-  IN  EFI_HANDLE                      Handle
+  IN  EFI_DEVICE_PATH_PROTOCOL  *DevicePath,
+  IN  EFI_DEVICE_PATH_PROTOCOL  *FullPath,
+  IN  EFI_HANDLE                Handle
   )
 {
-  EFI_STATUS                          Status;
-  EFI_BLOCK_IO_PROTOCOL               *BlockIo;
-  VOID                                *Buffer;
-  EFI_DEVICE_PATH_PROTOCOL            *TempDevicePath;
-  EFI_DEVICE_PATH_PROTOCOL            *NextFullPath;
-  UINTN                               Size;
-  UINTN                               TempSize;
-  EFI_HANDLE                          *SimpleFileSystemHandles;
-  UINTN                               NumberSimpleFileSystemHandles;
-  UINTN                               Index;
-  BOOLEAN                             GetNext;
+  EFI_STATUS                Status;
+  EFI_BLOCK_IO_PROTOCOL     *BlockIo;
+  VOID                      *Buffer;
+  EFI_DEVICE_PATH_PROTOCOL  *TempDevicePath;
+  EFI_DEVICE_PATH_PROTOCOL  *NextFullPath;
+  UINTN                     Size;
+  UINTN                     TempSize;
+  EFI_HANDLE                *SimpleFileSystemHandles;
+  UINTN                     NumberSimpleFileSystemHandles;
+  UINTN                     Index;
+  BOOLEAN                   GetNext;
 
   GetNext = (BOOLEAN)(FullPath == NULL);
   //
@@ -487,20 +502,21 @@ BmExpandMediaDevicePath (
   // returned. After the Block IO protocol is reinstalled, subsequent
   // Block IO read/write will success.
   //
-  Status = gBS->HandleProtocol (Handle, &gEfiBlockIoProtocolGuid, (VOID **) &BlockIo);
+  Status = gBS->HandleProtocol (Handle, &gEfiBlockIoProtocolGuid, (VOID **)&BlockIo);
   // CHANGE: Do not ASSERT.
   if (EFI_ERROR (Status)) {
     return NULL;
   }
+
   Buffer = AllocatePool (BlockIo->Media->BlockSize);
   if (Buffer != NULL) {
     BlockIo->ReadBlocks (
-      BlockIo,
-      BlockIo->Media->MediaId,
-      0,
-      BlockIo->Media->BlockSize,
-      Buffer
-      );
+               BlockIo,
+               BlockIo->Media->MediaId,
+               0,
+               BlockIo->Media->BlockSize,
+               Buffer
+               );
     FreePool (Buffer);
   }
 
@@ -508,7 +524,7 @@ BmExpandMediaDevicePath (
   // Detect the the default boot file from removable Media
   //
   NextFullPath = NULL;
-  Size = GetDevicePathSize (DevicePath) - END_DEVICE_PATH_LENGTH;
+  Size         = GetDevicePathSize (DevicePath) - END_DEVICE_PATH_LENGTH;
   gBS->LocateHandleBuffer (
          ByProtocol,
          &gEfiSimpleFileSystemProtocolGuid,
@@ -521,7 +537,7 @@ BmExpandMediaDevicePath (
     // Get the device path size of SimpleFileSystem handle
     //
     TempDevicePath = DevicePathFromHandle (SimpleFileSystemHandles[Index]);
-    TempSize = GetDevicePathSize (TempDevicePath) - END_DEVICE_PATH_LENGTH;
+    TempSize       = GetDevicePathSize (TempDevicePath) - END_DEVICE_PATH_LENGTH;
     //
     // Check whether the device path of boot option is part of the SimpleFileSystem handle's device path
     //
@@ -562,23 +578,24 @@ BmExpandMediaDevicePath (
 STATIC
 BOOLEAN
 BmMatchPartitionDevicePathNode (
-  IN  EFI_HANDLE                 Handle,
-  IN  EFI_DEVICE_PATH_PROTOCOL   *BlockIoDevicePath,
-  IN  HARDDRIVE_DEVICE_PATH      *HardDriveDevicePath,
-  IN  BOOLEAN                    LocateEsp
+  IN  EFI_HANDLE                Handle,
+  IN  EFI_DEVICE_PATH_PROTOCOL  *BlockIoDevicePath,
+  IN  HARDDRIVE_DEVICE_PATH     *HardDriveDevicePath,
+  IN  BOOLEAN                   LocateEsp
   )
 {
-  HARDDRIVE_DEVICE_PATH     *Node;
-  CONST EFI_PARTITION_ENTRY *PartEntry;
+  HARDDRIVE_DEVICE_PATH      *Node;
+  CONST EFI_PARTITION_ENTRY  *PartEntry;
 
   if ((BlockIoDevicePath == NULL) || (HardDriveDevicePath == NULL)) {
     return FALSE;
   }
 
   // CHANGE: Abort early if partition cannot be an ESP while it was requested.
-  if (LocateEsp
-   && (HardDriveDevicePath->MBRType != MBR_TYPE_EFI_PARTITION_TABLE_HEADER
-    || HardDriveDevicePath->SignatureType != SIGNATURE_TYPE_GUID)) {
+  if (  LocateEsp
+     && (  (HardDriveDevicePath->MBRType != MBR_TYPE_EFI_PARTITION_TABLE_HEADER)
+        || (HardDriveDevicePath->SignatureType != SIGNATURE_TYPE_GUID)))
+  {
     return FALSE;
   }
 
@@ -588,11 +605,12 @@ BmMatchPartitionDevicePathNode (
   while (!IsDevicePathEnd (BlockIoDevicePath)) {
     if ((DevicePathType (BlockIoDevicePath) == MEDIA_DEVICE_PATH) &&
         (DevicePathSubType (BlockIoDevicePath) == MEDIA_HARDDRIVE_DP)
-        ) {
+        )
+    {
       //
       // See if the harddrive device path in blockio matches the orig Hard Drive Node
       //
-      Node = (HARDDRIVE_DEVICE_PATH *) BlockIoDevicePath;
+      Node = (HARDDRIVE_DEVICE_PATH *)BlockIoDevicePath;
 
       //
       // Match Signature and PartitionNumber.
@@ -600,7 +618,8 @@ BmMatchPartitionDevicePathNode (
       //
       if ((Node->MBRType == HardDriveDevicePath->MBRType) &&
           (Node->SignatureType == HardDriveDevicePath->SignatureType) &&
-          (CompareMem (Node->Signature, HardDriveDevicePath->Signature, sizeof (Node->Signature)) == 0)) {
+          (CompareMem (Node->Signature, HardDriveDevicePath->Signature, sizeof (Node->Signature)) == 0))
+      {
         // CHANGE: Allow ESP location when PartitionNumber mismatches.
         if (!LocateEsp) {
           if (Node->PartitionNumber == HardDriveDevicePath->PartitionNumber) {
@@ -608,8 +627,9 @@ BmMatchPartitionDevicePathNode (
           }
         } else {
           PartEntry = OcGetGptPartitionEntry (Handle);
-          if (PartEntry != NULL
-            && CompareGuid (&PartEntry->PartitionTypeGUID, &gEfiPartTypeSystemPartGuid)) {
+          if (  (PartEntry != NULL)
+             && CompareGuid (&PartEntry->PartitionTypeGUID, &gEfiPartTypeSystemPartGuid))
+          {
             return TRUE;
           }
         }
@@ -664,6 +684,7 @@ BmExpandPartitionDevicePath (
     BlockIoHandleCount = 0;
     BlockIoBuffer      = NULL;
   }
+
   //
   // Loop through all the device handles that support the BLOCK_IO Protocol
   // CHANGE: Locate ESP when failing to find an exact match
@@ -676,12 +697,12 @@ BmExpandPartitionDevicePath (
         continue;
       }
 
-      if (BmMatchPartitionDevicePathNode (BlockIoBuffer[Index], BlockIoDevicePath, (HARDDRIVE_DEVICE_PATH *) FilePath, LocateEsp)) {
+      if (BmMatchPartitionDevicePathNode (BlockIoBuffer[Index], BlockIoDevicePath, (HARDDRIVE_DEVICE_PATH *)FilePath, LocateEsp)) {
         //
         // Find the matched partition device path
         //
         TempDevicePath = AppendDevicePath (BlockIoDevicePath, NextDevicePathNode (FilePath));
-        FullPath = OcGetNextLoadOptionDevicePath (TempDevicePath, NULL);
+        FullPath       = OcGetNextLoadOptionDevicePath (TempDevicePath, NULL);
         FreePool (TempDevicePath);
 
         if (FullPath != NULL) {
@@ -703,6 +724,7 @@ BmExpandPartitionDevicePath (
     if (LocateEsp) {
       break;
     }
+
     LocateEsp = TRUE;
   } while (TRUE);
 
@@ -731,16 +753,16 @@ BmExpandPartitionDevicePath (
 STATIC
 EFI_STATUS
 BmConnectUsbShortFormDevicePath (
-  IN EFI_DEVICE_PATH_PROTOCOL   *DevicePath
+  IN EFI_DEVICE_PATH_PROTOCOL  *DevicePath
   )
 {
-  EFI_STATUS                            Status;
-  EFI_HANDLE                            *Handles;
-  UINTN                                 HandleCount;
-  UINTN                                 Index;
-  EFI_PCI_IO_PROTOCOL                   *PciIo;
-  UINT8                                 Class[3];
-  BOOLEAN                               AtLeastOneConnected;
+  EFI_STATUS           Status;
+  EFI_HANDLE           *Handles;
+  UINTN                HandleCount;
+  UINTN                Index;
+  EFI_PCI_IO_PROTOCOL  *PciIo;
+  UINT8                Class[3];
+  BOOLEAN              AtLeastOneConnected;
 
   //
   // Check the passed in parameters
@@ -751,7 +773,8 @@ BmConnectUsbShortFormDevicePath (
 
   if ((DevicePathType (DevicePath) != MESSAGING_DEVICE_PATH) ||
       ((DevicePathSubType (DevicePath) != MSG_USB_CLASS_DP) && (DevicePathSubType (DevicePath) != MSG_USB_WWID_DP))
-     ) {
+      )
+  {
     return EFI_INVALID_PARAMETER;
   }
 
@@ -759,19 +782,19 @@ BmConnectUsbShortFormDevicePath (
   // Find the usb host controller firstly, then connect with the remaining device path
   //
   AtLeastOneConnected = FALSE;
-  Status = gBS->LocateHandleBuffer (
-                  ByProtocol,
-                  &gEfiPciIoProtocolGuid,
-                  NULL,
-                  &HandleCount,
-                  &Handles
-                  );
+  Status              = gBS->LocateHandleBuffer (
+                               ByProtocol,
+                               &gEfiPciIoProtocolGuid,
+                               NULL,
+                               &HandleCount,
+                               &Handles
+                               );
   if (!EFI_ERROR (Status)) {
     for (Index = 0; Index < HandleCount; Index++) {
       Status = gBS->HandleProtocol (
                       Handles[Index],
                       &gEfiPciIoProtocolGuid,
-                      (VOID **) &PciIo
+                      (VOID **)&PciIo
                       );
       if (!EFI_ERROR (Status)) {
         //
@@ -780,14 +803,15 @@ BmConnectUsbShortFormDevicePath (
         Status = PciIo->Pci.Read (PciIo, EfiPciIoWidthUint8, 0x09, 3, &Class);
         if (!EFI_ERROR (Status) &&
             ((PCI_CLASS_SERIAL == Class[2]) && (PCI_CLASS_SERIAL_USB == Class[1]))
-           ) {
+            )
+        {
           Status = gBS->ConnectController (
                           Handles[Index],
                           NULL,
                           DevicePath,
                           FALSE
                           );
-          if (!EFI_ERROR(Status)) {
+          if (!EFI_ERROR (Status)) {
             AtLeastOneConnected = TRUE;
           }
         }
@@ -815,6 +839,9 @@ BmConnectUsbShortFormDevicePath (
     /Scsi(0x0,0x0)
     /HD(2,GPT,63882141-5773-4630-B8FD-2C6E4A491C78,0x64028,0x3A66090)
 
+  Additionally, MacHyperVSupport exposes disks as individual SCSI targets to properly support hotplug
+  where Hyper-V exposes just a single target.
+
   @param[in] FilePath macOS-made device path with ACPI parts trimmed (i.e. Scsi(0x0, 0x0)/.../File).
 
   @return  real Hyper-V device path or NULL.
@@ -822,27 +849,43 @@ BmConnectUsbShortFormDevicePath (
 STATIC
 EFI_DEVICE_PATH_PROTOCOL *
 BmExpandHyperVDevicePath (
-  IN  EFI_DEVICE_PATH_PROTOCOL          *FilePath
+  IN  EFI_DEVICE_PATH_PROTOCOL  *FilePath
   )
 {
-  EFI_STATUS                 Status;
-  UINTN                      HandleCount;
-  UINTN                      Index;
-  EFI_HANDLE                 *HandleBuffer;
-  EFI_DEVICE_PATH_PROTOCOL   *HvDevicePath;
-  EFI_DEVICE_PATH_PROTOCOL   *Node;
-  EFI_DEVICE_PATH_PROTOCOL   *NewDevicePath;
-  UINTN                      HvSuffixSize;
+  EFI_STATUS                Status;
+  UINTN                     HandleCount;
+  UINTN                     Index;
+  EFI_HANDLE                *HandleBuffer;
+  EFI_DEVICE_PATH_PROTOCOL  *HvDevicePath;
+  EFI_DEVICE_PATH_PROTOCOL  *Node;
+  EFI_DEVICE_PATH_PROTOCOL  *NewDevicePath;
+  UINTN                     FilePathSize;
+  UINTN                     HvSuffixSize;
+  SCSI_DEVICE_PATH          *FileScsiPath;
+  SCSI_DEVICE_PATH          *HvScsiPath;
 
   DebugPrintDevicePath (DEBUG_INFO, "OCDP: Expanding Hyper-V DP", FilePath);
 
+  FilePathSize = GetDevicePathSize (FilePath);
+
+  //
+  // Get SCSI device node from file path, if any.
+  //
+  FileScsiPath = NULL;
+  if (  (DevicePathType (FilePath) == MESSAGING_DEVICE_PATH)
+     && (DevicePathSubType (FilePath) == MSG_SCSI_DP))
+  {
+    FileScsiPath = (SCSI_DEVICE_PATH *)FilePath;
+    FilePath     = NextDevicePathNode (FilePath);
+  }
+
   Status = gBS->LocateHandleBuffer (
-    ByProtocol,
-    &gEfiSimpleFileSystemProtocolGuid,
-    NULL,
-    &HandleCount,
-    &HandleBuffer
-    );
+                  ByProtocol,
+                  &gEfiSimpleFileSystemProtocolGuid,
+                  NULL,
+                  &HandleCount,
+                  &HandleBuffer
+                  );
 
   if (EFI_ERROR (Status)) {
     return NULL;
@@ -850,10 +893,10 @@ BmExpandHyperVDevicePath (
 
   for (Index = 0; Index < HandleCount; ++Index) {
     Status = gBS->HandleProtocol (
-      HandleBuffer[Index],
-      &gEfiDevicePathProtocolGuid,
-      (VOID **) &HvDevicePath
-      );
+                    HandleBuffer[Index],
+                    &gEfiDevicePathProtocolGuid,
+                    (VOID **)&HvDevicePath
+                    );
     if (EFI_ERROR (Status)) {
       continue;
     }
@@ -862,22 +905,141 @@ BmExpandHyperVDevicePath (
 
     for (Node = HvDevicePath; !IsDevicePathEnd (Node); Node = NextDevicePathNode (Node)) {
       //
+      // Skip over SCSI paths if the target of the file path matches the LUN of this one.
+      //
+      if (  (FileScsiPath != NULL)
+         && (DevicePathType (Node) == MESSAGING_DEVICE_PATH)
+         && (DevicePathSubType (Node) == MSG_SCSI_DP))
+      {
+        HvScsiPath = (SCSI_DEVICE_PATH *)Node;
+        if ((HvScsiPath->Pun == FileScsiPath->Lun) && (HvScsiPath->Lun == FileScsiPath->Pun)) {
+          continue;
+        } else {
+          break;
+        }
+      }
+
+      //
       // Skip till we find the matching node in the middle of macOS-made DP.
       //
-      if (DevicePathType (Node) == DevicePathType (FilePath)
-        && DevicePathSubType (Node) == DevicePathSubType (FilePath)) {
+      if (  (DevicePathType (Node) == DevicePathType (FilePath))
+         && (DevicePathSubType (Node) == DevicePathSubType (FilePath)))
+      {
         //
         // Match the macOS-made DP till the filename.
         //
         HvSuffixSize = GetDevicePathSize (Node) - END_DEVICE_PATH_LENGTH;
+        if (FilePathSize < HvSuffixSize) {
+          break;
+        }
+
         if (CompareMem (Node, FilePath, HvSuffixSize) == 0) {
           NewDevicePath = AppendDevicePath (
-            HvDevicePath,
-            (VOID *) ((UINTN) FilePath + HvSuffixSize)
-            );
+                            HvDevicePath,
+                            (VOID *)((UINTN)FilePath + HvSuffixSize)
+                            );
           if (NewDevicePath != NULL) {
             DebugPrintDevicePath (DEBUG_INFO, "OCDP: Matched Hyper-V DP", NewDevicePath);
           }
+
+          FreePool (HandleBuffer);
+          return NewDevicePath;
+        }
+      }
+    }
+  }
+
+  FreePool (HandleBuffer);
+  return NULL;
+}
+
+/**
+  Match macOS-made SD card device path onto standard SD card UEFI device path.
+  macOS uses a vendor-specific path for SD card devices and produces paths like:
+  PciRoot(0x0)
+    /Pci(0x1A,0x0)
+    /VenMsg(C063C579-9F78-4BA5-9F42-D0B0149597A6,01000000000000000000000000000000)
+    /HD(2,GPT,D2BEDE60-7C48-4D94-8915-A579450E3C43,0x64028,0x7417FB0)
+
+  We need to match them on standard SD card device paths like:
+  PciRoot(0x0)
+    /Pci(0x1A,0x0)
+    /eMMC(0x0)
+    /Ctrl(0x0)
+    /HD(2,GPT,D2BEDE60-7C48-4D94-8915-A579450E3C43,0x64028,0x7417FB0)
+
+  @param[in] FilePath macOS-made device path with VenMsg parts trimmed (i.e. VenMsg(0x0, 0x0)/.../File).
+
+  @return  SD card device path or NULL.
+**/
+STATIC
+EFI_DEVICE_PATH_PROTOCOL *
+BmExpandAppleSDCardDevicePath (
+  IN  EFI_DEVICE_PATH_PROTOCOL  *FilePath
+  )
+{
+  EFI_STATUS                Status;
+  UINTN                     HandleCount;
+  UINTN                     Index;
+  EFI_HANDLE                *HandleBuffer;
+  EFI_DEVICE_PATH_PROTOCOL  *SdDevicePath;
+  EFI_DEVICE_PATH_PROTOCOL  *Node;
+  EFI_DEVICE_PATH_PROTOCOL  *NewDevicePath;
+  UINTN                     FilePathSize;
+  UINTN                     SdSuffixSize;
+
+  DebugPrintDevicePath (DEBUG_INFO, "OCDP: Expanding SD card DP", FilePath);
+
+  FilePathSize = GetDevicePathSize (FilePath);
+
+  Status = gBS->LocateHandleBuffer (
+                  ByProtocol,
+                  &gEfiSimpleFileSystemProtocolGuid,
+                  NULL,
+                  &HandleCount,
+                  &HandleBuffer
+                  );
+
+  if (EFI_ERROR (Status)) {
+    return NULL;
+  }
+
+  for (Index = 0; Index < HandleCount; ++Index) {
+    Status = gBS->HandleProtocol (
+                    HandleBuffer[Index],
+                    &gEfiDevicePathProtocolGuid,
+                    (VOID **)&SdDevicePath
+                    );
+    if (EFI_ERROR (Status)) {
+      continue;
+    }
+
+    DebugPrintDevicePath (DEBUG_INFO, "OCDP: Matching SD card DP", SdDevicePath);
+
+    for (Node = SdDevicePath; !IsDevicePathEnd (Node); Node = NextDevicePathNode (Node)) {
+      //
+      // Skip till we find the matching node in the middle of macOS-made DP.
+      //
+      if (  (DevicePathType (Node) == DevicePathType (FilePath))
+         && (DevicePathSubType (Node) == DevicePathSubType (FilePath)))
+      {
+        //
+        // Match the macOS-made DP till the filename.
+        //
+        SdSuffixSize = GetDevicePathSize (Node) - END_DEVICE_PATH_LENGTH;
+        if (FilePathSize < SdSuffixSize) {
+          break;
+        }
+
+        if (CompareMem (Node, FilePath, SdSuffixSize) == 0) {
+          NewDevicePath = AppendDevicePath (
+                            SdDevicePath,
+                            (VOID *)((UINTN)FilePath + SdSuffixSize)
+                            );
+          if (NewDevicePath != NULL) {
+            DebugPrintDevicePath (DEBUG_INFO, "OCDP: Matched SD card DP", NewDevicePath);
+          }
+
           FreePool (HandleBuffer);
           return NewDevicePath;
         }
@@ -891,21 +1053,23 @@ BmExpandHyperVDevicePath (
 
 EFI_DEVICE_PATH_PROTOCOL *
 OcGetNextLoadOptionDevicePath (
-  IN  EFI_DEVICE_PATH_PROTOCOL          *FilePath,
-  IN  EFI_DEVICE_PATH_PROTOCOL          *FullPath
+  IN  EFI_DEVICE_PATH_PROTOCOL  *FilePath,
+  IN  EFI_DEVICE_PATH_PROTOCOL  *FullPath
   )
 {
-  EFI_HANDLE                      Handle;
-  EFI_DEVICE_PATH_PROTOCOL        *Node;
-  ACPI_HID_DEVICE_PATH            *AcpiNode;
-  EFI_STATUS                      Status;
+  EFI_HANDLE                  Handle;
+  EFI_DEVICE_PATH_PROTOCOL    *Node;
+  EFI_DEVICE_PATH_PROTOCOL    *DeviceNode;
+  ACPI_HID_DEVICE_PATH        *AcpiNode;
+  VENDOR_DEFINED_DEVICE_PATH  *VendorNode;
+  EFI_STATUS                  Status;
 
   ASSERT (FilePath != NULL);
 
   //
   // CHANGE: If SimpleFileSystem is located, the device path is already expanded.
   //
-  Node = FilePath;
+  Node   = FilePath;
   Status = gBS->LocateDevicePath (&gEfiSimpleFileSystemProtocolGuid, &Node, &Handle);
   if (!EFI_ERROR (Status)) {
     if (FullPath != NULL) {
@@ -918,23 +1082,25 @@ OcGetNextLoadOptionDevicePath (
   // CHANGE: Hyper-V support start.
 
   //
-  // Match ACPI_VMD0001_HID.
+  // Match ACPI_VMD0001_HID during the first call only.
   //
-  if (FullPath == NULL ///< First and only call.
-    && DevicePathType (Node) == ACPI_DEVICE_PATH
-    && DevicePathSubType (Node) == ACPI_DP
-    && DevicePathNodeLength (Node) == sizeof (ACPI_HID_DEVICE_PATH)) {
-    AcpiNode = (ACPI_HID_DEVICE_PATH *) Node;
-    if (AcpiNode->HID == ACPI_VMD0001_HID && AcpiNode->UID == 0) {
+  if (  (FullPath == NULL)
+     && (DevicePathType (Node) == ACPI_DEVICE_PATH)
+     && (DevicePathSubType (Node) == ACPI_DP)
+     && (DevicePathNodeLength (Node) == sizeof (ACPI_HID_DEVICE_PATH)))
+  {
+    AcpiNode = (ACPI_HID_DEVICE_PATH *)Node;
+    if ((AcpiNode->HID == ACPI_VMD0001_HID) && (AcpiNode->UID == 0)) {
       //
       // Match ACPI_VBS0001_HID.
       //
       Node = NextDevicePathNode (Node);
-      if (DevicePathType (Node) == ACPI_DEVICE_PATH
-        && DevicePathSubType (Node) == ACPI_DP
-        && DevicePathNodeLength (Node) == sizeof (ACPI_HID_DEVICE_PATH)) {
-        AcpiNode = (ACPI_HID_DEVICE_PATH *) Node;
-        if (AcpiNode->HID == ACPI_VBS0001_HID && AcpiNode->UID == 0) {
+      if (  (DevicePathType (Node) == ACPI_DEVICE_PATH)
+         && (DevicePathSubType (Node) == ACPI_DP)
+         && (DevicePathNodeLength (Node) == sizeof (ACPI_HID_DEVICE_PATH)))
+      {
+        AcpiNode = (ACPI_HID_DEVICE_PATH *)Node;
+        if ((AcpiNode->HID == ACPI_VBS0001_HID) && (AcpiNode->UID == 0)) {
           Node = NextDevicePathNode (Node);
           return BmExpandHyperVDevicePath (Node);
         }
@@ -943,6 +1109,21 @@ OcGetNextLoadOptionDevicePath (
   }
 
   // CHANGE: Hyper-V support end.
+
+  //
+  // Locate and match Apple SD card device path during the first call only.
+  //
+  if (FullPath == NULL) {
+    for (DeviceNode = Node; !IsDevicePathEnd (DeviceNode); DeviceNode = NextDevicePathNode (DeviceNode)) {
+      if ((DevicePathType (DeviceNode) == MESSAGING_DEVICE_PATH) && (DevicePathSubType (DeviceNode) == MSG_VENDOR_DP)) {
+        VendorNode = (VENDOR_DEFINED_DEVICE_PATH *)DeviceNode;
+        if (CompareGuid (&gAppleSdCardVendorDevicePathGuid, &VendorNode->Guid)) {
+          Node = NextDevicePathNode (DeviceNode);
+          return BmExpandAppleSDCardDevicePath (Node);
+        }
+      }
+    }
+  }
 
   Status = gBS->LocateDevicePath (&gEfiBlockIoProtocolGuid, &Node, &Handle);
   if (!EFI_ERROR (Status) && IsDevicePathEnd (Node)) {
@@ -955,7 +1136,8 @@ OcGetNextLoadOptionDevicePath (
   // Expand the short-form device path to full device path
   //
   if ((DevicePathType (FilePath) == MEDIA_DEVICE_PATH) &&
-      (DevicePathSubType (FilePath) == MEDIA_HARDDRIVE_DP)) {
+      (DevicePathSubType (FilePath) == MEDIA_HARDDRIVE_DP))
+  {
     //
     // Expand the Harddrive device path
     //
@@ -965,13 +1147,14 @@ OcGetNextLoadOptionDevicePath (
       return NULL;
     }
   } else if ((DevicePathType (FilePath) == MESSAGING_DEVICE_PATH) &&
-             (DevicePathSubType (FilePath) == MSG_URI_DP)) {
+             (DevicePathSubType (FilePath) == MSG_URI_DP))
+  {
     //
     // CHANGE: Removed expansion of the URI device path
     //
     return NULL;
   } else {
-    Node = FilePath;
+    Node   = FilePath;
     Status = gBS->LocateDevicePath (&gEfiUsbIoProtocolGuid, &Node, &Handle);
     if (EFI_ERROR (Status)) {
       //
@@ -981,7 +1164,8 @@ OcGetNextLoadOptionDevicePath (
       //
       for (Node = FilePath; !IsDevicePathEnd (Node); Node = NextDevicePathNode (Node)) {
         if ((DevicePathType (Node) == MESSAGING_DEVICE_PATH) &&
-            ((DevicePathSubType (Node) == MSG_USB_CLASS_DP) || (DevicePathSubType (Node) == MSG_USB_WWID_DP))) {
+            ((DevicePathSubType (Node) == MSG_USB_CLASS_DP) || (DevicePathSubType (Node) == MSG_USB_WWID_DP)))
+        {
           break;
         }
       }
@@ -998,6 +1182,7 @@ OcGetNextLoadOptionDevicePath (
           //
           BmConnectUsbShortFormDevicePath (FilePath);
         }
+
         return BmExpandUsbDevicePath (FilePath, FullPath, Node);
       }
     }

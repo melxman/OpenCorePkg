@@ -14,8 +14,8 @@
 
 #include <Library/BaseLib.h>
 #include <Library/BaseMemoryLib.h>
+#include <Library/BaseOverflowLib.h>
 #include <Library/DebugLib.h>
-#include <Library/OcGuardLib.h>
 #include <Library/OcMiscLib.h>
 
 STATIC
@@ -26,21 +26,22 @@ InternalFindPattern (
   IN CONST UINT32  PatternSize,
   IN CONST UINT8   *Data,
   IN UINT32        DataSize,
-  IN UINT32        *DataOff
+  IN OUT UINT32    *DataOff
   )
 {
-  UINT32   Index;
-  UINT32   LastOffset;
-  UINT32   CurrentOffset;
+  UINT32  Index;
+  UINT32  LastOffset;
+  UINT32  CurrentOffset;
 
   ASSERT (DataSize >= PatternSize);
+  ASSERT (DataOff != NULL);
 
   if (PatternSize == 0) {
     return FALSE;
   }
 
   CurrentOffset = *DataOff;
-  LastOffset = DataSize - PatternSize;
+  LastOffset    = DataSize - PatternSize;
 
   if (PatternMask == NULL) {
     while (CurrentOffset <= LastOffset) {
@@ -54,6 +55,7 @@ InternalFindPattern (
         *DataOff = CurrentOffset;
         return TRUE;
       }
+
       ++CurrentOffset;
     }
   } else {
@@ -68,6 +70,7 @@ InternalFindPattern (
         *DataOff = CurrentOffset;
         return TRUE;
       }
+
       ++CurrentOffset;
     }
   }
@@ -82,7 +85,7 @@ FindPattern (
   IN CONST UINT32  PatternSize,
   IN CONST UINT8   *Data,
   IN UINT32        DataSize,
-  IN UINT32        *DataOff
+  IN OUT UINT32    *DataOff
   )
 {
   if (DataSize < PatternSize) {
@@ -90,13 +93,13 @@ FindPattern (
   }
 
   return InternalFindPattern (
-    Pattern,
-    PatternMask,
-    PatternSize,
-    Data,
-    DataSize,
-    DataOff
-    );
+           Pattern,
+           PatternMask,
+           PatternSize,
+           Data,
+           DataSize,
+           DataOff
+           );
 }
 
 UINT32
@@ -112,26 +115,26 @@ ApplyPatch (
   IN UINT32        Skip
   )
 {
-  UINT32  ReplaceCount;
-  UINT32  DataOff;
-  BOOLEAN Found;
+  UINT32   ReplaceCount;
+  UINT32   DataOff;
+  BOOLEAN  Found;
 
   if (DataSize < PatternSize) {
     return 0;
   }
 
   ReplaceCount = 0;
-  DataOff = 0;
+  DataOff      = 0;
 
   while (TRUE) {
     Found = InternalFindPattern (
-      Pattern,
-      PatternMask,
-      PatternSize,
-      Data,
-      DataSize,
-      &DataOff
-      );
+              Pattern,
+              PatternMask,
+              PatternSize,
+              Data,
+              DataSize,
+              &DataOff
+              );
 
     if (!Found) {
       break;
@@ -162,6 +165,7 @@ ApplyPatch (
         Data[DataOff + Index] = (Data[DataOff + Index] & ~ReplaceMask[Index]) | (Replace[Index] & ReplaceMask[Index]);
       }
     }
+
     ++ReplaceCount;
     DataOff += PatternSize;
 

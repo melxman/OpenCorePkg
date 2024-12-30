@@ -37,7 +37,7 @@
 #define DEFAULT_CURSOR_OFFSET_X  BOOT_CURSOR_OFFSET
 #define DEFAULT_CURSOR_OFFSET_Y  112U
 
-extern BOOT_PICKER_GUI_CONTEXT mGuiContext;
+extern BOOT_PICKER_GUI_CONTEXT  mGuiContext;
 
 STATIC GUI_DRAWING_CONTEXT              mDrawContext;
 STATIC EFI_CONSOLE_CONTROL_SCREEN_MODE  mPreviousMode;
@@ -51,18 +51,14 @@ OcShowMenuByOcEnter (
   EFI_STATUS  Status;
 
   Status = GuiLibConstruct (
-    GuiContext,
-    mGuiContext.CursorOffsetX,
-    mGuiContext.CursorOffsetY
-    );
+             GuiContext,
+             mGuiContext.CursorOffsetX,
+             mGuiContext.CursorOffsetY
+             );
   if (EFI_ERROR (Status)) {
     return Status;
   }
 
-  //
-  // Extension for OpenCore builtin renderer to mark that we control text output here.
-  //
-  gST->ConOut->TestString (gST->ConOut, OC_CONSOLE_MARK_CONTROLLED);
   mPreviousMode = OcConsoleControlSetMode (EfiConsoleControlScreenGraphics);
 
   return EFI_SUCCESS;
@@ -75,10 +71,6 @@ OcShowMenuByOcLeave (
   )
 {
   GuiLibDestruct ();
-  //
-  // Extension for OpenCore builtin renderer to mark that we no longer control text output here.
-  //
-  gST->ConOut->TestString (gST->ConOut, OC_CONSOLE_MARK_UNCONTROLLED);
   OcConsoleControlSetMode (mPreviousMode);
 }
 
@@ -100,21 +92,31 @@ OcSetInitialCursorOffset (
 EFI_STATUS
 EFIAPI
 OcShowMenuByOc (
-  IN     OC_BOOT_CONTEXT          *BootContext,
-  IN     OC_BOOT_ENTRY            **BootEntries,
-  OUT    OC_BOOT_ENTRY            **ChosenBootEntry
+  IN     OC_BOOT_CONTEXT  *BootContext,
+  IN     OC_BOOT_ENTRY    **BootEntries,
+  OUT    OC_BOOT_ENTRY    **ChosenBootEntry
   )
 {
-  EFI_STATUS    Status;
-  UINTN         Index;
+  EFI_STATUS  Status;
+  UINTN       Index;
 
   *ChosenBootEntry = NULL;
-  OcSetInitialCursorOffset();
-  mGuiContext.BootEntry = NULL;
+  OcSetInitialCursorOffset ();
+  mGuiContext.BootEntry   = NULL;
   mGuiContext.ReadyToBoot = FALSE;
-  mGuiContext.HideAuxiliary = BootContext->PickerContext->HideAuxiliary;
-  mGuiContext.Refresh = FALSE;
-  mGuiContext.PickerContext = BootContext->PickerContext;
+
+  //
+  // When enabled, re-run intro animation on each entry into menu, to avoid
+  // stuck animation which happens otherwise, if a menu item which returns to
+  // the menu is selected before the animation ends.
+  // Do not play intro animation for visually impaired users.
+  //
+  mGuiContext.UseMenuEaseIn = !BootContext->PickerContext->PickerAudioAssist
+                              && ((BootContext->PickerContext->PickerAttributes & OC_ATTR_REDUCE_MOTION) == 0);
+
+  mGuiContext.HideAuxiliary        = BootContext->PickerContext->HideAuxiliary;
+  mGuiContext.Refresh              = FALSE;
+  mGuiContext.PickerContext        = BootContext->PickerContext;
   mGuiContext.AudioPlaybackTimeout = -1;
 
   Status = OcShowMenuByOcEnter (&mGuiContext);
@@ -123,19 +125,13 @@ OcShowMenuByOc (
   }
 
   mDrawContext.TimeOutSeconds = BootContext->PickerContext->TimeoutSeconds;
-  //
-  // Do not play intro animation for blind.
-  //
-  if (BootContext->PickerContext->PickerAudioAssist) {
-    mGuiContext.DoneIntroAnimation = TRUE;
-  }
 
   Status = BootPickerViewInitialize (
-    &mDrawContext,
-    &mGuiContext,
-    InternalGetCursorImage,
-    (UINT8) BootContext->BootEntryCount
-    );
+             &mDrawContext,
+             &mGuiContext,
+             InternalGetCursorImage,
+             (UINT8)BootContext->BootEntryCount
+             );
   if (EFI_ERROR (Status)) {
     OcShowMenuByOcLeave ();
     return Status;
@@ -143,11 +139,11 @@ OcShowMenuByOc (
 
   for (Index = 0; Index < BootContext->BootEntryCount; ++Index) {
     Status = BootPickerEntriesSet (
-      BootContext->PickerContext,
-      &mGuiContext,
-      BootEntries[Index],
-      (UINT8) Index
-      );
+               BootContext->PickerContext,
+               &mGuiContext,
+               BootEntries[Index],
+               (UINT8)Index
+               );
     if (EFI_ERROR (Status)) {
       OcShowMenuByOcLeave ();
       return Status;
@@ -157,47 +153,65 @@ OcShowMenuByOc (
   BootPickerViewLateInitialize (
     &mDrawContext,
     &mGuiContext,
-    (UINT8) BootContext->DefaultEntry->EntryIndex - 1
+    (UINT8)BootContext->DefaultEntry->EntryIndex - 1
     );
 
   GuiRedrawAndFlushScreen (&mDrawContext);
 
   if (BootContext->PickerContext->PickerAudioAssist) {
     BootContext->PickerContext->PlayAudioFile (
-      BootContext->PickerContext,
-      OcVoiceOverAudioFileChooseOS,
-      FALSE
-      );
+                                  BootContext->PickerContext,
+                                  OC_VOICE_OVER_AUDIO_FILE_CHOOSE_OS,
+                                  OC_VOICE_OVER_AUDIO_BASE_TYPE_OPEN_CORE,
+                                  FALSE
+                                  );
     for (Index = 0; Index < BootContext->BootEntryCount; ++Index) {
       BootContext->PickerContext->PlayAudioEntry (
-        BootContext->PickerContext,
-        BootEntries[Index]
-        );
-      if (BootContext->PickerContext->TimeoutSeconds > 0 && BootContext->DefaultEntry->EntryIndex - 1 == Index) {
+                                    BootContext->PickerContext,
+                                    BootEntries[Index]
+                                    );
+      if ((BootContext->PickerContext->TimeoutSeconds > 0) && (BootContext->DefaultEntry->EntryIndex - 1 == Index)) {
         BootContext->PickerContext->PlayAudioFile (
-          BootContext->PickerContext,
-          OcVoiceOverAudioFileDefault,
-          FALSE
-          );
+                                      BootContext->PickerContext,
+                                      OC_VOICE_OVER_AUDIO_FILE_DEFAULT,
+                                      OC_VOICE_OVER_AUDIO_BASE_TYPE_OPEN_CORE,
+                                      FALSE
+                                      );
       }
     }
+
     BootContext->PickerContext->PlayAudioBeep (
-      BootContext->PickerContext,
-      OC_VOICE_OVER_SIGNALS_NORMAL,
-      OC_VOICE_OVER_SIGNAL_NORMAL_MS,
-      OC_VOICE_OVER_SILENCE_NORMAL_MS
-      );
+                                  BootContext->PickerContext,
+                                  OC_VOICE_OVER_SIGNALS_NORMAL,
+                                  OC_VOICE_OVER_SIGNAL_NORMAL_MS,
+                                  OC_VOICE_OVER_SILENCE_NORMAL_MS
+                                  );
   }
 
   GuiDrawLoop (&mDrawContext);
   ASSERT (mGuiContext.BootEntry != NULL || mGuiContext.Refresh);
 
+  //
+  // There are reasons to prefer not to perform this screen clear:
+  //  - If starting macOS, boot.efi performs the same screen clear to the same UI theme colour
+  //    immediately afterwards anyway
+  //  - The native Apple picker does not clear its graphics before exit (i.e. does not do this)
+  //  - Most OS booters in most circumstance perform their own screen clear
+  //  - Each screen clear on a slow GOP (such as direct GOP rendering) is a noticeable slowdown
+  // However:
+  //  - Windows without ACPI->Quirks->ResetLogoStatus does not clear any pre-existing graphics
+  //    - Ref: https://github.com/acidanthera/bugtracker/issues/2231
+  //  - Peforming this screen clear gives a sense of progress (i.e. something happens immediately
+  //    rather than nothing) if the selected entry will be very slow to start (e.g. Recovery, in
+  ///   some circumstances)
+  //
   if (!mGuiContext.Refresh) {
     //
     // Clear the screen only when we exit.
     //
     GuiClearScreen (&mDrawContext, &mGuiContext.BackgroundColor.Pixel);
   }
+
   //
   // Note, it is important to destruct GUI here, as we must ensure
   // that keyboard/mouse polling does not conflict with FV2 ui.
@@ -205,11 +219,12 @@ OcShowMenuByOc (
   BootPickerViewDeinitialize (&mDrawContext, &mGuiContext);
   OcShowMenuByOcLeave ();
 
-  *ChosenBootEntry = mGuiContext.BootEntry;
+  *ChosenBootEntry                          = mGuiContext.BootEntry;
   BootContext->PickerContext->HideAuxiliary = mGuiContext.HideAuxiliary;
   if (mGuiContext.Refresh) {
     return EFI_ABORTED;
   }
+
   return EFI_SUCCESS;
 }
 
@@ -220,13 +235,14 @@ OcShowPasswordByOc (
   IN OC_PRIVILEGE_LEVEL  Level
   )
 {
-  EFI_STATUS    Status;
+  EFI_STATUS  Status;
+
   OcSetInitialCursorOffset ();
-  mGuiContext.BootEntry = NULL;
-  mGuiContext.ReadyToBoot = FALSE;
-  mGuiContext.HideAuxiliary = TRUE;
-  mGuiContext.Refresh = FALSE;
-  mGuiContext.PickerContext = Context;
+  mGuiContext.BootEntry            = NULL;
+  mGuiContext.ReadyToBoot          = FALSE;
+  mGuiContext.HideAuxiliary        = TRUE;
+  mGuiContext.Refresh              = FALSE;
+  mGuiContext.PickerContext        = Context;
   mGuiContext.AudioPlaybackTimeout = -1;
 
   Status = OcShowMenuByOcEnter (&mGuiContext);
@@ -236,17 +252,13 @@ OcShowPasswordByOc (
 
   mDrawContext.TimeOutSeconds = 0;
 
-  //
-  // Do not play intro animation for blind.
-  //
-  if (Context->PickerAudioAssist) {
-    mGuiContext.DoneIntroAnimation = TRUE;
-  }
+  mGuiContext.UsePasswordEaseIn = !Context->PickerAudioAssist
+                                  && ((Context->PickerAttributes & OC_ATTR_REDUCE_MOTION) == 0);
 
   Status = PasswordViewInitialize (
-    &mDrawContext,
-    &mGuiContext
-    );
+             &mDrawContext,
+             &mGuiContext
+             );
   if (EFI_ERROR (Status)) {
     OcShowMenuByOcLeave ();
     return Status;
@@ -255,12 +267,20 @@ OcShowPasswordByOc (
   GuiRedrawAndFlushScreen (&mDrawContext);
 
   GuiDrawLoop (&mDrawContext);
+
   //
-  // Clear the screen only if we will not show BootPicker afterwards.
+  // This screen clear is useful, even though the boot entry started will in general
+  // perform its own screen clear eventually anyway, since this gives a better sense
+  // of progress between (intentionally slow - computationally intensive) password
+  // verification and (can be slow) start of Recovery.
   //
   if (Context->PickerCommand != OcPickerShowPicker) {
+    //
+    // Clear the screen only if we will not show BootPicker afterwards.
+    //
     GuiClearScreen (&mDrawContext, &mGuiContext.BackgroundColor.Pixel);
   }
+
   //
   // Note, it is important to destruct GUI here, as we must ensure
   // that keyboard/mouse polling does not conflict with FV2 ui.
@@ -287,7 +307,7 @@ GuiOcInterfacePopulate (
   IN OC_PICKER_CONTEXT      *Context
   )
 {
-  EFI_STATUS Status;
+  EFI_STATUS  Status;
 
   Status = InternalContextConstruct (&mGuiContext, Storage, Context);
   if (EFI_ERROR (Status)) {
@@ -300,7 +320,7 @@ GuiOcInterfacePopulate (
   return EFI_SUCCESS;
 }
 
-STATIC OC_INTERFACE_PROTOCOL mOcInterface = {
+STATIC OC_INTERFACE_PROTOCOL  mOcInterface = {
   OC_INTERFACE_REVISION,
   GuiOcInterfacePopulate
 };
@@ -320,10 +340,10 @@ UefiMain (
   // Check for previous GUI protocols.
   //
   Status = gBS->LocateProtocol (
-    &gOcInterfaceProtocolGuid,
-    NULL,
-    &PrevInterface
-    );
+                  &gOcInterfaceProtocolGuid,
+                  NULL,
+                  &PrevInterface
+                  );
 
   if (!EFI_ERROR (Status)) {
     DEBUG ((DEBUG_WARN, "OCUI: Another GUI is already present\n"));
@@ -334,12 +354,12 @@ UefiMain (
   // Install new GUI protocol
   //
   NewHandle = NULL;
-  Status = gBS->InstallMultipleProtocolInterfaces (
-    &NewHandle,
-    &gOcInterfaceProtocolGuid,
-    &mOcInterface,
-    NULL
-    );
+  Status    = gBS->InstallMultipleProtocolInterfaces (
+                     &NewHandle,
+                     &gOcInterfaceProtocolGuid,
+                     &mOcInterface,
+                     NULL
+                     );
 
   if (!EFI_ERROR (Status)) {
     DEBUG ((DEBUG_INFO, "OCUI: Registered custom GUI protocol\n"));

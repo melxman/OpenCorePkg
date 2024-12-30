@@ -11,9 +11,7 @@ WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 
 **/
 
-#include <Base.h>
-
-#include <Library/DebugLib.h>
+#include "CryptoInternal.h"
 
 INTN
 SecureCompareMem (
@@ -25,24 +23,24 @@ SecureCompareMem (
   //
   // Based on libsodium secure_memcmp function implementation.
   //
-  UINTN                          Index;
+  UINTN  Index;
   //
   // The loop variables are volatile to prevent compiler optimizations, such as
   // security-hurting simplifications and intrinsics insertion.
   //
-  volatile CONST UINT8 *volatile Destination;
-  volatile CONST UINT8 *volatile Source;
-  volatile UINT8                 XorDiff;
+  volatile CONST UINT8 *volatile  Destination;
+  volatile CONST UINT8 *volatile  Source;
+  volatile UINT8                  XorDiff;
 
   if (Length > 0) {
     ASSERT (DestinationBuffer != NULL);
     ASSERT (SourceBuffer != NULL);
-    ASSERT ((Length - 1) <= (MAX_ADDRESS - (UINTN) DestinationBuffer));
-    ASSERT ((Length - 1) <= (MAX_ADDRESS - (UINTN) SourceBuffer));
+    ASSERT ((Length - 1) <= (MAX_ADDRESS - (UINTN)DestinationBuffer));
+    ASSERT ((Length - 1) <= (MAX_ADDRESS - (UINTN)SourceBuffer));
   }
 
-  Destination = (volatile CONST UINT8 *) DestinationBuffer;
-  Source      = (volatile CONST UINT8 *) SourceBuffer;
+  Destination = (volatile CONST UINT8 *)DestinationBuffer;
+  Source      = (volatile CONST UINT8 *)SourceBuffer;
 
   XorDiff = 0;
   for (Index = 0; Index < Length; ++Index) {
@@ -56,8 +54,9 @@ SecureCompareMem (
     //
     XorDiff |= (UINT8)((Destination[Index] ^ (Source[Index])) & 0xFFU);
   }
+
   //
-  // This is implemented as an arithmetic operation to have an uniform
+  // This is implemented as an arithmetic operation to have a uniform
   // execution time for success and failure cases.
   //
   // For XorDiff = 0, the subtraction wraps around and leads to a value of
@@ -76,16 +75,16 @@ SecureZeroMem (
   IN  UINTN  Length
   )
 {
-  volatile UINT8 *Destination;
+  volatile UINT8  *Destination;
 
   if (Length == 0) {
     return Buffer;
   }
 
   ASSERT (Buffer != NULL);
-  ASSERT (Length <= (MAX_ADDRESS - (UINTN) Buffer + 1));
+  ASSERT (Length <= (MAX_ADDRESS - (UINTN)Buffer + 1));
 
-  Destination = (volatile UINT8 *) Buffer;
+  Destination = (volatile UINT8 *)Buffer;
 
   while (Length--) {
     *Destination++ = 0;

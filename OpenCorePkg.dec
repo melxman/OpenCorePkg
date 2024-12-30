@@ -2,13 +2,13 @@
 # Copyright (C) 2018, vit9696.  All rights reserved.<BR>
 #
 # Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
-# 
+#
 # 1. Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
-# 
+#
 # 2. Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
-# 
+#
 # 3. Neither the name of the copyright holder nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.
-# 
+#
 # THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 ##
@@ -24,6 +24,7 @@
   Include/Acidanthera
   Include/Apple
   Include/Generic
+  Include/Grub2
   Include/Intel
   Include/Microsoft
   Include/Nvidia
@@ -101,6 +102,9 @@
   ## Include/Acidanthera/Protocol/HdaIo.h
   gEfiHdaIoDevicePathGuid                    = { 0xA9003FEB, 0xD806, 0x41DB, { 0xA4, 0x91, 0x54, 0x05, 0xFE, 0xEF, 0x46, 0xC3 }}
 
+  ## Include/Acidanthera/Guid/LegacyBios.h
+  gEfiLegacyBiosGuid                         = { 0x2E3044AC, 0x879F, 0x490F, { 0x97, 0x60, 0xBB, 0xDF, 0xAF, 0x69, 0x5F, 0x50 }}
+
   ## Include/Apple/Guid/AppleApfsInfo.h
   gAppleApfsPartitionTypeGuid                = { 0x7C3457EF, 0x0000, 0x11AA, { 0xAA, 0x11, 0x00, 0x30, 0x65, 0x43, 0xEC, 0xAC }}
 
@@ -133,6 +137,9 @@
 
   ## Include/Apple/Guid/AppleDevicePath.h
   gAppleApfsVolumeDevicePathGuid             = { 0xBE74FCF7, 0x0B7C, 0x49F3, { 0x91, 0x47, 0x01, 0xF4, 0x04, 0x2E, 0x68, 0x42 }}
+
+  ## Include/Apple/Guid/AppleDevicePath.h
+  gAppleSdCardVendorDevicePathGuid           = { 0xC063C579, 0x9F78, 0x4BA5, { 0x9F, 0x42, 0xD0, 0xB0, 0x14, 0x95, 0x97, 0xA6 }}
 
   ## Include/Apple/Guid/AppleFile.h
   gAppleFirmwareInfoFileGuid                 = { 0x95C8C131, 0x4467, 0x4447, { 0x8A, 0x71, 0xF0, 0x87, 0xAF, 0xCA, 0x07, 0xA5 }}
@@ -467,12 +474,15 @@
   ## Include/Microsoft/Guid/MicrosoftVariable.h
   gMicrosoftVariableGuid                     = { 0x77FA9ABD, 0x0359, 0x4D32, { 0xBD, 0x60, 0x28, 0xF4, 0xE7, 0x8F, 0x78, 0x4B }}
 
+  ## Include/Shim/Guid/ShimLock.h
+  gShimLockGuid                              = { 0x605DAB50, 0xE046, 0x4300, { 0xAB, 0xB6, 0x3D, 0xD8, 0x10, 0xDD, 0x8B, 0x23 }}
+
 [Protocols]
   ## Include/Acidanthera/Protocol/AudioDecode.h
   gEfiAudioDecodeProtocolGuid                = { 0xAF3F6C23, 0x8132, 0x4880, { 0xB3, 0x29, 0x04, 0x8D, 0xF7, 0x1D, 0xD8, 0x6A }}
 
   ## Include/Acidanthera/Protocol/AudioIo.h
-  gEfiAudioIoProtocolGuid                    = { 0xF05B559C, 0x1971, 0x4AF5, { 0xB2, 0xAE, 0xD6, 0x08, 0x08, 0xF7, 0x4F, 0x70 }}
+  gEfiAudioIoProtocolGuid                    = { 0x22266891, 0x2032, 0x4BAE, { 0xB7, 0xB5, 0x43, 0x74, 0xE7, 0x32, 0x09, 0x49 }}
 
   ## Include/Acidanthera/Protocol/HdaCodecInfo.h
   gEfiHdaCodecInfoProtocolGuid               = { 0x6C9CDDE1, 0xE8A5, 0x43E5, { 0xBE, 0x88, 0xDA, 0x15, 0xBC, 0x1C, 0x02, 0x50 }}
@@ -482,6 +492,9 @@
 
   ## Include/Acidanthera/Protocol/HdaIo.h
   gEfiHdaIoProtocolGuid                      = { 0xA090D7F9, 0xB50A, 0x4EA1, { 0xBD, 0xE9, 0x1A, 0xA5, 0xE9, 0x81, 0x2F, 0x45 }}
+
+  ## Include/Acidanthera/Protocol/Legacy8259.h
+  gEfiLegacy8259ProtocolGuid                 = { 0x38321dba, 0x4fe0, 0x4e17, { 0x8a, 0xec, 0x41, 0x30, 0x55, 0xea, 0xed, 0xc1 }}
 
   ## Include/Acidanthera/Protocol/OcAudio.h
   gOcAudioProtocolGuid                       = { 0x4B228577, 0x6274, 0x4A48, { 0x82, 0xAE, 0x07, 0x13, 0xA1, 0x17, 0x19, 0x87 }}
@@ -503,6 +516,12 @@
 
   ## Include/Acidanthera/Protocol/OcForceResolution.h
   gOcForceResolutionProtocolGuid             = { 0xBC7EC589, 0x2390, 0x4DA3, { 0x80, 0x25, 0x77, 0xDA, 0xD3, 0x4F, 0x36, 0x09 }}
+
+  ## Include/Acidanthera/Protocol/OcBootEntry.h
+  gOcBootEntryProtocolGuid                   = { 0x8604716E, 0xADD4, 0x45B4, { 0x84, 0x95, 0x08, 0xE3, 0x6D, 0x49, 0x7F, 0x4F }}
+
+  ## Include/Acidanthera/Protocol/OcVariableRuntime.h
+  gOcVariableRuntimeProtocolGuid             = { 0x3DBA852A, 0x2645, 0x4184, { 0x95, 0x71, 0xE6, 0x0C, 0x2B, 0xFD, 0x72, 0x4C }}
 
   ##  Include/AMI/Protocol/AmiPointer.h
   gAmiEfiPointerProtocolGuid                 = { 0x15A10CE7, 0xEAB5, 0x43BF, { 0x90, 0x42, 0x74, 0x43, 0x2E, 0x69, 0x63, 0x77 }}
@@ -621,6 +640,9 @@
   ## Include/Apple/Protocol/AppleTamperResistantBoot.h
   gAppleTamperResistantBootProtocolGuid      = { 0x75FAB4B4, 0x6AC1, 0x429A, { 0xA0, 0x00, 0x6B, 0x0B, 0x95, 0xE7, 0x1C, 0xA1 }}
 
+  ## Include/Apple/Protocol/AppleUserInterface.h
+  gAppleFirmwareUserInterfaceProtocolGuid    = { 0x691E1AF0, 0x8673, 0x4C98, { 0xA9, 0xB3, 0x04, 0x26, 0x20, 0xE9, 0x14, 0x98 }}
+
   ## Include/Apple/Protocol/DevicePathPropertyDatabase.h
   gEfiDevicePathPropertyDatabaseProtocolGuid = { 0x91BD12FE, 0xF6C3, 0x44FB, { 0xA5, 0xB7, 0x51, 0x22, 0xAB, 0x30, 0x3A, 0xE0 }}
 
@@ -694,26 +716,49 @@
   ## @Prompt Register a protocol installation notify for Apple KeyMap Database when not found initially.
   gOpenCorePkgTokenSpaceGuid.PcNvramInitDevicePropertyDatabase|FALSE|BOOLEAN|0x00000001
 
-  ## Indicates if USB KeyBoard Driver disconnects itself when the Exit Boot
-  ## Services event is triggered.<BR><BR>
+  ## Indicates if USB KeyBoard Driver disconnects itself when the Exit Boot Services
+  ## event is triggered.<BR><BR>
   ##   TRUE  - USB KeyBoard Driver will disconnect itself.<BR>
   ##   FALSE - USB KeyBoard Driver will not disconnect itself.<BR>
   ## @Prompt Disconnect the USB KeyBoard Driver when exitting Boot Services.
   gOpenCorePkgTokenSpaceGuid.PcdEnableDisconnectOnExitBootServicesInUsbKbDriver|TRUE|BOOLEAN|0x00000002
 
-  ## Indicates if USB KeyBoard Driver registers a Apple KeyMap Database protocol installation notify.
-  ## Services event is triggered.<BR><BR>
+  ## Indicates if USB KeyBoard Driver registers a Apple KeyMap Database protocol installation notify.<BR><BR>
   ##   TRUE  - USB KeyBoard Driver will registers a protocol installation notify.<BR>
   ##   FALSE - USB KeyBoard Driver will registers a protocol installation notify.<BR>
   ## @Prompt Register a protocol installation notify for Apple KeyMap Database when not found initially.
   gOpenCorePkgTokenSpaceGuid.PcdNotifyAppleKeyMapDbInUsbKbDriver|TRUE|BOOLEAN|0x00000003
 
-  ## Indicates if USB KeyBoard Driver disconnects other drivers to take precedence.
-  ## Services event is triggered.<BR><BR>
+  ## Indicates if USB KeyBoard Driver disconnects other drivers to take precedence.<BR><BR>
   ##   TRUE  - USB KeyBoard Driver will disconnect other drivers.<BR>
   ##   FALSE - USB KeyBoard Driver will not disconnect other drivers.<BR>
   ## @Prompt Disconnect other drivers for the USB KeyBoard Driver to take precedence over them.
   gOpenCorePkgTokenSpaceGuid.PcdUsbKbDriverTakePrecedence|TRUE|BOOLEAN|0x00000004
+
+  ## Indicates whether audio codec setup code produces an error when no valid output bits are specified.<BR><BR>
+  ##   TRUE  - Produce an error.<BR>
+  ##   FALSE - No error, just play no sound.<BR>
+  ## @Prompt Audio codec setup code should produce an error when no valid output bits are specified.
+  gOpenCorePkgTokenSpaceGuid.PcdAudioCodecErrorOnNoOutputs|TRUE|BOOLEAN|0x00000005
+
+  ## Indicates if AudioDxe will try EFI_OPEN_PROTOCOL_GET_PROTOCOL if EFI_OPEN_PROTOCOL_BY_DRIVER
+  ## fails with access denied.<BR><BR>
+  ##   TRUE  - Use EFI_OPEN_PROTOCOL_GET_PROTOCOL if EFI_OPEN_PROTOCOL_BY_DRIVER fails.<BR>
+  ##   FALSE - Do not use EFI_OPEN_PROTOCOL_GET_PROTOCOL.<BR>
+  ## @Prompt Try EFI_OPEN_PROTOCOL_GET_PROTOCOL if EFI_OPEN_PROTOCOL_BY_DRIVER fails.
+  gOpenCorePkgTokenSpaceGuid.PcdAudioControllerTryProtocolGetMode|TRUE|BOOLEAN|0x00000007
+
+  ## Indicates if AudioDxe will use Pin Capabilities to identify outputs.<BR><BR>
+  ##   TRUE  - Use Pin Capabilities to identify outputs.<BR>
+  ##   FALSE - Use default device type to identify outputs.<BR>
+  ## @Prompt Use Pin Capabilities to identify audio outputs.
+  gOpenCorePkgTokenSpaceGuid.PcdAudioControllerUsePinCapsForOutputs|TRUE|BOOLEAN|0x00000008
+
+  ## Indicates whether to build EnableGop driver with DirectGopRendering.<BR><BR>
+  ##   TRUE  - DirectGopRendering will be used.<BR>
+  ##   FALSE - DirectGopRendering will not be used.<BR>
+  ## @Prompt Use DirectGopRendering.
+  gOpenCorePkgTokenSpaceGuid.PcdEnableGopDirect|FALSE|BOOLEAN|0x00000009
 
 [PcdsFixedAtBuild]
   ## Defines the Console Control initialization mode set on entry.<BR><BR>
@@ -735,13 +780,43 @@
   ## @Prompt Allow these signature hashing algorithms for cryptographic usage.
   gOpenCorePkgTokenSpaceGuid.PcdOcCryptoAllowedSigHashTypes|0x07|UINT16|0x00000501
 
-  gOpenCorePkgTokenSpaceGuid.PcdImageLoaderRtRelocAllowTargetMismatch|FALSE|BOOLEAN|0x00000600
-  gOpenCorePkgTokenSpaceGuid.PcdImageLoaderHashProhibitOverlap|TRUE|BOOLEAN|0x00000601
-  gOpenCorePkgTokenSpaceGuid.PcdImageLoaderLoadHeader|TRUE|BOOLEAN|0x00000602
-  gOpenCorePkgTokenSpaceGuid.PcdImageLoaderSupportArmThumb|FALSE|BOOLEAN|0x00000603
-  gOpenCorePkgTokenSpaceGuid.PcdImageLoaderForceLoadDebug|FALSE|BOOLEAN|0x00000604
-  gOpenCorePkgTokenSpaceGuid.PcdImageLoaderTolerantLoad|TRUE|BOOLEAN|0x00000605
-  gOpenCorePkgTokenSpaceGuid.PcdImageLoaderSupportDebug|FALSE|BOOLEAN|0x00000606
+  ## Indicates, whether usage of TSC instead of RNG is allowed.<BR><BR>
+  ##   TRUE  - TSC is allowed.<BR>
+  ##   FALSE - TSC is NOT allowed.<BR>
+  ## @Prompt Allow usage of TSC, when RNG is not available.
+  gOpenCorePkgTokenSpaceGuid.PcdCanaryAllowRdtscFallback|FALSE|BOOLEAN|0x00000607
+
+  ## Indicates, whether early logs before the arrival of log protocol should be saved.<BR><BR>
+  ##   TRUE  - Save early logs.<BR>
+  ##   FALSE - Do not save early logs.<BR>
+  ## @Prompt Allow saving early logs when log protocol has not yet arrived.
+  gOpenCorePkgTokenSpaceGuid.PcdDebugLibProtocolBufferEarlyLog|TRUE|BOOLEAN|0x00000608
+
+  ## Pcd8259LegacyModeMask defines the default mask value for platform. This
+  #  value is determined.
+  #  1) If platform only support pure UEFI, value should be set to 0xFFFF or
+  #     0xFFFE; Because only clock interrupt is allowed in legacy mode in pure
+  #     UEFI platform.
+  #  2) If platform install CSM and use thunk module:
+  #     a) If thunk call provided by CSM binary requires some legacy interrupt
+  #        support, the corresponding bit should be opened as 0.
+  #        For example, if keyboard interfaces provided CSM binary use legacy
+  #        keyboard interrupt in 8259 bit 1, then the value should be set to
+  #        0xFFFC.
+  #     b) If all thunk call provied by CSM binary do not require legacy
+  #        interrupt support, value should be set to 0xFFFF or 0xFFFE.
+  #
+  #  The default value of legacy mode mask could be changed by
+  #  EFI_LEGACY_8259_PROTOCOL->SetMask(). But it is rarely need change it
+  #  except some special cases such as when initializing the CSM binary, it
+  #  should be set to 0xFFFF to mask all legacy interrupt. Please restore the
+  #  original legacy mask value if changing is made for these special case.
+  gOpenCorePkgTokenSpaceGuid.Pcd8259LegacyModeMask|0xFFFF|UINT16|0x00000609
+
+  ## Pcd8259LegacyModeEdgeLevel defines the default edge level for legacy
+  #  mode's interrrupt controller.
+  #  For the corresponding bits, 0 = Edge triggered and 1 = Level triggered.
+  gOpenCorePkgTokenSpaceGuid.Pcd8259LegacyModeEdgeLevel|0x0000|UINT16|0x0000060a
 
 [LibraryClasses]
   ##  @libraryclass
@@ -844,7 +919,7 @@
   OcFirmwareVolumeLib|Include/Acidanthera/Library/OcFirmwareVolumeLib.h
 
   ##  @libraryclass
-  OcGuardLib|Include/Acidanthera/Library/OcGuardLib.h
+  OcFlexArrayLib|Include/Acidanthera/Library/OcFlexArrayLib.h
 
   ##  @libraryclass
   OcHashServicesLib|Include/Acidanthera/Library/OcHashServicesLib.h
@@ -857,6 +932,12 @@
 
   ##  @libraryclass
   OcInputLib|Include/Acidanthera/Library/OcInputLib.h
+
+  ##  @libraryclass
+  OcLegacyThunkLib|Include/Acidanthera/Library/OcLegacyThunkLib.h
+
+  ##  @libraryclass
+  OcLogAggregatorLib|Include/Acidanthera/Library/OcLogAggregatorLib.h
 
   ##  @libraryclass
   OcMainLib|Include/Acidanthera/Library/OcMainLib.h
@@ -878,9 +959,6 @@
 
   ##  @libraryclass
   OcPeCoffExtLib|Include/Acidanthera/Library/OcPeCoffExtLib.h
-
-  ##  @libraryclass
-  OcPeCoffLib|Include/Acidanthera/Library/OcPeCoffLib.h
 
   ##  @libraryclass
   OcPngLib|Include/Acidanthera/Library/OcPngLib.h

@@ -35,7 +35,7 @@
   with legacy AptioMemoryFix protocol, allowing us to avoid
   conflicts between the two.
 **/
-STATIC OC_AFTER_BOOT_COMPAT_PROTOCOL mOcAfterBootCompatProtocol = {
+STATIC OC_AFTER_BOOT_COMPAT_PROTOCOL  mOcAfterBootCompatProtocol = {
   OC_AFTER_BOOT_COMPAT_PROTOCOL_REVISION
 };
 
@@ -56,10 +56,10 @@ InstallAbcProtocol (
   EFI_HANDLE  Handle;
 
   Status = gBS->LocateProtocol (
-    &gOcAfterBootCompatProtocolGuid,
-    NULL,
-    &Interface
-    );
+                  &gOcAfterBootCompatProtocolGuid,
+                  NULL,
+                  &Interface
+                  );
 
   if (!EFI_ERROR (Status)) {
     //
@@ -72,11 +72,11 @@ InstallAbcProtocol (
 
   Handle = NULL;
   Status = gBS->InstallMultipleProtocolInterfaces (
-    &Handle,
-    &gOcAfterBootCompatProtocolGuid,
-    &mOcAfterBootCompatProtocol,
-    NULL
-    );
+                  &Handle,
+                  &gOcAfterBootCompatProtocolGuid,
+                  &mOcAfterBootCompatProtocol,
+                  NULL
+                  );
 
   if (EFI_ERROR (Status)) {
     DEBUG ((DEBUG_WARN, "OCABC: protocol install failure - %r\n", Status));
@@ -117,9 +117,9 @@ OcAbcInitialize (
     Settings->AvoidRuntimeDefrag,
     Settings->DevirtualiseMmio,
     Settings->DisableSingleUser,
-    Settings->ForceBooterSignature,
     Settings->DisableVariableWrite,
     Settings->ProtectSecureBoot,
+    Settings->ForceBooterSignature,
     Settings->DiscardHibernateMap,
     Settings->EnableSafeModeSlide,
     Settings->EnableWriteUnprotector
@@ -127,7 +127,7 @@ OcAbcInitialize (
 
   DEBUG ((
     DEBUG_INFO,
-    "OCABC: FEXITBS %d PRMRG %d CSLIDE %d MSLIDE %d PRSRV %d RBMAP %d VMAP %d APPLOS %d RTPERMS %d\n",
+    "OCABC: FEXITBS %d PRMRG %d CSLIDE %d MSLIDE %d PRSRV %d RBMAP %d VMAP %d APPLOS %d RTPERMS %d ARBAR %d RBIO %d\n",
     Settings->ForceExitBootServices,
     Settings->ProtectMemoryRegions,
     Settings->ProvideCustomSlide,
@@ -136,7 +136,9 @@ OcAbcInitialize (
     Settings->RebuildAppleMemoryMap,
     Settings->SetupVirtualMap,
     Settings->SignalAppleOS,
-    Settings->SyncRuntimePermissions
+    Settings->SyncRuntimePermissions,
+    Settings->ResizeAppleGpuBars,
+    Settings->ResizeUsePciRbIo
     ));
 
   DEBUG_CODE_BEGIN ();
@@ -144,8 +146,8 @@ OcAbcInitialize (
   DEBUG ((
     DEBUG_INFO,
     "OCABC: Firmware has %Lu free pages (%Lu in lower 4 GB)\n",
-    (UINT64) TotalMemory,
-    (UINT64) LowMemory
+    (UINT64)TotalMemory,
+    (UINT64)LowMemory
     ));
   DEBUG_CODE_END ();
 

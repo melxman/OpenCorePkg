@@ -21,54 +21,56 @@
 #include <Library/OcXmlLib.h>
 #include <Protocol/SimpleFileSystem.h>
 
-#define PRELINK_KERNEL_IDENTIFIER "__kernel__"
-#define PRELINK_KPI_IDENTIFIER_PREFIX "com.apple.kpi."
+#define PRELINK_KERNEL_IDENTIFIER      "__kernel__"
+#define PRELINK_KPI_IDENTIFIER_PREFIX  "com.apple.kpi."
 
-#define PRELINK_INFO_SEGMENT  "__PRELINK_INFO"
-#define PRELINK_INFO_SECTION  "__info"
-#define PRELINK_TEXT_SEGMENT  "__PRELINK_TEXT"
-#define PRELINK_TEXT_SECTION  "__text"
-#define PRELINK_STATE_SEGMENT "__PRELINK_STATE"
-#define PRELINK_STATE_SECTION_KERNEL "__kernel"
-#define PRELINK_STATE_SECTION_KEXTS  "__kexts"
+#define PRELINK_INFO_SEGMENT          "__PRELINK_INFO"
+#define PRELINK_INFO_SECTION          "__info"
+#define PRELINK_TEXT_SEGMENT          "__PRELINK_TEXT"
+#define PRELINK_TEXT_SECTION          "__text"
+#define PRELINK_STATE_SEGMENT         "__PRELINK_STATE"
+#define PRELINK_STATE_SECTION_KERNEL  "__kernel"
+#define PRELINK_STATE_SECTION_KEXTS   "__kexts"
 
+#define PRELINK_INFO_DICTIONARY_KEY                "_PrelinkInfoDictionary"
+#define PRELINK_INFO_KMOD_INFO_KEY                 "_PrelinkKmodInfo"
+#define PRELINK_INFO_BUNDLE_PATH_KEY               "_PrelinkBundlePath"
+#define PRELINK_INFO_EXECUTABLE_RELATIVE_PATH_KEY  "_PrelinkExecutableRelativePath"
+#define PRELINK_INFO_EXECUTABLE_LOAD_ADDR_KEY      "_PrelinkExecutableLoadAddr"
+#define PRELINK_INFO_EXECUTABLE_SOURCE_ADDR_KEY    "_PrelinkExecutableSourceAddr"
+#define PRELINK_INFO_EXECUTABLE_SIZE_KEY           "_PrelinkExecutableSize"
+#define PRELINK_INFO_LINK_STATE_ADDR_KEY           "_PrelinkLinkState"
+#define PRELINK_INFO_LINK_STATE_SIZE_KEY           "_PrelinkLinkStateSize"
 
-#define PRELINK_INFO_DICTIONARY_KEY               "_PrelinkInfoDictionary"
-#define PRELINK_INFO_KMOD_INFO_KEY                "_PrelinkKmodInfo"
-#define PRELINK_INFO_BUNDLE_PATH_KEY              "_PrelinkBundlePath"
-#define PRELINK_INFO_EXECUTABLE_RELATIVE_PATH_KEY "_PrelinkExecutableRelativePath"
-#define PRELINK_INFO_EXECUTABLE_LOAD_ADDR_KEY     "_PrelinkExecutableLoadAddr"
-#define PRELINK_INFO_EXECUTABLE_SOURCE_ADDR_KEY   "_PrelinkExecutableSourceAddr"
-#define PRELINK_INFO_EXECUTABLE_SIZE_KEY          "_PrelinkExecutableSize"
-#define PRELINK_INFO_LINK_STATE_ADDR_KEY          "_PrelinkLinkState"
-#define PRELINK_INFO_LINK_STATE_SIZE_KEY          "_PrelinkLinkStateSize"
+#define INFO_BUNDLE_IDENTIFIER_KEY          "CFBundleIdentifier"
+#define INFO_BUNDLE_EXECUTABLE_KEY          "CFBundleExecutable"
+#define INFO_BUNDLE_LIBRARIES_KEY           "OSBundleLibraries"
+#define INFO_BUNDLE_LIBRARIES_64_KEY        "OSBundleLibraries_x86_64"
+#define INFO_BUNDLE_VERSION_KEY             "CFBundleVersion"
+#define INFO_BUNDLE_COMPATIBLE_VERSION_KEY  "OSBundleCompatibleVersion"
+#define INFO_BUNDLE_OS_BUNDLE_REQUIRED_KEY  "OSBundleRequired"
 
-#define INFO_BUNDLE_IDENTIFIER_KEY                "CFBundleIdentifier"
-#define INFO_BUNDLE_EXECUTABLE_KEY                "CFBundleExecutable"
-#define INFO_BUNDLE_LIBRARIES_KEY                 "OSBundleLibraries"
-#define INFO_BUNDLE_LIBRARIES_64_KEY              "OSBundleLibraries_x86_64"
-#define INFO_BUNDLE_VERSION_KEY                   "CFBundleVersion"
-#define INFO_BUNDLE_COMPATIBLE_VERSION_KEY        "OSBundleCompatibleVersion"
-#define INFO_BUNDLE_OS_BUNDLE_REQUIRED_KEY        "OSBundleRequired"
+#define OS_BUNDLE_REQUIRED_ROOT       "Root"
+#define OS_BUNDLE_REQUIRED_SAFE_BOOT  "Safe Boot"
 
-#define OS_BUNDLE_REQUIRED_ROOT                   "Root"
-#define OS_BUNDLE_REQUIRED_SAFE_BOOT              "Safe Boot"
+#define MKEXT_INFO_DICTIONARIES_KEY         "_MKEXTInfoDictionaries"
+#define MKEXT_BUNDLE_PATH_KEY               "_MKEXTBundlePath"
+#define MKEXT_EXECUTABLE_RELATIVE_PATH_KEY  "_MKEXTExecutableRelativePath"
+#define MKEXT_EXECUTABLE_KEY                "_MKEXTExecutable"
 
+#define PRELINK_INFO_INTEGER_ATTRIBUTES  "size=\"64\""
+#define MKEXT_INFO_INTEGER_ATTRIBUTES    "size=\"32\""
 
-#define MKEXT_INFO_DICTIONARIES_KEY               "_MKEXTInfoDictionaries"
-#define MKEXT_BUNDLE_PATH_KEY                     "_MKEXTBundlePath"
-#define MKEXT_EXECUTABLE_RELATIVE_PATH_KEY        "_MKEXTExecutableRelativePath"
-#define MKEXT_EXECUTABLE_KEY                      "_MKEXTExecutable"
+#define KC_REGION_SEGMENT_PREFIX  "__REGION"
+#define KC_REGION0_SEGMENT        "__REGION0"
+#define KC_TEXT_SEGMENT           "__TEXT"
+#define KC_LINKEDIT_SEGMENT       "__LINKEDIT"
+#define KC_MOSCOW_SEGMENT         "__MOSCOW101"
 
-
-#define PRELINK_INFO_INTEGER_ATTRIBUTES           "size=\"64\""
-#define MKEXT_INFO_INTEGER_ATTRIBUTES             "size=\"32\""
-
-#define KC_REGION_SEGMENT_PREFIX                  "__REGION"
-#define KC_REGION0_SEGMENT                        "__REGION0"
-#define KC_TEXT_SEGMENT                           "__TEXT"
-#define KC_LINKEDIT_SEGMENT                       "__LINKEDIT"
-#define KC_MOSCOW_SEGMENT                         "__MOSCOW101"
+//
+// Maximum allowed size of kext bundle version (CFBundleVersion) string.
+//
+#define MAX_INFO_BUNDLE_VERSION_KEY_SIZE  32
 
 //
 // Kernel cache types.
@@ -83,7 +85,7 @@ typedef enum KERNEL_CACHE_TYPE_ {
 //
 // Macro to print kernel cache type.
 //
-#define PRINT_KERNEL_CACHE_TYPE(a) ( \
+#define PRINT_KERNEL_CACHE_TYPE(a)  (\
   (a)   == CacheTypeCacheless ? "Cacheless" : \
   ((a)  == CacheTypeMkext     ? "Mkext" : \
   (((a) == CacheTypePrelinked ? "Prelinked" : "Kernel"))))
@@ -91,56 +93,85 @@ typedef enum KERNEL_CACHE_TYPE_ {
 //
 // As PageCount is UINT16, we can only index 2^16 * 4096 Bytes with one chain.
 //
-#define PRELINKED_KEXTS_MAX_SIZE (BIT16 * MACHO_PAGE_SIZE)
+#define PRELINKED_KEXTS_MAX_SIZE  (BIT16 * MACHO_PAGE_SIZE)
 
 //
 // Failsafe default for plist reserve allocation.
 //
-#define PRELINK_INFO_RESERVE_SIZE (5U * 1024U * 1024U)
+#define PRELINK_INFO_RESERVE_SIZE  (5U * 1024U * 1024U)
 
 //
 // Size to reserve per kext for plist expansion.
 // Additional properties are added to prelinked and mkext v2, this should account for those.
 //
-#define PLIST_EXPANSION_SIZE      512
+#define PLIST_EXPANSION_SIZE  512
 
 //
 // Make integral kernel version (major, minor, revision).
 //
-#define KERNEL_VERSION(A, B, C) ((A) * 10000 + (B) * 100 + (C))
+#define KERNEL_VERSION(A, B, C)  ((A) * 10000 + (B) * 100 + (C))
+
+//
+// Darwin versions for each release.
+//
+#define KERNEL_VERSION_TIGER          8
+#define KERNEL_VERSION_LEOPARD        9
+#define KERNEL_VERSION_SNOW_LEOPARD   10
+#define KERNEL_VERSION_LION           11
+#define KERNEL_VERSION_MOUNTAIN_LION  12
+#define KERNEL_VERSION_MAVERICKS      13
+#define KERNEL_VERSION_YOSEMITE       14
+#define KERNEL_VERSION_EL_CAPITAN     15
+#define KERNEL_VERSION_SIERRA         16
+#define KERNEL_VERSION_HIGH_SIERRA    17
+#define KERNEL_VERSION_MOJAVE         18
+#define KERNEL_VERSION_CATALINA       19
+#define KERNEL_VERSION_BIG_SUR        20
+#define KERNEL_VERSION_MONTEREY       21
+#define KERNEL_VERSION_VENTURA        22
+#define KERNEL_VERSION_SONOMA         23
+#define KERNEL_VERSION_SEQUOIA        24
 
 //
 // Minimum kernel versions for each release.
 //
-#define KERNEL_VERSION_TIGER_MIN            KERNEL_VERSION (8, 0, 0)
-#define KERNEL_VERSION_LEOPARD_MIN          KERNEL_VERSION (9, 0, 0)
-#define KERNEL_VERSION_SNOW_LEOPARD_MIN     KERNEL_VERSION (10, 0, 0)
-#define KERNEL_VERSION_LION_MIN             KERNEL_VERSION (11, 0, 0)
-#define KERNEL_VERSION_MOUNTAIN_LION_MIN    KERNEL_VERSION (12, 0, 0)
-#define KERNEL_VERSION_MAVERICKS_MIN        KERNEL_VERSION (13, 0, 0)
-#define KERNEL_VERSION_YOSEMITE_MIN         KERNEL_VERSION (14, 0, 0)
-#define KERNEL_VERSION_EL_CAPITAN_MIN       KERNEL_VERSION (15, 0, 0)
-#define KERNEL_VERSION_SIERRA_MIN           KERNEL_VERSION (16, 0, 0)
-#define KERNEL_VERSION_HIGH_SIERRA_MIN      KERNEL_VERSION (17, 0, 0)
-#define KERNEL_VERSION_MOJAVE_MIN           KERNEL_VERSION (18, 0, 0)
-#define KERNEL_VERSION_CATALINA_MIN         KERNEL_VERSION (19, 0, 0)
-#define KERNEL_VERSION_BIG_SUR_MIN          KERNEL_VERSION (20, 0, 0)
+#define KERNEL_VERSION_TIGER_MIN          KERNEL_VERSION (KERNEL_VERSION_TIGER, 0, 0)
+#define KERNEL_VERSION_LEOPARD_MIN        KERNEL_VERSION (KERNEL_VERSION_LEOPARD, 0, 0)
+#define KERNEL_VERSION_SNOW_LEOPARD_MIN   KERNEL_VERSION (KERNEL_VERSION_SNOW_LEOPARD, 0, 0)
+#define KERNEL_VERSION_LION_MIN           KERNEL_VERSION (KERNEL_VERSION_LION, 0, 0)
+#define KERNEL_VERSION_MOUNTAIN_LION_MIN  KERNEL_VERSION (KERNEL_VERSION_MOUNTAIN_LION, 0, 0)
+#define KERNEL_VERSION_MAVERICKS_MIN      KERNEL_VERSION (KERNEL_VERSION_MAVERICKS, 0, 0)
+#define KERNEL_VERSION_YOSEMITE_MIN       KERNEL_VERSION (KERNEL_VERSION_YOSEMITE, 0, 0)
+#define KERNEL_VERSION_EL_CAPITAN_MIN     KERNEL_VERSION (KERNEL_VERSION_EL_CAPITAN, 0, 0)
+#define KERNEL_VERSION_SIERRA_MIN         KERNEL_VERSION (KERNEL_VERSION_SIERRA, 0, 0)
+#define KERNEL_VERSION_HIGH_SIERRA_MIN    KERNEL_VERSION (KERNEL_VERSION_HIGH_SIERRA, 0, 0)
+#define KERNEL_VERSION_MOJAVE_MIN         KERNEL_VERSION (KERNEL_VERSION_MOJAVE, 0, 0)
+#define KERNEL_VERSION_CATALINA_MIN       KERNEL_VERSION (KERNEL_VERSION_CATALINA, 0, 0)
+#define KERNEL_VERSION_BIG_SUR_MIN        KERNEL_VERSION (KERNEL_VERSION_BIG_SUR, 0, 0)
+#define KERNEL_VERSION_MONTEREY_MIN       KERNEL_VERSION (KERNEL_VERSION_MONTEREY, 0, 0)
+#define KERNEL_VERSION_VENTURA_MIN        KERNEL_VERSION (KERNEL_VERSION_VENTURA, 0, 0)
+#define KERNEL_VERSION_SONOMA_MIN         KERNEL_VERSION (KERNEL_VERSION_SONOMA, 0, 0)
+#define KERNEL_VERSION_SEQUOIA_MIN        KERNEL_VERSION (KERNEL_VERSION_SEQUOIA, 0, 0)
 
 //
 // Maximum kernel versions for each release.
 //
-#define KERNEL_VERSION_TIGER_MAX            (KERNEL_VERSION_LEOPARD_MIN - 1)
-#define KERNEL_VERSION_LEOPARD_MAX          (KERNEL_VERSION_SNOW_LEOPARD_MIN - 1)
-#define KERNEL_VERSION_SNOW_LEOPARD_MAX     (KERNEL_VERSION_LION_MIN - 1)
-#define KERNEL_VERSION_LION_MAX             (KERNEL_VERSION_MOUNTAIN_LION_MIN - 1)
-#define KERNEL_VERSION_MOUNTAIN_LION_MAX    (KERNEL_VERSION_MAVERICKS_MIN - 1)
-#define KERNEL_VERSION_MAVERICKS_MAX        (KERNEL_VERSION_YOSEMITE_MIN - 1)
-#define KERNEL_VERSION_YOSEMITE_MAX         (KERNEL_VERSION_EL_CAPITAN_MIN - 1)
-#define KERNEL_VERSION_EL_CAPITAN_MAX       (KERNEL_VERSION_SIERRA_MIN - 1)
-#define KERNEL_VERSION_SIERRA_MAX           (KERNEL_VERSION_HIGH_SIERRA_MIN - 1)
-#define KERNEL_VERSION_HIGH_SIERRA_MAX      (KERNEL_VERSION_MOJAVE_MIN - 1)
-#define KERNEL_VERSION_MOJAVE_MAX           (KERNEL_VERSION_CATALINA_MIN - 1)
-#define KERNEL_VERSION_CATALINA_MAX         (KERNEL_VERSION_BIG_SUR_MIN - 1)
+#define KERNEL_VERSION_TIGER_MAX          (KERNEL_VERSION_LEOPARD_MIN - 1)
+#define KERNEL_VERSION_LEOPARD_MAX        (KERNEL_VERSION_SNOW_LEOPARD_MIN - 1)
+#define KERNEL_VERSION_SNOW_LEOPARD_MAX   (KERNEL_VERSION_LION_MIN - 1)
+#define KERNEL_VERSION_LION_MAX           (KERNEL_VERSION_MOUNTAIN_LION_MIN - 1)
+#define KERNEL_VERSION_MOUNTAIN_LION_MAX  (KERNEL_VERSION_MAVERICKS_MIN - 1)
+#define KERNEL_VERSION_MAVERICKS_MAX      (KERNEL_VERSION_YOSEMITE_MIN - 1)
+#define KERNEL_VERSION_YOSEMITE_MAX       (KERNEL_VERSION_EL_CAPITAN_MIN - 1)
+#define KERNEL_VERSION_EL_CAPITAN_MAX     (KERNEL_VERSION_SIERRA_MIN - 1)
+#define KERNEL_VERSION_SIERRA_MAX         (KERNEL_VERSION_HIGH_SIERRA_MIN - 1)
+#define KERNEL_VERSION_HIGH_SIERRA_MAX    (KERNEL_VERSION_MOJAVE_MIN - 1)
+#define KERNEL_VERSION_MOJAVE_MAX         (KERNEL_VERSION_CATALINA_MIN - 1)
+#define KERNEL_VERSION_CATALINA_MAX       (KERNEL_VERSION_BIG_SUR_MIN - 1)
+#define KERNEL_VERSION_BIG_SUR_MAX        (KERNEL_VERSION_MONTEREY_MIN - 1)
+#define KERNEL_VERSION_MONTEREY_MAX       (KERNEL_VERSION_VENTURA_MIN - 1)
+#define KERNEL_VERSION_VENTURA_MAX        (KERNEL_VERSION_SONOMA_MIN - 1)
+#define KERNEL_VERSION_SONOMA_MAX         (KERNEL_VERSION_SEQUOIA_MIN - 1)
 
 //
 // Prelinked context used for kernel modification.
@@ -150,161 +181,163 @@ typedef struct {
   // Current version of prelinkedkernel. It takes a reference of user-allocated
   // memory block from pool, and grows if needed.
   //
-  UINT8                    *Prelinked;
+  UINT8                                  *Prelinked;
   //
   // Exportable prelinkedkernel size, i.e. the payload size. Also references user field.
   //
-  UINT32                   PrelinkedSize;
+  UINT32                                 PrelinkedSize;
   //
   // Currently allocated prelinkedkernel size, used for reduced rellocations.
   //
-  UINT32                   PrelinkedAllocSize;
+  UINT32                                 PrelinkedAllocSize;
   //
   // Current last virtual address (kext source files and plist are put here).
   //
-  UINT64                   PrelinkedLastAddress;
+  UINT64                                 PrelinkedLastAddress;
   //
   // Current last virtual load address (kexts are loaded here after kernel startup).
   //
-  UINT64                   PrelinkedLastLoadAddress;
+  UINT64                                 PrelinkedLastLoadAddress;
   //
   // Mach-O context for prelinkedkernel.
   //
-  OC_MACHO_CONTEXT         PrelinkedMachContext;
+  OC_MACHO_CONTEXT                       PrelinkedMachContext;
   //
   // Pointer to PRELINK_INFO_SEGMENT.
   //
-  MACH_SEGMENT_COMMAND_ANY *PrelinkedInfoSegment;
+  MACH_SEGMENT_COMMAND_ANY               *PrelinkedInfoSegment;
   //
   // Pointer to PRELINK_INFO_SECTION.
   //
-  MACH_SECTION_ANY         *PrelinkedInfoSection;
+  MACH_SECTION_ANY                       *PrelinkedInfoSection;
   //
-  // Pointer to PRELINK_TEXT_SEGMENT.
+  // Pointer to PRELINK_TEXT_SEGMENT (for prelinkedkernel, NULL for KC).
+  // As of macOS 13 Developer Beta 3, this segment may have corrupted
+  // information.
   //
-  MACH_SEGMENT_COMMAND_ANY *PrelinkedTextSegment;
+  MACH_SEGMENT_COMMAND_ANY               *PrelinkedTextSegment;
   //
   // Pointer to PRELINK_TEXT_SECTION.
   //
-  MACH_SECTION_ANY         *PrelinkedTextSection;
+  MACH_SECTION_ANY                       *PrelinkedTextSection;
   //
   // Pointer to PRELINK_STATE_SEGMENT (for 10.6.8).
   //
-  MACH_SEGMENT_COMMAND_ANY *PrelinkedStateSegment;
+  MACH_SEGMENT_COMMAND_ANY               *PrelinkedStateSegment;
   //
   // Pointer to PRELINK_STATE_SECTION_KERNEL (for 10.6.8).
   //
-  MACH_SECTION_ANY         *PrelinkedStateSectionKernel;
+  MACH_SECTION_ANY                       *PrelinkedStateSectionKernel;
   //
   // Pointer to PRELINK_STATE_SECTION_KEXTS (for 10.6.8).
   //
-  MACH_SECTION_ANY         *PrelinkedStateSectionKexts;
+  MACH_SECTION_ANY                       *PrelinkedStateSectionKexts;
   //
   // Contents of PRELINK_STATE_SECTION_KERNEL section (for 10.6.8).
   //
-  VOID                     *PrelinkedStateKernel;
+  VOID                                   *PrelinkedStateKernel;
   //
   // Contents of PRELINK_STATE_SECTION_KEXTS (for 10.6.8).
   //
-  VOID                     *PrelinkedStateKexts;
+  VOID                                   *PrelinkedStateKexts;
   //
   // PRELINK_STATE_SECTION_KEXTS original load address.
   //
-  UINT64                   PrelinkedStateKextsAddress;
+  UINT64                                 PrelinkedStateKextsAddress;
   //
   // PRELINK_STATE_SECTION_KERNEL section size (for 10.6.8).
   //
-  UINT32                   PrelinkedStateKernelSize;
+  UINT32                                 PrelinkedStateKernelSize;
   //
   // PRELINK_STATE_SECTION_KEXTS section size (for 10.6.8).
   //
-  UINT32                   PrelinkedStateKextsSize;
+  UINT32                                 PrelinkedStateKextsSize;
   //
   // Pointer to KC_LINKEDIT_SEGMENT (for KC mode).
   //
-  MACH_SEGMENT_COMMAND_ANY *LinkEditSegment;
+  MACH_SEGMENT_COMMAND_ANY               *LinkEditSegment;
   //
   // Pointer to KC_REGION0_SEGMENT (for KC mode).
   //
-  MACH_SEGMENT_COMMAND_64  *RegionSegment;
+  MACH_SEGMENT_COMMAND_64                *RegionSegment;
   //
   // Mach-O context for inner prelinkedkernel (for KC mode).
   //
-  OC_MACHO_CONTEXT         InnerMachContext;
+  OC_MACHO_CONTEXT                       InnerMachContext;
   //
   // Pointer to PRELINK_INFO_SEGMENT in the inner prelinkedkernel.
   //
-  MACH_SEGMENT_COMMAND_64  *InnerInfoSegment;
+  MACH_SEGMENT_COMMAND_64                *InnerInfoSegment;
   //
   // Pointer to PRELINK_INFO_SECTION in the inner prelinkedkernel.
   //
-  MACH_SECTION_64          *InnerInfoSection;
+  MACH_SECTION_64                        *InnerInfoSection;
   //
   // Copy of prelinkedkernel PRELINK_INFO_SECTION used for XML_DOCUMENT.
   // Freed upon context destruction.
   //
-  CHAR8                    *PrelinkedInfo;
+  CHAR8                                  *PrelinkedInfo;
   //
   // Parsed instance of PlistInfo. New entries are added here.
   //
-  XML_DOCUMENT             *PrelinkedInfoDocument;
+  XML_DOCUMENT                           *PrelinkedInfoDocument;
   //
   // Reference for PRELINK_INFO_DICTIONARY_KEY in PlistDocument.
   // This reference is used for quick path during kext injection.
   //
-  XML_NODE                 *KextList;
+  XML_NODE                               *KextList;
   //
   // Plist scratch buffer used when updating values.
   //
-  CHAR8                    *KextScratchBuffer;
+  CHAR8                                  *KextScratchBuffer;
   //
   // Buffers allocated from pool for internal needs.
   //
-  VOID                     **PooledBuffers;
+  VOID                                   **PooledBuffers;
   //
   // Currently used pooled buffers.
   //
-  UINT32                   PooledBuffersCount;
+  UINT32                                 PooledBuffersCount;
   //
   // Currently allocated pooled buffers. PooledBuffersAllocCount >= PooledBuffersCount.
   //
-  UINT32                   PooledBuffersAllocCount;
-  VOID                     *LinkBuffer;
-  UINT32                   LinkBufferSize;
+  UINT32                                 PooledBuffersAllocCount;
+  VOID                                   *LinkBuffer;
+  UINT32                                 LinkBufferSize;
   //
   // Used for caching all prelinked kexts.
   // I.e. this contains kernel, injected kexts, and kexts used as dependencies.
   //
-  LIST_ENTRY               PrelinkedKexts;
+  LIST_ENTRY                             PrelinkedKexts;
   //
   // Used for caching prelinked kexts, which we inject.
   // This is a sublist of PrelinkedKexts.
   //
-  LIST_ENTRY               InjectedKexts;
+  LIST_ENTRY                             InjectedKexts;
   //
   // Whether this kernel is a kernel collection (used by macOS 11.0+).
   //
-  BOOLEAN                  IsKernelCollection;
+  BOOLEAN                                IsKernelCollection;
   //
   // Kext segment file location for kernel collection.
   //
-  UINT32                   KextsFileOffset;
+  UINT32                                 KextsFileOffset;
   //
   // Kext segment memory location for kernel collection.
   //
-  UINT64                   KextsVmAddress;
+  UINT64                                 KextsVmAddress;
   //
   // Kext fixup chain for kernel collection.
   //
-  MACH_DYLD_CHAINED_STARTS_IN_SEGMENT  *KextsFixupChains;
+  MACH_DYLD_CHAINED_STARTS_IN_SEGMENT    *KextsFixupChains;
   //
   // Kernel virtual base.
   //
-  UINT64                   VirtualBase;
+  UINT64                                 VirtualBase;
   //
   // Prelinked is 32-bit.
   //
-  BOOLEAN                  Is32Bit;
+  BOOLEAN                                Is32Bit;
 } PRELINKED_CONTEXT;
 
 //
@@ -314,35 +347,35 @@ typedef struct {
   //
   // Mach-O context for patched binary.
   //
-  OC_MACHO_CONTEXT         MachContext;
+  OC_MACHO_CONTEXT    MachContext;
   //
   // Virtual base of text segment.
   //
-  UINT64                   VirtualBase;
+  UINT64              VirtualBase;
   //
   // File offset.
   //
-  UINT64                   FileOffset;
+  UINT64              FileOffset;
   //
   // Virtual kmod_info_t address.
   //
-  UINT64                   VirtualKmod;
+  UINT64              VirtualKmod;
   //
   // Pointer to KXLD state (read only, it is allocated in PrelinkedStateKexts).
   //
-  CONST VOID               *KxldState;
+  CONST VOID          *KxldState;
   //
   // Pointer to KXLD state (read only, it is allocated in PrelinkedStateKexts).
   //
-  UINT32                   KxldStateSize;
+  UINT32              KxldStateSize;
   //
   // Binary is 32-bit.
   //
-  BOOLEAN                  Is32Bit;
+  BOOLEAN             Is32Bit;
   //
   // Patcher context is contained within a kernel collection.
   //
-  BOOLEAN                  IsKernelCollection;
+  BOOLEAN             IsKernelCollection;
 } PATCHER_CONTEXT;
 
 //
@@ -352,43 +385,43 @@ typedef struct {
   //
   // Comment or NULL.
   //
-  CONST CHAR8  *Comment;
+  CONST CHAR8    *Comment;
   //
   // Symbol base or NULL (0 base is used then).
   //
-  CONST CHAR8  *Base;
+  CONST CHAR8    *Base;
   //
   // Find bytes or NULL (data is written to base then).
   //
-  CONST UINT8  *Find;
+  CONST UINT8    *Find;
   //
   // Replace bytes.
   //
-  CONST UINT8  *Replace;
+  CONST UINT8    *Replace;
   //
   // Find mask or NULL.
   //
-  CONST UINT8  *Mask;
+  CONST UINT8    *Mask;
   //
   // Replace mask or NULL.
   //
-  CONST UINT8  *ReplaceMask;
+  CONST UINT8    *ReplaceMask;
   //
   // Patch size.
   //
-  UINT32       Size;
+  UINT32         Size;
   //
   // Replace count or 0 for all.
   //
-  UINT32       Count;
+  UINT32         Count;
   //
   // Skip count or 0 to start from 1 match.
   //
-  UINT32       Skip;
+  UINT32         Skip;
   //
   // Limit replacement size to this value or 0, which assumes table size.
   //
-  UINT32       Limit;
+  UINT32         Limit;
 } PATCHER_GENERIC_PATCH;
 
 //
@@ -398,39 +431,39 @@ typedef struct {
   //
   // Extensions directory EFI_FILE_PROTOCOL instance.
   //
-  EFI_FILE_PROTOCOL     *ExtensionsDir;
+  EFI_FILE_PROTOCOL    *ExtensionsDir;
   //
   // Extensions directory filename. This is freed by the caller.
   //
-  CONST CHAR16          *ExtensionsDirFileName;
+  CONST CHAR16         *ExtensionsDirFileName;
   //
   // List of injected kexts.
   //
-  LIST_ENTRY            InjectedKexts;
+  LIST_ENTRY           InjectedKexts;
   //
   // List of dependencies that need to be injected.
   //
-  LIST_ENTRY            InjectedDependencies;
+  LIST_ENTRY           InjectedDependencies;
   //
   // List of kext patches for built-in shipping kexts.
   //
-  LIST_ENTRY            PatchedKexts;
+  LIST_ENTRY           PatchedKexts;
   //
   // List of built-in shipping kexts.
   //
-  LIST_ENTRY            BuiltInKexts;
+  LIST_ENTRY           BuiltInKexts;
   //
   // Current kernel version.
   //
-  UINT32                KernelVersion;
+  UINT32               KernelVersion;
   //
   // System is booting in 32-bit mode.
   //
-  BOOLEAN               Is32Bit;
+  BOOLEAN              Is32Bit;
   //
   // Flag to indicate if above list is valid. List is built during the first read from SLE.
   //
-  BOOLEAN               BuiltInKextsValid;
+  BOOLEAN              BuiltInKextsValid;
 } CACHELESS_CONTEXT;
 
 //
@@ -441,56 +474,56 @@ typedef struct {
   // Current version of mkext. It takes a reference of user-allocated
   // memory block from pool, and grows if needed.
   //
-  UINT8                    *Mkext;
+  UINT8               *Mkext;
   //
   // Exportable mkext size, i.e. the payload size. Also references user field.
   //
-  UINT32                   MkextSize;
+  UINT32              MkextSize;
   //
   // Currently allocated mkext size, used for reduced rellocations.
   //
-  UINT32                   MkextAllocSize;
+  UINT32              MkextAllocSize;
   //
   // Mkext header.
   //
-  MKEXT_HEADER_ANY         *MkextHeader;
+  MKEXT_HEADER_ANY    *MkextHeader;
   //
   // Version.
   //
-  UINT32                    MkextVersion;
+  UINT32              MkextVersion;
   //
   // CPU type.
   //
-  BOOLEAN                   Is32Bit;
+  BOOLEAN             Is32Bit;
   //
   // Current number of kexts.
   //
-  UINT32                    NumKexts;
+  UINT32              NumKexts;
   //
   // Max kexts for allocation.
   //
-  UINT32                    NumMaxKexts;
+  UINT32              NumMaxKexts;
   //
   // Offset of mkext plist.
   //
-  UINT32                    MkextInfoOffset;
+  UINT32              MkextInfoOffset;
   //
   // Copy of mkext plist used for XML_DOCUMENT.
   // Freed upon context destruction.
   //
-  UINT8                    *MkextInfo;
+  UINT8               *MkextInfo;
   //
   // Parsed instance of mkext plist. New entries are added here.
   //
-  XML_DOCUMENT             *MkextInfoDocument;
+  XML_DOCUMENT        *MkextInfoDocument;
   //
   // Array of kexts.
   //
-  XML_NODE                 *MkextKexts;
+  XML_NODE            *MkextKexts;
   //
   // List of cached kexts, used for patching and blocking.
   //
-  LIST_ENTRY               CachedKexts;
+  LIST_ENTRY          CachedKexts;
 } MKEXT_CONTEXT;
 
 //
@@ -514,6 +547,10 @@ typedef enum {
   //
   KernelQuirkAppleXcpmForceBoost,
   //
+  // Apply regiser base change patch for customised PCI serial device to XNU.
+  //
+  KernelQuirkCustomPciSerialDevice,
+  //
   // Apply custom AppleSMBIOS kext GUID patch for Custom UpdateSMBIOSMode.
   //
   KernelQuirkCustomSmbiosGuid1,
@@ -523,11 +560,15 @@ typedef enum {
   //
   KernelQuirkDisableIoMapper,
   //
+  // Disable mapping PCI bridge device memory in IOMMU (VT-d) to resolve compatibility issues.
+  //
+  KernelQuirkDisableIoMapperMapping,
+  //
   // Disable AppleRTC checksum writing.
   //
   KernelQuirkDisableRtcChecksum,
   //
-  // Apply dummy power management patches to AppleIntelCpuPowerManagement in macOS.
+  // Apply dummy power management patches to AppleIntelCPUPowerManagement in macOS.
   //
   KernelQuirkDummyPowerManagement,
   //
@@ -539,6 +580,14 @@ typedef enum {
   //
   KernelQuirkExternalDiskIcons,
   //
+  // Enable Aquantia AQtion AQC-107s support.
+  //
+  KernelQuirkForceAquantiaEthernet,
+  //
+  // Force SecureBoot support for all CPUs.
+  //
+  KernelQuirkForceSecureBootScheme,
+  //
   // Apply PCI bar size patches to IOPCIFamily kext for compatibility with select configuration.
   //
   KernelQuirkIncreasePciBarSize,
@@ -547,20 +596,28 @@ typedef enum {
   //
   KernelQuirkLapicKernelPanic,
   //
+  // Replace the 64-bit commpage bcopy implementation with one that does not use SSSE3.
+  //
+  KernelQuirkLegacyCommpage,
+  //
   // Apply kernel patches to remove kext dumping in the panic log.
   //
   KernelQuirkPanicNoKextDump,
-  //
-  // Replaces the 64-bit commpage bcopy implementation with one that does not use SSSE3.
-  //
-  KernelQuirkLegacyCommpage,
   //
   // Disable power state change timeout kernel panic (10.15+).
   //
   KernelQuirkPowerTimeoutKernelPanic,
   //
+  // Remove kernel __LINKEDIT jetisson.
+  //
+  KernelQuirkSegmentJettison,
+  //
+  // Set custom APFS trim timeout.
+  //
+  KernelQuirkSetApfsTrimTimeout,
+  //
   // Apply vendor patches to IOAHCIFamily kext to enable native features for third-party drives,
-  //   such as TRIM on SSDs or hibernation support on 10.15.
+  // such as TRIM on SSDs or hibernation support on 10.15.
   //
   KernelQuirkThirdPartyDrives,
   //
@@ -569,30 +626,23 @@ typedef enum {
   KernelQuirkXhciPortLimit1,
   KernelQuirkXhciPortLimit2,
   KernelQuirkXhciPortLimit3,
-  //
-  // Remove kernel __LINKEDIT jetisson.
-  //
-  KernelQuirkSegmentJettison,
-  //
-  // Force SecureBoot support for all CPUs.
-  //
-  KernelQuirkForceSecureBootScheme,
-  //
-  // Set custom APFS trim timeout.
-  //
-  KernelQuirkSetApfsTrimTimeout,
 
   KernelQuirkMax
 } KERNEL_QUIRK_NAME;
 
-//
-// Kernel quirk patch function.
-//
+/**
+  Kernel quirk patch function.
+
+  @param[in,out]  Patcher        A pointer to the patcher context. Only optional for kext patching.
+  @param[in]      KernelVersion  Kernel version to be matched.
+
+  @return  EFI_SUCCESS when the patch is successfully applied.
+**/
 typedef
 EFI_STATUS
-(KERNEL_QUIRK_PATCH_FUNCTION)(
-  IN OUT PATCHER_CONTEXT    *Patcher,
-  IN     UINT32             KernelVersion
+(KERNEL_QUIRK_PATCH_FUNCTION) (
+  IN OUT PATCHER_CONTEXT  *Patcher OPTIONAL,
+  IN     UINT32           KernelVersion
   );
 
 //
@@ -602,18 +652,18 @@ typedef struct {
   //
   // Target bundle identifier. NULL for kernel.
   //
-  CONST CHAR8                   *Identifier;
+  CONST CHAR8                    *Identifier;
   //
   // Quirk patch function.
   //
-  KERNEL_QUIRK_PATCH_FUNCTION   *PatchFunction;
+  KERNEL_QUIRK_PATCH_FUNCTION    *PatchFunction;
 } KERNEL_QUIRK;
 
 /**
   Applies the specified quirk.
 
   @param[in]     Name           KERNEL_QUIRK_NAME specifying the quirk name.
-  @param[in,out] Patcher        PATCHER_CONTEXT instance.
+  @param[in,out] Patcher        PATCHER_CONTEXT instance. Only optional for kext patching.
   @param[in]     KernelVersion  Current kernel version.
 
   @returns EFI_SUCCESS on success.
@@ -621,7 +671,7 @@ typedef struct {
 EFI_STATUS
 KernelApplyQuirk (
   IN     KERNEL_QUIRK_NAME  Name,
-  IN OUT PATCHER_CONTEXT    *Patcher,
+  IN OUT PATCHER_CONTEXT    *Patcher OPTIONAL,
   IN     UINT32             KernelVersion
   );
 
@@ -645,12 +695,12 @@ EFI_STATUS
 ReadAppleKernel (
   IN     EFI_FILE_PROTOCOL  *File,
   IN     BOOLEAN            Prefer32Bit,
-     OUT BOOLEAN            *Is32Bit,
-     OUT UINT8              **Kernel,
-     OUT UINT32             *KernelSize,
-     OUT UINT32             *AllocatedSize,
+  OUT BOOLEAN               *Is32Bit,
+  OUT UINT8                 **Kernel,
+  OUT UINT32                *KernelSize,
+  OUT UINT32                *AllocatedSize,
   IN     UINT32             ReservedSize,
-     OUT UINT8              *Digest  OPTIONAL
+  OUT UINT8                 *Digest  OPTIONAL
   );
 
 /**
@@ -672,9 +722,9 @@ EFI_STATUS
 ReadAppleMkext (
   IN     EFI_FILE_PROTOCOL  *File,
   IN     BOOLEAN            Prefer32Bit,
-     OUT UINT8              **Mkext,
-     OUT UINT32             *MkextSize,
-     OUT UINT32             *AllocatedSize,
+  OUT UINT8                 **Mkext,
+  OUT UINT32                *MkextSize,
+  OUT UINT32                *AllocatedSize,
   IN     UINT32             ReservedSize,
   IN     UINT32             NumReservedKexts
   );
@@ -689,7 +739,7 @@ ReadAppleMkext (
 **/
 UINT32
 OcParseDarwinVersion (
-  IN  CONST CHAR8         *String
+  IN  CONST CHAR8  *String
   );
 
 /**
@@ -702,8 +752,8 @@ OcParseDarwinVersion (
 **/
 UINT32
 OcKernelReadDarwinVersion (
-  IN  CONST UINT8   *Kernel,
-  IN  UINT32        KernelSize
+  IN  CONST UINT8  *Kernel,
+  IN  UINT32       KernelSize
   );
 
 /**
@@ -813,12 +863,12 @@ PrelinkedInjectComplete (
 **/
 EFI_STATUS
 PrelinkedReserveKextSize (
-  IN OUT UINT32       *ReservedInfoSize,
-  IN OUT UINT32       *ReservedExeSize,
-  IN     UINT32       InfoPlistSize,
-  IN     UINT8        *Executable OPTIONAL,
-  IN     UINT32       ExecutableSize OPTIONAL,
-  IN     BOOLEAN      Is32Bit
+  IN OUT UINT32   *ReservedInfoSize,
+  IN OUT UINT32   *ReservedExeSize,
+  IN     UINT32   InfoPlistSize,
+  IN     UINT8    *Executable OPTIONAL,
+  IN     UINT32   ExecutableSize OPTIONAL,
+  IN     BOOLEAN  Is32Bit
   );
 
 /**
@@ -833,6 +883,7 @@ PrelinkedReserveKextSize (
   @param[in,out] ExecutablePath  Kext executable path (e.g. Contents/MacOS/mykext), optional.
   @param[in,out] Executable      Kext executable, optional.
   @param[in]     ExecutableSize  Kext executable size, optional.
+  @param[out]    BundleVersion   Kext bundle version, optionally set on request.
 
   @return  EFI_SUCCESS on success.
 **/
@@ -845,7 +896,8 @@ PrelinkedInjectKext (
   IN     UINT32             InfoPlistSize,
   IN     CONST CHAR8        *ExecutablePath OPTIONAL,
   IN OUT CONST UINT8        *Executable OPTIONAL,
-  IN     UINT32             ExecutableSize OPTIONAL
+  IN     UINT32             ExecutableSize OPTIONAL,
+  OUT    CHAR8              BundleVersion[MAX_INFO_BUNDLE_VERSION_KEY_SIZE] OPTIONAL
   );
 
 /**
@@ -875,9 +927,9 @@ PrelinkedContextApplyPatch (
 **/
 EFI_STATUS
 PrelinkedContextApplyQuirk (
-  IN OUT PRELINKED_CONTEXT    *Context,
-  IN     KERNEL_QUIRK_NAME    Quirk,
-  IN     UINT32               KernelVersion
+  IN OUT PRELINKED_CONTEXT  *Context,
+  IN     KERNEL_QUIRK_NAME  Quirk,
+  IN     UINT32             KernelVersion
   );
 
 /**
@@ -885,13 +937,15 @@ PrelinkedContextApplyQuirk (
 
   @param[in,out] Context         Prelinked context.
   @param[in]     Identifier      Kext bundle identifier.
+  @param[in]     Exclude         TRUE to exclude kext from prelinked.
 
   @return  EFI_SUCCESS on success.
 **/
 EFI_STATUS
 PrelinkedContextBlock (
-  IN OUT PRELINKED_CONTEXT      *Context,
-  IN     CONST CHAR8            *Identifier
+  IN OUT PRELINKED_CONTEXT  *Context,
+  IN     CONST CHAR8        *Identifier,
+  IN     BOOLEAN            Exclude
   );
 
 /**
@@ -967,16 +1021,18 @@ KcGetKextSize (
 /**
   Apply the delta from KC header to the file's offsets.
 
-  @param[in,out] Context  The context of the KEXT to rebase.
-  @param[in]     Delta    The offset from KC header the KEXT starts at.
+  @param[in]     PrelinkedContext  Prelinked context.
+  @param[in,out] Context           The context of the KEXT to rebase.
+  @param[in]     Delta             The offset from KC header the KEXT starts at.
 
   @retval EFI_SUCCESS  The file has beem rebased successfully.
   @retval other        An error has occured.
 **/
 EFI_STATUS
 KcKextApplyFileDelta (
-  IN OUT OC_MACHO_CONTEXT  *Context,
-  IN     UINT32            Delta
+  IN     PRELINKED_CONTEXT  *PrelinkedContext,
+  IN OUT OC_MACHO_CONTEXT   *Context,
+  IN     UINT32             Delta
   );
 
 /**
@@ -989,8 +1045,8 @@ KcKextApplyFileDelta (
 **/
 UINT64
 KcFixupValue (
-  IN UINT64             Value,
-  IN CONST CHAR8        *Name OPTIONAL
+  IN UINT64       Value,
+  IN CONST CHAR8  *Name OPTIONAL
   );
 
 /**
@@ -1019,10 +1075,10 @@ PatcherInitContextFromPrelinked (
   @return  EFI_SUCCESS on success.
 **/
 EFI_STATUS
-PatcherInitContextFromMkext(
-  IN OUT PATCHER_CONTEXT    *Context,
-  IN OUT MKEXT_CONTEXT      *Mkext,
-  IN     CONST CHAR8        *Name
+PatcherInitContextFromMkext (
+  IN OUT PATCHER_CONTEXT  *Context,
+  IN OUT MKEXT_CONTEXT    *Mkext,
+  IN     CONST CHAR8      *Name
   );
 
 /**
@@ -1037,10 +1093,10 @@ PatcherInitContextFromMkext(
 **/
 EFI_STATUS
 PatcherInitContextFromBuffer (
-  IN OUT PATCHER_CONTEXT    *Context,
-  IN OUT UINT8              *Buffer,
-  IN     UINT32             BufferSize,
-  IN     BOOLEAN            Use32Bit
+  IN OUT PATCHER_CONTEXT  *Context,
+  IN OUT UINT8            *Buffer,
+  IN     UINT32           BufferSize,
+  IN     BOOLEAN          Use32Bit
   );
 
 /**
@@ -1054,9 +1110,43 @@ PatcherInitContextFromBuffer (
 **/
 EFI_STATUS
 PatcherGetSymbolAddress (
-  IN OUT PATCHER_CONTEXT    *Context,
-  IN     CONST CHAR8        *Name,
-  IN OUT UINT8              **Address
+  IN OUT PATCHER_CONTEXT  *Context,
+  IN     CONST CHAR8      *Name,
+  IN OUT UINT8            **Address
+  );
+
+/**
+  Get local symbol value.
+
+  @param[in,out] Context         Patcher context.
+  @param[in]     Name            Symbol name.
+  @param[in,out] Value           Returned original symbol value.
+
+  @return  EFI_SUCCESS on success.
+**/
+EFI_STATUS
+PatcherGetSymbolValue (
+  IN OUT PATCHER_CONTEXT  *Context,
+  IN     CONST CHAR8      *Name,
+  IN OUT UINT64           *Value
+  );
+
+/**
+  Get local symbol address and symbol value.
+
+  @param[in,out] Context         Patcher context.
+  @param[in]     Name            Symbol name.
+  @param[in,out] Address         Returned symbol address in file.
+  @param[in,out] Value           Returned original symbol value.
+
+  @return  EFI_SUCCESS on success.
+**/
+EFI_STATUS
+PatcherGetSymbolAddressValue (
+  IN OUT PATCHER_CONTEXT  *Context,
+  IN     CONST CHAR8      *Name,
+  IN OUT UINT8            **Address,
+  IN OUT UINT64           *Value
   );
 
 /**
@@ -1074,6 +1164,36 @@ PatcherApplyGenericPatch (
   );
 
 /**
+  Exclude kext from prelinked.
+
+  @param[in]      Identifier        Kext identifier to be excluded.
+  @param[in,out]  PatcherContext    Patcher context.
+  @param[in,out]  PrelinkedContext  Prelinked context.
+
+  @return  EFI_SUCCESS on success.
+**/
+EFI_STATUS
+PatcherExcludePrelinkedKext (
+  IN     CONST CHAR8        *Identifier,
+  IN OUT PATCHER_CONTEXT    *PatcherContext,
+  IN OUT PRELINKED_CONTEXT  *PrelinkedContext
+  );
+
+/**
+  Exclude kext from mkext.
+
+  @param[in,out]  MkextContext  Mkext context.
+  @param[in]      Identifier    Kext identifier to be excluded.
+
+  @return  EFI_SUCCESS on success.
+**/
+EFI_STATUS
+PatcherExcludeMkextKext (
+  IN OUT MKEXT_CONTEXT  *MkextContext,
+  IN     CONST CHAR8    *Identifier
+  );
+
+/**
   Block kext from loading.
 
   @param[in,out] Context         Patcher context.
@@ -1082,7 +1202,7 @@ PatcherApplyGenericPatch (
 **/
 EFI_STATUS
 PatcherBlockKext (
-  IN OUT PATCHER_CONTEXT        *Context
+  IN OUT PATCHER_CONTEXT  *Context
   );
 
 /**
@@ -1111,6 +1231,18 @@ KextFindKmodAddress (
 VOID
 PatchSetApfsTimeout (
   IN UINT32  Timeout
+  );
+
+/**
+  Set PCI serial device properties for KernelQuirkCustomPciSerialDevice quirk.
+
+  @param[in]  RegisterBase   PCI serial device regiser base.
+  @param[in]  RegisterStride PCI serial device regiser stride.
+**/
+VOID
+PatchSetPciSerialDevice (
+  IN  UINTN   RegisterBase,
+  IN  UINT32  RegisterStride
   );
 
 /**
@@ -1143,7 +1275,7 @@ PatchKernelCpuId (
   @return  EFI_SUCCESS on success.
 **/
 EFI_STATUS
-PatchProvideCurrentCpuInfo(
+PatchProvideCurrentCpuInfo (
   IN OUT PATCHER_CONTEXT  *Patcher,
   IN     OC_CPU_INFO      *CpuInfo,
   IN     UINT32           KernelVersion
@@ -1155,7 +1287,7 @@ PatchProvideCurrentCpuInfo(
 
   @param[in,out] Context             Cacheless context.
   @param[in]     FileName            Extensions directory filename.
-  @param[in]     ExtensionsDir       Extensions directory EFI_FILE_PROTOCOL. 
+  @param[in]     ExtensionsDir       Extensions directory EFI_FILE_PROTOCOL.
   @param[in]     KernelVersion       Current kernel version.
   @param[in]     Is32Bit             TRUE if booting in 32-bit kernel mode.
 
@@ -1163,11 +1295,11 @@ PatchProvideCurrentCpuInfo(
 **/
 EFI_STATUS
 CachelessContextInit (
-  IN OUT CACHELESS_CONTEXT    *Context,
-  IN     CONST CHAR16         *FileName,
-  IN     EFI_FILE_PROTOCOL    *ExtensionsDir,
-  IN     UINT32               KernelVersion,
-  IN     BOOLEAN              Is32Bit
+  IN OUT CACHELESS_CONTEXT  *Context,
+  IN     CONST CHAR16       *FileName,
+  IN     EFI_FILE_PROTOCOL  *ExtensionsDir,
+  IN     UINT32             KernelVersion,
+  IN     BOOLEAN            Is32Bit
   );
 
 /**
@@ -1179,7 +1311,7 @@ CachelessContextInit (
 **/
 VOID
 CachelessContextFree (
-  IN OUT CACHELESS_CONTEXT    *Context
+  IN OUT CACHELESS_CONTEXT  *Context
   );
 
 /**
@@ -1190,16 +1322,18 @@ CachelessContextFree (
   @param[in]     InfoPlistSize   Kext Info.plist size.
   @param[in]     Executable      Kext executable, optional.
   @param[in]     ExecutableSize  Kext executable size, optional.
+  @param[out]    BundleVersion   Kext bundle version, optionally set on request.
 
   @return  EFI_SUCCESS on success.
 **/
 EFI_STATUS
 CachelessContextAddKext (
-  IN OUT CACHELESS_CONTEXT    *Context,
-  IN     CONST CHAR8          *InfoPlist,
-  IN     UINT32               InfoPlistSize,
-  IN     CONST UINT8          *Executable OPTIONAL,
-  IN     UINT32               ExecutableSize OPTIONAL
+  IN OUT CACHELESS_CONTEXT  *Context,
+  IN     CONST CHAR8        *InfoPlist,
+  IN     UINT32             InfoPlistSize,
+  IN     UINT8              *Executable OPTIONAL,
+  IN     UINT32             ExecutableSize OPTIONAL,
+  OUT    CHAR8              BundleVersion[MAX_INFO_BUNDLE_VERSION_KEY_SIZE] OPTIONAL
   );
 
 /**
@@ -1212,8 +1346,8 @@ CachelessContextAddKext (
 **/
 EFI_STATUS
 CachelessContextForceKext (
-  IN OUT CACHELESS_CONTEXT    *Context,
-  IN     CONST CHAR8          *Identifier
+  IN OUT CACHELESS_CONTEXT  *Context,
+  IN     CONST CHAR8        *Identifier
   );
 
 /**
@@ -1242,8 +1376,8 @@ CachelessContextAddPatch (
 **/
 EFI_STATUS
 CachelessContextAddQuirk (
-  IN OUT CACHELESS_CONTEXT    *Context,
-  IN     KERNEL_QUIRK_NAME    Quirk
+  IN OUT CACHELESS_CONTEXT  *Context,
+  IN     KERNEL_QUIRK_NAME  Quirk
   );
 
 /**
@@ -1251,13 +1385,15 @@ CachelessContextAddQuirk (
 
   @param[in,out] Context         Cacheless context.
   @param[in]     Identifier      Kext bundle identifier.
+  @param[in]     Exclude         TRUE to exclude kext from cacheless context.
 
   @return  EFI_SUCCESS on success.
 **/
 EFI_STATUS
 CachelessContextBlock (
-  IN OUT CACHELESS_CONTEXT      *Context,
-  IN     CONST CHAR8            *Identifier
+  IN OUT CACHELESS_CONTEXT  *Context,
+  IN     CONST CHAR8        *Identifier,
+  IN     BOOLEAN            Exclude
   );
 
 /**
@@ -1270,8 +1406,8 @@ CachelessContextBlock (
 **/
 EFI_STATUS
 CachelessContextOverlayExtensionsDir (
-  IN OUT CACHELESS_CONTEXT    *Context,
-     OUT EFI_FILE_PROTOCOL    **File
+  IN OUT CACHELESS_CONTEXT  *Context,
+  OUT EFI_FILE_PROTOCOL     **File
   );
 
 /**
@@ -1285,9 +1421,9 @@ CachelessContextOverlayExtensionsDir (
 **/
 EFI_STATUS
 CachelessContextPerformInject (
-  IN OUT CACHELESS_CONTEXT    *Context,
-  IN     CONST CHAR16         *FileName,
-     OUT EFI_FILE_PROTOCOL    **VirtualFile
+  IN OUT CACHELESS_CONTEXT  *Context,
+  IN     CONST CHAR16       *FileName,
+  OUT EFI_FILE_PROTOCOL     **VirtualFile
   );
 
 /**
@@ -1302,10 +1438,10 @@ CachelessContextPerformInject (
 **/
 EFI_STATUS
 CachelessContextHookBuiltin (
-  IN OUT CACHELESS_CONTEXT    *Context,
-  IN     CONST CHAR16         *FileName,
-  IN     EFI_FILE_PROTOCOL    *File,
-     OUT EFI_FILE_PROTOCOL    **VirtualFile
+  IN OUT CACHELESS_CONTEXT  *Context,
+  IN     CONST CHAR16       *FileName,
+  IN     EFI_FILE_PROTOCOL  *File,
+  OUT EFI_FILE_PROTOCOL     **VirtualFile
   );
 
 /**
@@ -1325,12 +1461,12 @@ CachelessContextHookBuiltin (
 **/
 EFI_STATUS
 MkextDecompress (
-  IN     CONST UINT8      *Buffer,
-  IN     UINT32           BufferSize,
-  IN     UINT32           NumReservedKexts,
-  IN OUT UINT8            *OutBuffer OPTIONAL,
-  IN     UINT32           OutBufferSize OPTIONAL,
-  IN OUT UINT32           *OutMkextSize
+  IN     CONST UINT8  *Buffer,
+  IN     UINT32       BufferSize,
+  IN     UINT32       NumReservedKexts,
+  IN OUT UINT8        *OutBuffer OPTIONAL,
+  IN     UINT32       OutBufferSize OPTIONAL,
+  IN OUT UINT32       *OutMkextSize
   );
 
 /**
@@ -1344,9 +1480,9 @@ MkextDecompress (
 **/
 BOOLEAN
 MkextCheckCpuType (
-  IN UINT8            *Mkext,
-  IN UINT32           MkextSize,
-  IN MACH_CPU_TYPE    CpuType
+  IN UINT8          *Mkext,
+  IN UINT32         MkextSize,
+  IN MACH_CPU_TYPE  CpuType
   );
 
 /**
@@ -1366,10 +1502,10 @@ MkextCheckCpuType (
 **/
 EFI_STATUS
 MkextContextInit (
-  IN OUT  MKEXT_CONTEXT      *Context,
-  IN OUT  UINT8              *Mkext,
-  IN      UINT32             MkextSize,
-  IN      UINT32             MkextAllocSize
+  IN OUT  MKEXT_CONTEXT  *Context,
+  IN OUT  UINT8          *Mkext,
+  IN      UINT32         MkextSize,
+  IN      UINT32         MkextAllocSize
   );
 
 /**
@@ -1379,7 +1515,7 @@ MkextContextInit (
 **/
 VOID
 MkextContextFree (
-  IN OUT MKEXT_CONTEXT      *Context
+  IN OUT MKEXT_CONTEXT  *Context
   );
 
 /**
@@ -1396,12 +1532,12 @@ MkextContextFree (
 **/
 EFI_STATUS
 MkextReserveKextSize (
-  IN OUT UINT32       *ReservedInfoSize,
-  IN OUT UINT32       *ReservedExeSize,
-  IN     UINT32       InfoPlistSize,
-  IN     UINT8        *Executable OPTIONAL,
-  IN     UINT32       ExecutableSize OPTIONAL,
-  IN     BOOLEAN      Is32Bit
+  IN OUT UINT32   *ReservedInfoSize,
+  IN OUT UINT32   *ReservedExeSize,
+  IN     UINT32   InfoPlistSize,
+  IN     UINT8    *Executable OPTIONAL,
+  IN     UINT32   ExecutableSize OPTIONAL,
+  IN     BOOLEAN  Is32Bit
   );
 
 /**
@@ -1415,18 +1551,20 @@ MkextReserveKextSize (
   @param[in]     InfoPlistSize    Kext Info.plist size.
   @param[in,out] Executable       Kext executable, optional.
   @param[in]     ExecutableSize   Kext executable size, optional.
+  @param[out]    BundleVersion   Kext bundle version, optionally set on request.
 
   @return  EFI_SUCCESS on success.
 **/
 EFI_STATUS
 MkextInjectKext (
-  IN OUT MKEXT_CONTEXT      *Context,
-  IN     CONST CHAR8        *Identifier OPTIONAL,
-  IN     CONST CHAR8        *BundlePath,
-  IN     CONST CHAR8        *InfoPlist,
-  IN     UINT32             InfoPlistSize,
-  IN     UINT8              *Executable OPTIONAL,
-  IN     UINT32             ExecutableSize OPTIONAL
+  IN OUT MKEXT_CONTEXT  *Context,
+  IN     CONST CHAR8    *Identifier OPTIONAL,
+  IN     CONST CHAR8    *BundlePath,
+  IN     CONST CHAR8    *InfoPlist,
+  IN     UINT32         InfoPlistSize,
+  IN     UINT8          *Executable OPTIONAL,
+  IN     UINT32         ExecutableSize OPTIONAL,
+  OUT    CHAR8          BundleVersion[MAX_INFO_BUNDLE_VERSION_KEY_SIZE] OPTIONAL
   );
 
 /**
@@ -1456,9 +1594,9 @@ MkextContextApplyPatch (
 **/
 EFI_STATUS
 MkextContextApplyQuirk (
-  IN OUT MKEXT_CONTEXT        *Context,
-  IN     KERNEL_QUIRK_NAME    Quirk,
-  IN     UINT32               KernelVersion
+  IN OUT MKEXT_CONTEXT      *Context,
+  IN     KERNEL_QUIRK_NAME  Quirk,
+  IN     UINT32             KernelVersion
   );
 
 /**
@@ -1466,13 +1604,15 @@ MkextContextApplyQuirk (
 
   @param[in,out] Context         Mkext context.
   @param[in]     Identifier      Kext bundle identifier.
+  @param[in]     Exclude         TRUE to exclude kext from mkext.
 
   @return  EFI_SUCCESS on success.
 **/
 EFI_STATUS
 MkextContextBlock (
-  IN OUT MKEXT_CONTEXT          *Context,
-  IN     CONST CHAR8            *Identifier
+  IN OUT MKEXT_CONTEXT  *Context,
+  IN     CONST CHAR8    *Identifier,
+  IN     BOOLEAN        Exclude
   );
 
 /**
@@ -1485,7 +1625,7 @@ MkextContextBlock (
 **/
 EFI_STATUS
 MkextInjectPatchComplete (
-  IN OUT MKEXT_CONTEXT      *Context
+  IN OUT MKEXT_CONTEXT  *Context
   );
 
 #endif // OC_APPLE_KERNEL_LIB_H

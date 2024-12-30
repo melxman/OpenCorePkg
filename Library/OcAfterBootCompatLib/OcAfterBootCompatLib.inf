@@ -39,6 +39,13 @@
   RelocationCallGate.h
   ServiceOverrides.c
 
+[Sources.Ia32]
+  Ia32/KernelSupport32.c
+  Ia32/KernelTrampoline.nasm
+
+[Sources.X64]
+  X64/KernelSupport64.c
+
 [Packages]
   MdePkg/MdePkg.dec
   OpenCorePkg/OpenCorePkg.dec
@@ -55,6 +62,7 @@
 [LibraryClasses]
   BaseLib
   BaseMemoryLib
+  BaseOverflowLib
   DebugLib
   DevicePathLib
   MemoryAllocationLib
@@ -64,7 +72,7 @@
   OcCpuLib
   OcCryptoLib
   OcDeviceTreeLib
-  OcGuardLib
+  OcLogAggregatorLib
   OcMemoryLib
   OcOSInfoLib
   OcRngLib

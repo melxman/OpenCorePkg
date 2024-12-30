@@ -17,48 +17,53 @@
 
 #include <Library/BaseLib.h>
 #include <Library/BaseMemoryLib.h>
+#include <Library/BaseOverflowLib.h>
 #include <Library/DebugLib.h>
 #include <Library/MemoryAllocationLib.h>
 #include <Library/PrintLib.h>
 #include <Library/OcAppleKernelLib.h>
 #include <Library/OcFileLib.h>
-#include <Library/OcGuardLib.h>
 #include <Library/OcStringLib.h>
 #include <Library/OcVirtualFsLib.h>
 
 #include "CachelessInternal.h"
+#include "MkextInternal.h"
 #include "PrelinkedInternal.h"
 
 STATIC
 VOID
 FreeBuiltInKext (
-  IN BUILTIN_KEXT   *BuiltinKext
+  IN BUILTIN_KEXT  *BuiltinKext
   )
 {
-  DEPEND_KEXT       *DependKext;
-  LIST_ENTRY        *KextLink;
+  DEPEND_KEXT  *DependKext;
+  LIST_ENTRY   *KextLink;
 
   if (BuiltinKext->PlistPath != NULL) {
     FreePool (BuiltinKext->PlistPath);
   }
+
   if (BuiltinKext->Identifier != NULL) {
     FreePool (BuiltinKext->Identifier);
   }
+
   if (BuiltinKext->BinaryFileName != NULL) {
     FreePool (BuiltinKext->BinaryFileName);
   }
+
   if (BuiltinKext->BinaryPath != NULL) {
     FreePool (BuiltinKext->BinaryPath);
   }
 
   while (!IsListEmpty (&BuiltinKext->Dependencies)) {
-    KextLink = GetFirstNode (&BuiltinKext->Dependencies);
+    KextLink   = GetFirstNode (&BuiltinKext->Dependencies);
     DependKext = GET_DEPEND_KEXT_FROM_LINK (KextLink);
     RemoveEntryList (KextLink);
 
     if (DependKext->Identifier != NULL) {
       FreePool (DependKext->Identifier);
     }
+
     FreePool (DependKext);
   }
 
@@ -68,12 +73,12 @@ FreeBuiltInKext (
 STATIC
 EFI_STATUS
 AddKextDependency (
-  IN OUT LIST_ENTRY           *Dependencies,
-  IN     CONST CHAR8          *Identifier
+  IN OUT LIST_ENTRY   *Dependencies,
+  IN     CONST CHAR8  *Identifier
   )
 {
-  DEPEND_KEXT       *DependKext;
-  LIST_ENTRY        *KextLink;
+  DEPEND_KEXT  *DependKext;
+  LIST_ENTRY   *KextLink;
 
   KextLink = GetFirstNode (Dependencies);
   while (!IsNull (Dependencies, KextLink)) {
@@ -90,7 +95,8 @@ AddKextDependency (
   if (DependKext == NULL) {
     return EFI_OUT_OF_RESOURCES;
   }
-  DependKext->Signature = DEPEND_KEXT_SIGNATURE;
+
+  DependKext->Signature  = DEPEND_KEXT_SIGNATURE;
   DependKext->Identifier = AllocateCopyPool (AsciiStrSize (Identifier), Identifier);
   if (DependKext->Identifier == NULL) {
     FreePool (DependKext);
@@ -104,14 +110,14 @@ AddKextDependency (
 STATIC
 EFI_STATUS
 AddKextDependencies (
-  IN OUT LIST_ENTRY           *Dependencies,
-  IN     XML_NODE             *InfoPlistLibraries
+  IN OUT LIST_ENTRY  *Dependencies,
+  IN     XML_NODE    *InfoPlistLibraries
   )
 {
-  EFI_STATUS        Status;
-  UINT32            ChildCount;
-  UINT32            ChildIndex;
-  CONST CHAR8       *ChildPlistKey;
+  EFI_STATUS   Status;
+  UINT32       ChildCount;
+  UINT32       ChildIndex;
+  CONST CHAR8  *ChildPlistKey;
 
   ChildCount = PlistDictChildren (InfoPlistLibraries);
   for (ChildIndex = 0; ChildIndex < ChildCount; ChildIndex++) {
@@ -132,32 +138,33 @@ AddKextDependencies (
 STATIC
 EFI_STATUS
 ScanExtensions (
-  IN OUT CACHELESS_CONTEXT    *Context,
-  IN     EFI_FILE_PROTOCOL    *File,
-  IN     CONST CHAR16         *FilePath,
-  IN     BOOLEAN              ReadPlugins
+  IN OUT CACHELESS_CONTEXT  *Context,
+  IN     EFI_FILE_PROTOCOL  *File,
+  IN     CONST CHAR16       *FilePath,
+  IN     BOOLEAN            ReadPlugins
   )
 {
-  EFI_STATUS          Status;
-  EFI_FILE_PROTOCOL   *FileKext;
-  EFI_FILE_PROTOCOL   *FilePlist;
-  EFI_FILE_PROTOCOL   *FilePlugins;
-  EFI_FILE_INFO       *FileInfo;
-  UINTN               FileInfoSize;
-  BOOLEAN             UseContents;
+  EFI_STATUS         Status;
+  EFI_FILE_PROTOCOL  *FileKext;
+  EFI_FILE_PROTOCOL  *FilePlist;
+  EFI_FILE_PROTOCOL  *FilePlugins;
+  EFI_FILE_INFO      *FileInfo;
+  UINTN              FileInfoSize;
+  BOOLEAN            UseContents;
 
-  CHAR8               *InfoPlist;
-  UINT32              InfoPlistSize;
-  XML_DOCUMENT        *InfoPlistDocument;
-  XML_NODE            *InfoPlistRoot;
-  XML_NODE            *InfoPlistValue;
-  XML_NODE            *InfoPlistLibraries;
-  CONST CHAR8         *TmpKeyValue;
-  UINT32              FieldCount;
-  UINT32              FieldIndex;
+  CHAR8         *InfoPlist;
+  UINT32        InfoPlistSize;
+  XML_DOCUMENT  *InfoPlistDocument;
+  XML_NODE      *InfoPlistRoot;
+  XML_NODE      *InfoPlistValue;
+  XML_NODE      *InfoPlistLibraries;
+  XML_NODE      *InfoPlistLibraries64;
+  CONST CHAR8   *TmpKeyValue;
+  UINT32        FieldCount;
+  UINT32        FieldIndex;
 
-  BUILTIN_KEXT        *BuiltinKext;
-  CHAR16              TmpPath[256];
+  BUILTIN_KEXT  *BuiltinKext;
+  CHAR16        TmpPath[256];
 
   DEBUG ((DEBUG_INFO, "OCAK: Scanning %s...\n", FilePath));
 
@@ -175,7 +182,7 @@ ScanExtensions (
     // unrealistic as the filename is the only variable.
     //
     FileInfoSize = SIZE_1KB - sizeof (CHAR16);
-    Status = File->Read (File, &FileInfoSize, FileInfo);
+    Status       = File->Read (File, &FileInfoSize, FileInfo);
     if (EFI_ERROR (Status)) {
       FileKext->Close (FileKext);
       File->SetPosition (File, 0);
@@ -202,17 +209,17 @@ ScanExtensions (
         // This was observed in some versions of 10.4.
         //
         Status = FileKext->Open (
-          FileKext,
-          &FilePlist,
-          UseContents ? L"Contents\\Info.plist" : L"Info.plist",
-          EFI_FILE_MODE_READ,
-          0
-          );
+                             FileKext,
+                             &FilePlist,
+                             UseContents ? L"Contents\\Info.plist" : L"Info.plist",
+                             EFI_FILE_MODE_READ,
+                             0
+                             );
         if (!EFI_ERROR (Status)) {
           //
           // Parse Info.plist.
           //
-          Status = AllocateCopyFileData (FilePlist, (UINT8**)&InfoPlist, &InfoPlistSize);
+          Status = OcAllocateCopyFileData (FilePlist, (UINT8 **)&InfoPlist, &InfoPlistSize);
           FilePlist->Close (FilePlist);
           if (EFI_ERROR (Status)) {
             FileKext->Close (FileKext);
@@ -252,13 +259,15 @@ ScanExtensions (
             FreePool (FileInfo);
             return EFI_OUT_OF_RESOURCES;
           }
+
           BuiltinKext->Signature = BUILTIN_KEXT_SIGNATURE;
           InitializeListHead (&BuiltinKext->Dependencies);
 
           //
           // Search for plist properties.
           //
-          FieldCount = PlistDictChildren (InfoPlistRoot);
+          InfoPlistLibraries = NULL;
+          FieldCount         = PlistDictChildren (InfoPlistRoot);
           for (FieldIndex = 0; FieldIndex < FieldCount; ++FieldIndex) {
             TmpKeyValue = PlistKeyValue (PlistDictChild (InfoPlistRoot, FieldIndex, &InfoPlistValue));
             if (TmpKeyValue == NULL) {
@@ -276,7 +285,6 @@ ScanExtensions (
                 FreePool (FileInfo);
                 return EFI_OUT_OF_RESOURCES;
               }
-
             } else if (AsciiStrCmp (TmpKeyValue, INFO_BUNDLE_IDENTIFIER_KEY) == 0) {
               BuiltinKext->Identifier = AllocateCopyPool (AsciiStrSize (XmlNodeContent (InfoPlistValue)), XmlNodeContent (InfoPlistValue));
               if (BuiltinKext->Identifier == NULL) {
@@ -288,7 +296,6 @@ ScanExtensions (
                 FreePool (FileInfo);
                 return EFI_OUT_OF_RESOURCES;
               }
-
             } else if (AsciiStrCmp (TmpKeyValue, INFO_BUNDLE_OS_BUNDLE_REQUIRED_KEY) == 0) {
               //
               // If OSBundleRequired is present and is not Safe Boot, no action is required.
@@ -298,10 +305,22 @@ ScanExtensions (
               } else {
                 BuiltinKext->OSBundleRequiredValue = KEXT_OSBUNDLE_REQUIRED_INVALID;
               }
-
             } else if (AsciiStrCmp (TmpKeyValue, INFO_BUNDLE_LIBRARIES_KEY) == 0) {
-              InfoPlistLibraries = PlistNodeCast (InfoPlistValue, PLIST_NODE_TYPE_DICT);
-              if (InfoPlistLibraries == NULL) {
+              if (!Context->Is32Bit && (InfoPlistLibraries64 == NULL)) {
+                InfoPlistLibraries = PlistNodeCast (InfoPlistValue, PLIST_NODE_TYPE_DICT);
+                if (InfoPlistLibraries == NULL) {
+                  FreeBuiltInKext (BuiltinKext);
+                  XmlDocumentFree (InfoPlistDocument);
+                  FreePool (InfoPlist);
+                  FileKext->Close (FileKext);
+                  File->SetPosition (File, 0);
+                  FreePool (FileInfo);
+                  return EFI_INVALID_PARAMETER;
+                }
+              }
+            } else if (AsciiStrCmp (TmpKeyValue, INFO_BUNDLE_LIBRARIES_64_KEY) == 0) {
+              InfoPlistLibraries64 = PlistNodeCast (InfoPlistValue, PLIST_NODE_TYPE_DICT);
+              if (InfoPlistLibraries64 == NULL) {
                 FreeBuiltInKext (BuiltinKext);
                 XmlDocumentFree (InfoPlistDocument);
                 FreePool (InfoPlist);
@@ -311,16 +330,22 @@ ScanExtensions (
                 return EFI_INVALID_PARAMETER;
               }
 
-              Status = AddKextDependencies (&BuiltinKext->Dependencies, InfoPlistLibraries);
-              if (EFI_ERROR (Status)) {
-                FreeBuiltInKext (BuiltinKext);
-                XmlDocumentFree (InfoPlistDocument);
-                FreePool (InfoPlist);
-                FileKext->Close (FileKext);
-                File->SetPosition (File, 0);
-                FreePool (FileInfo);
-                return Status;
+              if (!Context->Is32Bit) {
+                InfoPlistLibraries = InfoPlistLibraries64;
               }
+            }
+          }
+
+          if (InfoPlistLibraries != NULL) {
+            Status = AddKextDependencies (&BuiltinKext->Dependencies, InfoPlistLibraries);
+            if (EFI_ERROR (Status)) {
+              FreeBuiltInKext (BuiltinKext);
+              XmlDocumentFree (InfoPlistDocument);
+              FreePool (InfoPlist);
+              FileKext->Close (FileKext);
+              File->SetPosition (File, 0);
+              FreePool (FileInfo);
+              return Status;
             }
           }
 
@@ -339,13 +364,13 @@ ScanExtensions (
           // Create plist path.
           //
           Status = OcUnicodeSafeSPrint (
-            TmpPath,
-            sizeof (TmpPath),
-            L"%s\\%s\\%s",
-            FilePath,
-            FileInfo->FileName,
-            UseContents ? L"Contents\\Info.plist" : L"Info.plist"
-            );
+                     TmpPath,
+                     sizeof (TmpPath),
+                     L"%s\\%s\\%s",
+                     FilePath,
+                     FileInfo->FileName,
+                     UseContents ? L"Contents\\Info.plist" : L"Info.plist"
+                     );
           if (EFI_ERROR (Status)) {
             FreeBuiltInKext (BuiltinKext);
             FileKext->Close (FileKext);
@@ -368,14 +393,14 @@ ScanExtensions (
           //
           if (BuiltinKext->BinaryFileName != NULL) {
             Status = OcUnicodeSafeSPrint (
-              TmpPath,
-              sizeof (TmpPath),
-              L"%s\\%s\\%s%s",
-              FilePath,
-              FileInfo->FileName,
-              UseContents ? L"Contents\\MacOS\\" : L"\\",
-              BuiltinKext->BinaryFileName
-              );
+                       TmpPath,
+                       sizeof (TmpPath),
+                       L"%s\\%s\\%s%s",
+                       FilePath,
+                       FileInfo->FileName,
+                       UseContents ? L"Contents\\MacOS\\" : L"",
+                       BuiltinKext->BinaryFileName
+                       );
             if (EFI_ERROR (Status)) {
               FreeBuiltInKext (BuiltinKext);
               FileKext->Close (FileKext);
@@ -412,13 +437,13 @@ ScanExtensions (
           Status = FileKext->Open (FileKext, &FilePlugins, UseContents ? L"Contents\\PlugIns" : L"PlugIns", EFI_FILE_MODE_READ, EFI_FILE_DIRECTORY);
           if (Status == EFI_SUCCESS) {
             Status = OcUnicodeSafeSPrint (
-              TmpPath,
-              sizeof (TmpPath),
-              L"%s\\%s\\%s",
-              FilePath,
-              FileInfo->FileName,
-              UseContents ? L"Contents\\PlugIns" : L"PlugIns"
-              );
+                       TmpPath,
+                       sizeof (TmpPath),
+                       L"%s\\%s\\%s",
+                       FilePath,
+                       FileInfo->FileName,
+                       UseContents ? L"Contents\\PlugIns" : L"PlugIns"
+                       );
 
             Status = ScanExtensions (Context, FilePlugins, TmpPath, FALSE);
             FilePlugins->Close (FilePlugins);
@@ -448,10 +473,10 @@ ScanExtensions (
 }
 
 STATIC
-PATCHED_KEXT*
+PATCHED_KEXT *
 LookupPatchedKextForIdentifier (
-  IN OUT CACHELESS_CONTEXT    *Context,
-  IN     CONST CHAR8          *Identifier
+  IN OUT CACHELESS_CONTEXT  *Context,
+  IN     CONST CHAR8        *Identifier
   )
 {
   PATCHED_KEXT  *PatchedKext;
@@ -460,7 +485,7 @@ LookupPatchedKextForIdentifier (
   KextLink = GetFirstNode (&Context->PatchedKexts);
   while (!IsNull (&Context->PatchedKexts, KextLink)) {
     PatchedKext = GET_PATCHED_KEXT_FROM_LINK (KextLink);
- 
+
     if (AsciiStrCmp (Identifier, PatchedKext->Identifier) == 0) {
       return PatchedKext;
     }
@@ -472,10 +497,10 @@ LookupPatchedKextForIdentifier (
 }
 
 STATIC
-BUILTIN_KEXT*
+BUILTIN_KEXT *
 LookupBuiltinKextForIdentifier (
-  IN OUT CACHELESS_CONTEXT    *Context,
-  IN     CONST CHAR8          *Identifier
+  IN OUT CACHELESS_CONTEXT  *Context,
+  IN     CONST CHAR8        *Identifier
   )
 {
   BUILTIN_KEXT  *BuiltinKext;
@@ -484,7 +509,7 @@ LookupBuiltinKextForIdentifier (
   KextLink = GetFirstNode (&Context->BuiltInKexts);
   while (!IsNull (&Context->BuiltInKexts, KextLink)) {
     BuiltinKext = GET_BUILTIN_KEXT_FROM_LINK (KextLink);
- 
+
     if (AsciiStrCmp (Identifier, BuiltinKext->Identifier) == 0) {
       return BuiltinKext;
     }
@@ -496,10 +521,10 @@ LookupBuiltinKextForIdentifier (
 }
 
 STATIC
-BUILTIN_KEXT*
+BUILTIN_KEXT *
 LookupBuiltinKextForPlistPath (
-  IN OUT CACHELESS_CONTEXT    *Context,
-  IN     CONST CHAR16         *PlistPath
+  IN OUT CACHELESS_CONTEXT  *Context,
+  IN     CONST CHAR16       *PlistPath
   )
 {
   BUILTIN_KEXT  *BuiltinKext;
@@ -508,7 +533,7 @@ LookupBuiltinKextForPlistPath (
   KextLink = GetFirstNode (&Context->BuiltInKexts);
   while (!IsNull (&Context->BuiltInKexts, KextLink)) {
     BuiltinKext = GET_BUILTIN_KEXT_FROM_LINK (KextLink);
- 
+
     if (StrCmp (PlistPath, BuiltinKext->PlistPath) == 0) {
       return BuiltinKext;
     }
@@ -520,10 +545,10 @@ LookupBuiltinKextForPlistPath (
 }
 
 STATIC
-BUILTIN_KEXT*
+BUILTIN_KEXT *
 LookupBuiltinKextForBinaryPath (
-  IN OUT CACHELESS_CONTEXT    *Context,
-  IN     CONST CHAR16         *BinaryPath
+  IN OUT CACHELESS_CONTEXT  *Context,
+  IN     CONST CHAR16       *BinaryPath
   )
 {
   BUILTIN_KEXT  *BuiltinKext;
@@ -532,9 +557,10 @@ LookupBuiltinKextForBinaryPath (
   KextLink = GetFirstNode (&Context->BuiltInKexts);
   while (!IsNull (&Context->BuiltInKexts, KextLink)) {
     BuiltinKext = GET_BUILTIN_KEXT_FROM_LINK (KextLink);
- 
-    if (BuiltinKext->BinaryPath != NULL
-      && StrCmp (BinaryPath, BuiltinKext->BinaryPath) == 0) {
+
+    if (  (BuiltinKext->BinaryPath != NULL)
+       && (StrCmp (BinaryPath, BuiltinKext->BinaryPath) == 0))
+    {
       return BuiltinKext;
     }
 
@@ -547,19 +573,19 @@ LookupBuiltinKextForBinaryPath (
 STATIC
 EFI_STATUS
 ScanDependencies (
-  IN OUT CACHELESS_CONTEXT    *Context,
-  IN     CHAR8                *Identifier
+  IN OUT CACHELESS_CONTEXT  *Context,
+  IN     CHAR8              *Identifier
   )
 {
-  EFI_STATUS      Status;
-  BUILTIN_KEXT    *BuiltinKext;
-  DEPEND_KEXT     *DependKext;
-  LIST_ENTRY      *KextLink;
+  EFI_STATUS    Status;
+  BUILTIN_KEXT  *BuiltinKext;
+  DEPEND_KEXT   *DependKext;
+  LIST_ENTRY    *KextLink;
 
   DEBUG ((DEBUG_VERBOSE, "OCAK: Scanning dependencies for %a\n", Identifier));
 
   BuiltinKext = LookupBuiltinKextForIdentifier (Context, Identifier);
-  if (BuiltinKext == NULL || BuiltinKext->OSBundleRequiredValue == KEXT_OSBUNDLE_REQUIRED_VALID) {
+  if ((BuiltinKext == NULL) || (BuiltinKext->OSBundleRequiredValue == KEXT_OSBUNDLE_REQUIRED_VALID)) {
     //
     // Injected kexts may have dependencies on other injected kexts, which we do not need to handle.
     // We should be able to safely assume that any kext with the OSBundleRequired set correctly does not need to be handled either.
@@ -592,24 +618,25 @@ ScanDependencies (
 STATIC
 EFI_STATUS
 InternalAddPatchedKext (
-  IN OUT CACHELESS_CONTEXT      *Context,
-  IN     CONST CHAR8            *Identifier,
-     OUT PATCHED_KEXT           **Kext
+  IN OUT CACHELESS_CONTEXT  *Context,
+  IN     CONST CHAR8        *Identifier,
+  OUT PATCHED_KEXT          **Kext
   )
 {
-  PATCHED_KEXT *PatchedKext;
+  PATCHED_KEXT  *PatchedKext;
 
   PatchedKext = AllocateZeroPool (sizeof (*PatchedKext));
   if (PatchedKext == NULL) {
     return EFI_OUT_OF_RESOURCES;
   }
-  
+
   PatchedKext->Signature  = PATCHED_KEXT_SIGNATURE;
   PatchedKext->Identifier = AllocateCopyPool (AsciiStrSize (Identifier), Identifier);
   if (PatchedKext->Identifier == NULL) {
     FreePool (PatchedKext);
     return EFI_OUT_OF_RESOURCES;
   }
+
   InitializeListHead (&PatchedKext->Patches);
 
   InsertTailList (&Context->PatchedKexts, &PatchedKext->Link);
@@ -627,10 +654,10 @@ InternalAddKextPatch (
   IN     KERNEL_QUIRK_NAME      QuirkName
   )
 {
-  EFI_STATUS            Status;
-  PATCHED_KEXT          *PatchedKext;
-  KEXT_PATCH            *KextPatch;
-  KERNEL_QUIRK          *KernelQuirk;
+  EFI_STATUS    Status;
+  PATCHED_KEXT  *PatchedKext;
+  KEXT_PATCH    *KextPatch;
+  KERNEL_QUIRK  *KernelQuirk;
 
   if (Patch == NULL) {
     KernelQuirk = &gKernelQuirks[QuirkName];
@@ -657,11 +684,11 @@ InternalAddKextPatch (
   if (KextPatch == NULL) {
     return EFI_OUT_OF_RESOURCES;
   }
+
   KextPatch->Signature = KEXT_PATCH_SIGNATURE;
 
   if (Patch != NULL) {
     CopyMem (&KextPatch->Patch, Patch, sizeof (KextPatch->Patch));
-
   } else {
     //
     // Apply quirk if no Patch.
@@ -669,7 +696,7 @@ InternalAddKextPatch (
     KextPatch->ApplyQuirk = TRUE;
     KextPatch->QuirkName  = QuirkName;
   }
-  
+
   InsertTailList (&PatchedKext->Patches, &KextPatch->Link);
 
   return EFI_SUCCESS;
@@ -677,11 +704,11 @@ InternalAddKextPatch (
 
 EFI_STATUS
 CachelessContextInit (
-  IN OUT CACHELESS_CONTEXT    *Context,
-  IN     CONST CHAR16         *FileName,
-  IN     EFI_FILE_PROTOCOL    *ExtensionsDir,
-  IN     UINT32               KernelVersion,
-  IN     BOOLEAN              Is32Bit
+  IN OUT CACHELESS_CONTEXT  *Context,
+  IN     CONST CHAR16       *FileName,
+  IN     EFI_FILE_PROTOCOL  *ExtensionsDir,
+  IN     UINT32             KernelVersion,
+  IN     BOOLEAN            Is32Bit
   )
 {
   ASSERT (Context != NULL);
@@ -690,11 +717,11 @@ CachelessContextInit (
 
   ZeroMem (Context, sizeof (*Context));
 
-  Context->ExtensionsDir          = ExtensionsDir;
-  Context->ExtensionsDirFileName  = FileName;
-  Context->KernelVersion          = KernelVersion;
-  Context->Is32Bit                = Is32Bit;
-  
+  Context->ExtensionsDir         = ExtensionsDir;
+  Context->ExtensionsDirFileName = FileName;
+  Context->KernelVersion         = KernelVersion;
+  Context->Is32Bit               = Is32Bit;
+
   InitializeListHead (&Context->InjectedKexts);
   InitializeListHead (&Context->InjectedDependencies);
   InitializeListHead (&Context->PatchedKexts);
@@ -705,37 +732,40 @@ CachelessContextInit (
 
 VOID
 CachelessContextFree (
-  IN OUT CACHELESS_CONTEXT    *Context
+  IN OUT CACHELESS_CONTEXT  *Context
   )
 {
-  CACHELESS_KEXT      *CachelessKext;
-  PATCHED_KEXT        *PatchedKext;
-  KEXT_PATCH          *KextPatch;
-  BUILTIN_KEXT        *BuiltinKext;
-  LIST_ENTRY          *KextLink;
-  LIST_ENTRY          *PatchLink;
+  CACHELESS_KEXT  *CachelessKext;
+  PATCHED_KEXT    *PatchedKext;
+  KEXT_PATCH      *KextPatch;
+  BUILTIN_KEXT    *BuiltinKext;
+  LIST_ENTRY      *KextLink;
+  LIST_ENTRY      *PatchLink;
 
   ASSERT (Context != NULL);
 
   while (!IsListEmpty (&Context->InjectedKexts)) {
-    KextLink = GetFirstNode (&Context->InjectedKexts);
+    KextLink      = GetFirstNode (&Context->InjectedKexts);
     CachelessKext = GET_CACHELESS_KEXT_FROM_LINK (KextLink);
     RemoveEntryList (KextLink);
 
     if (CachelessKext->PlistData != NULL) {
       FreePool (CachelessKext->PlistData);
     }
+
     if (CachelessKext->BinaryData != NULL) {
       FreePool (CachelessKext->BinaryData);
     }
+
     if (CachelessKext->BinaryFileName != NULL) {
       FreePool (CachelessKext->BinaryFileName);
     }
+
     FreePool (CachelessKext);
   }
 
   while (!IsListEmpty (&Context->PatchedKexts)) {
-    KextLink = GetFirstNode (&Context->PatchedKexts);
+    KextLink    = GetFirstNode (&Context->PatchedKexts);
     PatchedKext = GET_PATCHED_KEXT_FROM_LINK (KextLink);
     RemoveEntryList (KextLink);
 
@@ -751,51 +781,57 @@ CachelessContextFree (
   }
 
   while (!IsListEmpty (&Context->BuiltInKexts)) {
-    KextLink = GetFirstNode (&Context->BuiltInKexts);
+    KextLink    = GetFirstNode (&Context->BuiltInKexts);
     BuiltinKext = GET_BUILTIN_KEXT_FROM_LINK (KextLink);
     RemoveEntryList (KextLink);
 
     if (BuiltinKext->PlistPath != NULL) {
       FreePool (BuiltinKext->PlistPath);
     }
+
     if (BuiltinKext->Identifier != NULL) {
       FreePool (BuiltinKext->Identifier);
     }
+
     if (BuiltinKext->BinaryFileName != NULL) {
       FreePool (BuiltinKext->BinaryFileName);
     }
+
     FreePool (BuiltinKext);
   }
-  
+
   ZeroMem (Context, sizeof (*Context));
 }
 
 EFI_STATUS
 CachelessContextAddKext (
-  IN OUT CACHELESS_CONTEXT    *Context,
-  IN     CONST CHAR8          *InfoPlist,
-  IN     UINT32               InfoPlistSize,
-  IN     CONST UINT8          *Executable OPTIONAL,
-  IN     UINT32               ExecutableSize OPTIONAL
+  IN OUT CACHELESS_CONTEXT  *Context,
+  IN     CONST CHAR8        *InfoPlist,
+  IN     UINT32             InfoPlistSize,
+  IN     UINT8              *Executable OPTIONAL,
+  IN     UINT32             ExecutableSize OPTIONAL,
+  OUT    CHAR8              BundleVersion[MAX_INFO_BUNDLE_VERSION_KEY_SIZE] OPTIONAL
   )
 {
-  EFI_STATUS        Status;
-  CACHELESS_KEXT    *NewKext;
+  EFI_STATUS      Status;
+  CACHELESS_KEXT  *NewKext;
 
-  XML_DOCUMENT      *InfoPlistDocument;
-  XML_NODE          *InfoPlistRoot;
-  XML_NODE          *InfoPlistValue;
-  XML_NODE          *InfoPlistLibraries;
-  CHAR8             *TmpInfoPlist;
-  CONST CHAR8       *TmpKeyValue;
-  UINT32            FieldCount;
-  UINT32            FieldIndex;
+  XML_DOCUMENT  *InfoPlistDocument;
+  XML_NODE      *InfoPlistRoot;
+  XML_NODE      *InfoPlistValue;
+  XML_NODE      *InfoPlistLibraries;
+  XML_NODE      *InfoPlistLibraries64;
+  CHAR8         *TmpInfoPlist;
+  CONST CHAR8   *TmpKeyValue;
+  UINT32        FieldCount;
+  UINT32        FieldIndex;
+  CONST CHAR8   *BundleVerStr;
 
-  BOOLEAN           Failed;
-  BOOLEAN           IsLoadable;
-  BOOLEAN           PlistHasChanges;
-  CHAR8             *NewPlistData;
-  UINT32            NewPlistDataSize;
+  BOOLEAN  Failed;
+  BOOLEAN  IsLoadable;
+  BOOLEAN  PlistHasChanges;
+  CHAR8    *NewPlistData;
+  UINT32   NewPlistDataSize;
 
   ASSERT (Context != NULL);
   ASSERT (InfoPlist != NULL);
@@ -815,6 +851,7 @@ CachelessContextAddKext (
     FreePool (NewKext);
     return EFI_OUT_OF_RESOURCES;
   }
+
   NewKext->PlistDataSize = InfoPlistSize;
 
   //
@@ -847,7 +884,8 @@ CachelessContextAddKext (
   //
   // Search for plist properties.
   //
-  FieldCount = PlistDictChildren (InfoPlistRoot);
+  InfoPlistLibraries = NULL;
+  FieldCount         = PlistDictChildren (InfoPlistRoot);
   for (FieldIndex = 0; FieldIndex < FieldCount; ++FieldIndex) {
     TmpKeyValue = PlistKeyValue (PlistDictChild (InfoPlistRoot, FieldIndex, &InfoPlistValue));
     if (TmpKeyValue == NULL) {
@@ -866,6 +904,7 @@ CachelessContextAddKext (
         ASSERT (FALSE);
         CpuDeadLoop ();
       }
+
       DEBUG_CODE_END ();
 
       NewKext->BinaryFileName = AsciiStrCopyToUnicode (XmlNodeContent (InfoPlistValue), 0);
@@ -876,7 +915,6 @@ CachelessContextAddKext (
         FreePool (NewKext);
         return EFI_INVALID_PARAMETER;
       }
-
     } else if (AsciiStrCmp (TmpKeyValue, INFO_BUNDLE_OS_BUNDLE_REQUIRED_KEY) == 0) {
       //
       // If OSBundleRequired is present and is not Safe Boot, no action is required.
@@ -885,11 +923,22 @@ CachelessContextAddKext (
         XmlNodeChangeContent (InfoPlistValue, OS_BUNDLE_REQUIRED_ROOT);
         PlistHasChanges = TRUE;
       }
-      IsLoadable = TRUE;
 
+      IsLoadable = TRUE;
     } else if (AsciiStrCmp (TmpKeyValue, INFO_BUNDLE_LIBRARIES_KEY) == 0) {
-      InfoPlistLibraries = PlistNodeCast (InfoPlistValue, PLIST_NODE_TYPE_DICT);
-      if (InfoPlistLibraries == NULL) {
+      if (!Context->Is32Bit && (InfoPlistLibraries64 == NULL)) {
+        InfoPlistLibraries = PlistNodeCast (InfoPlistValue, PLIST_NODE_TYPE_DICT);
+        if (InfoPlistLibraries == NULL) {
+          XmlDocumentFree (InfoPlistDocument);
+          FreePool (TmpInfoPlist);
+          FreePool (NewKext->PlistData);
+          FreePool (NewKext);
+          return EFI_INVALID_PARAMETER;
+        }
+      }
+    } else if (AsciiStrCmp (TmpKeyValue, INFO_BUNDLE_LIBRARIES_64_KEY) == 0) {
+      InfoPlistLibraries64 = PlistNodeCast (InfoPlistValue, PLIST_NODE_TYPE_DICT);
+      if (InfoPlistLibraries64 == NULL) {
         XmlDocumentFree (InfoPlistDocument);
         FreePool (TmpInfoPlist);
         FreePool (NewKext->PlistData);
@@ -897,14 +946,36 @@ CachelessContextAddKext (
         return EFI_INVALID_PARAMETER;
       }
 
-      Status = AddKextDependencies (&Context->InjectedDependencies, InfoPlistLibraries);
-      if (EFI_ERROR (Status)) {
-        XmlDocumentFree (InfoPlistDocument);
-        FreePool (TmpInfoPlist);
-        FreePool (NewKext->PlistData);
-        FreePool (NewKext);
-        return Status;
+      if (!Context->Is32Bit) {
+        InfoPlistLibraries = InfoPlistLibraries64;
       }
+    } else {
+      DEBUG_CODE_BEGIN ();
+      if ((BundleVersion != NULL) && (AsciiStrCmp (TmpKeyValue, INFO_BUNDLE_VERSION_KEY) == 0)) {
+        if (PlistNodeCast (InfoPlistValue, PLIST_NODE_TYPE_STRING) == NULL) {
+          XmlDocumentFree (InfoPlistDocument);
+          FreePool (TmpInfoPlist);
+          FreePool (NewKext->PlistData);
+          FreePool (NewKext);
+          return EFI_INVALID_PARAMETER;
+        }
+
+        BundleVerStr = XmlNodeContent (InfoPlistValue);
+        AsciiStrCpyS (BundleVersion, MAX_INFO_BUNDLE_VERSION_KEY_SIZE, BundleVerStr);
+      }
+
+      DEBUG_CODE_END ();
+    }
+  }
+
+  if (InfoPlistLibraries != NULL) {
+    Status = AddKextDependencies (&Context->InjectedDependencies, InfoPlistLibraries);
+    if (EFI_ERROR (Status)) {
+      XmlDocumentFree (InfoPlistDocument);
+      FreePool (TmpInfoPlist);
+      FreePool (NewKext->PlistData);
+      FreePool (NewKext);
+      return Status;
     }
   }
 
@@ -912,7 +983,7 @@ CachelessContextAddKext (
   // Add OSBundleRequired if not found.
   //
   if (!IsLoadable) {
-    Failed = FALSE;
+    Failed  = FALSE;
     Failed |= XmlNodeAppend (InfoPlistRoot, "key", NULL, INFO_BUNDLE_OS_BUNDLE_REQUIRED_KEY) == NULL;
     Failed |= XmlNodeAppend (InfoPlistRoot, "string", NULL, OS_BUNDLE_REQUIRED_ROOT) == NULL;
 
@@ -922,6 +993,7 @@ CachelessContextAddKext (
       if (NewKext->BinaryFileName != NULL) {
         FreePool (NewKext->BinaryFileName);
       }
+
       FreePool (NewKext->PlistData);
       FreePool (NewKext);
       return EFI_OUT_OF_RESOURCES;
@@ -938,12 +1010,14 @@ CachelessContextAddKext (
       if (NewKext->BinaryFileName != NULL) {
         FreePool (NewKext->BinaryFileName);
       }
+
       FreePool (NewKext->PlistData);
       FreePool (NewKext);
       return EFI_OUT_OF_RESOURCES;
     }
+
     FreePool (NewKext->PlistData);
-    NewKext->PlistData = NewPlistData;
+    NewKext->PlistData     = NewPlistData;
     NewKext->PlistDataSize = NewPlistDataSize;
   }
 
@@ -958,15 +1032,28 @@ CachelessContextAddKext (
     //
     ASSERT (NewKext->BinaryFileName != NULL);
 
+    //
+    // Use only the binary for the current arch.
+    // Some versions of macOS 10.4 may incorrectly chose the 64-bit slice
+    // despite 32-bit being the only supported Intel architecture.
+    //
+    if (!InternalParseKextBinary (&Executable, &ExecutableSize, Context->Is32Bit)) {
+      FreePool (NewKext->PlistData);
+      FreePool (NewKext);
+      return EFI_INVALID_PARAMETER;
+    }
+
     NewKext->BinaryData = AllocateCopyPool (ExecutableSize, Executable);
     if (NewKext->BinaryData == NULL) {
       if (NewKext->BinaryFileName != NULL) {
         FreePool (NewKext->BinaryFileName);
       }
+
       FreePool (NewKext->PlistData);
       FreePool (NewKext);
       return EFI_OUT_OF_RESOURCES;
     }
+
     NewKext->BinaryDataSize = ExecutableSize;
   }
 
@@ -976,8 +1063,8 @@ CachelessContextAddKext (
 
 EFI_STATUS
 CachelessContextForceKext (
-  IN OUT CACHELESS_CONTEXT    *Context,
-  IN     CONST CHAR8          *Identifier
+  IN OUT CACHELESS_CONTEXT  *Context,
+  IN     CONST CHAR8        *Identifier
   )
 {
   ASSERT (Context != NULL);
@@ -1002,8 +1089,8 @@ CachelessContextAddPatch (
 
 EFI_STATUS
 CachelessContextAddQuirk (
-  IN OUT CACHELESS_CONTEXT    *Context,
-  IN     KERNEL_QUIRK_NAME    Quirk
+  IN OUT CACHELESS_CONTEXT  *Context,
+  IN     KERNEL_QUIRK_NAME  Quirk
   )
 {
   ASSERT (Context != NULL);
@@ -1013,12 +1100,13 @@ CachelessContextAddQuirk (
 
 EFI_STATUS
 CachelessContextBlock (
-  IN OUT CACHELESS_CONTEXT      *Context,
-  IN     CONST CHAR8            *Identifier
+  IN OUT CACHELESS_CONTEXT  *Context,
+  IN     CONST CHAR8        *Identifier,
+  IN     BOOLEAN            Exclude
   )
 {
-  EFI_STATUS      Status;
-  PATCHED_KEXT    *PatchedKext;
+  EFI_STATUS    Status;
+  PATCHED_KEXT  *PatchedKext;
 
   //
   // Check if bundle is already present. If not, add to list.
@@ -1031,26 +1119,26 @@ CachelessContextBlock (
     }
   }
 
-  PatchedKext->Block = TRUE;  
+  PatchedKext->Block = TRUE;
 
   return EFI_SUCCESS;
 }
 
 EFI_STATUS
 CachelessContextOverlayExtensionsDir (
-  IN OUT CACHELESS_CONTEXT    *Context,
-     OUT EFI_FILE_PROTOCOL    **File
+  IN OUT CACHELESS_CONTEXT  *Context,
+  OUT EFI_FILE_PROTOCOL     **File
   )
 {
-  EFI_STATUS            Status;
-  EFI_FILE_PROTOCOL     *ExtensionsDirOverlay;
+  EFI_STATUS         Status;
+  EFI_FILE_PROTOCOL  *ExtensionsDirOverlay;
 
-  CACHELESS_KEXT        *Kext;
-  LIST_ENTRY            *KextLink;
-  EFI_FILE_INFO         *DirectoryEntry;
-  EFI_FILE_PROTOCOL     *NewFile;
-  EFI_TIME              ModificationTime;
-  UINT32                FileNameIndex;
+  CACHELESS_KEXT     *Kext;
+  LIST_ENTRY         *KextLink;
+  EFI_FILE_INFO      *DirectoryEntry;
+  EFI_FILE_PROTOCOL  *NewFile;
+  EFI_TIME           ModificationTime;
+  UINT32             FileNameIndex;
 
   ASSERT (Context != NULL);
   ASSERT (File != NULL);
@@ -1058,7 +1146,7 @@ CachelessContextOverlayExtensionsDir (
   //
   // Create directory overlay.
   //
-  Status = GetFileModificationTime (Context->ExtensionsDir, &ModificationTime);
+  Status = OcGetFileModificationTime (Context->ExtensionsDir, &ModificationTime);
   if (EFI_ERROR (Status)) {
     ZeroMem (&ModificationTime, sizeof (ModificationTime));
   }
@@ -1072,7 +1160,7 @@ CachelessContextOverlayExtensionsDir (
   // Inject kexts.
   //
   FileNameIndex = 0;
-  KextLink = GetFirstNode (&Context->InjectedKexts);
+  KextLink      = GetFirstNode (&Context->InjectedKexts);
   while (!IsNull (&Context->InjectedKexts, KextLink)) {
     Kext = GET_CACHELESS_KEXT_FROM_LINK (KextLink);
 
@@ -1102,9 +1190,9 @@ CachelessContextOverlayExtensionsDir (
     // Populate file information.
     //
     CopyMem (DirectoryEntry->FileName, Kext->BundleFileName, KEXT_BUNDLE_NAME_SIZE);
-    DirectoryEntry->Size = KEXT_BUNDLE_INFO_SIZE;
-    DirectoryEntry->Attribute = EFI_FILE_READ_ONLY | EFI_FILE_DIRECTORY;
-    DirectoryEntry->FileSize = SIZE_OF_EFI_FILE_INFO + L_STR_SIZE (L"Contents");
+    DirectoryEntry->Size         = KEXT_BUNDLE_INFO_SIZE;
+    DirectoryEntry->Attribute    = EFI_FILE_READ_ONLY | EFI_FILE_DIRECTORY;
+    DirectoryEntry->FileSize     = SIZE_OF_EFI_FILE_INFO + L_STR_SIZE (L"Contents");
     DirectoryEntry->PhysicalSize = DirectoryEntry->FileSize;
 
     VirtualDirAddEntry (ExtensionsDirOverlay, DirectoryEntry);
@@ -1121,32 +1209,32 @@ CachelessContextOverlayExtensionsDir (
 
 EFI_STATUS
 CachelessContextPerformInject (
-  IN OUT CACHELESS_CONTEXT    *Context,
-  IN     CONST CHAR16         *FileName,
-     OUT EFI_FILE_PROTOCOL    **File
+  IN OUT CACHELESS_CONTEXT  *Context,
+  IN     CONST CHAR16       *FileName,
+  OUT EFI_FILE_PROTOCOL     **File
   )
 {
-  EFI_STATUS          Status;
-  EFI_FILE_PROTOCOL   *VirtualFileHandle;
-  CHAR16              *RealFileName;
-  UINT8               *Buffer;
-  UINTN               BufferSize;
+  EFI_STATUS         Status;
+  EFI_FILE_PROTOCOL  *VirtualFileHandle;
+  CHAR16             *RealFileName;
+  UINT8              *Buffer;
+  UINTN              BufferSize;
 
-  CACHELESS_KEXT      *Kext;
-  LIST_ENTRY          *KextLink;
+  CACHELESS_KEXT  *Kext;
+  LIST_ENTRY      *KextLink;
 
-  BOOLEAN             IsBinaryKext;
-  CHAR16              *BundleName;
-  CHAR16              *KextExtension;
-  CHAR16              *BundlePath;
-  CHAR16              *BundleBinaryPath;
-  UINTN               BundleBinaryPathSize;
-  UINTN               BundleLength;
+  BOOLEAN  IsBinaryKext;
+  CHAR16   *BundleName;
+  CHAR16   *KextExtension;
+  CHAR16   *BundlePath;
+  CHAR16   *BundleBinaryPath;
+  UINTN    BundleBinaryPathSize;
+  UINTN    BundleLength;
 
-  EFI_FILE_INFO       *ContentsInfo;
-  EFI_FILE_INFO       *ContentsMacOs;
-  UINTN               ContentsInfoEntrySize;
-  UINTN               ContentsMacOsEntrySize;
+  EFI_FILE_INFO  *ContentsInfo;
+  EFI_FILE_INFO  *ContentsMacOs;
+  UINTN          ContentsInfoEntrySize;
+  UINTN          ContentsMacOsEntrySize;
 
   ASSERT (Context != NULL);
   ASSERT (FileName != NULL);
@@ -1159,11 +1247,13 @@ CachelessContextPerformInject (
   if (BundleName == NULL) {
     return EFI_NOT_FOUND;
   }
+
   KextExtension = StrStr (BundleName, L".kext");
   if (KextExtension == NULL) {
     return EFI_NOT_FOUND;
   }
-  BundlePath = KextExtension + L_STR_LEN (L".kext");
+
+  BundlePath   = KextExtension + L_STR_LEN (L".kext");
   BundleLength = BundlePath - BundleName;
 
   //
@@ -1190,8 +1280,8 @@ CachelessContextPerformInject (
         //
         // Create Info.plist directory entry.
         //
-        ContentsInfoEntrySize   = SIZE_OF_EFI_FILE_INFO + L_STR_SIZE (L"Info.plist");
-        ContentsInfo = AllocateZeroPool (ContentsInfoEntrySize);
+        ContentsInfoEntrySize = SIZE_OF_EFI_FILE_INFO + L_STR_SIZE (L"Info.plist");
+        ContentsInfo          = AllocateZeroPool (ContentsInfoEntrySize);
         if (ContentsInfo == NULL) {
           VirtualDirFree (VirtualFileHandle);
           return EFI_OUT_OF_RESOURCES;
@@ -1199,7 +1289,7 @@ CachelessContextPerformInject (
 
         ContentsInfo->Size = ContentsInfoEntrySize;
         CopyMem (ContentsInfo->FileName, L"Info.plist", L_STR_SIZE (L"Info.plist"));
-        ContentsInfo->Attribute = EFI_FILE_READ_ONLY;
+        ContentsInfo->Attribute    = EFI_FILE_READ_ONLY;
         ContentsInfo->PhysicalSize = ContentsInfo->FileSize = Kext->PlistDataSize;
         VirtualDirAddEntry (VirtualFileHandle, ContentsInfo);
 
@@ -1207,8 +1297,8 @@ CachelessContextPerformInject (
           //
           // Create MacOS directory entry.
           //
-          ContentsMacOsEntrySize  = SIZE_OF_EFI_FILE_INFO + L_STR_SIZE (L"MacOS");
-          ContentsMacOs = AllocateZeroPool (ContentsMacOsEntrySize);
+          ContentsMacOsEntrySize = SIZE_OF_EFI_FILE_INFO + L_STR_SIZE (L"MacOS");
+          ContentsMacOs          = AllocateZeroPool (ContentsMacOsEntrySize);
           if (ContentsMacOs == NULL) {
             FreePool (ContentsInfo);
             VirtualDirFree (VirtualFileHandle);
@@ -1218,39 +1308,41 @@ CachelessContextPerformInject (
           ContentsMacOs->Size = ContentsMacOsEntrySize;
           CopyMem (ContentsMacOs->FileName, L"MacOS", L_STR_SIZE (L"MacOS"));
           ContentsMacOs->Attribute = EFI_FILE_READ_ONLY | EFI_FILE_DIRECTORY;
-          if (OcOverflowAddU64 (SIZE_OF_EFI_FILE_INFO, StrSize (Kext->BinaryFileName), &ContentsMacOs->FileSize)) {
+          if (BaseOverflowAddU64 (SIZE_OF_EFI_FILE_INFO, StrSize (Kext->BinaryFileName), &ContentsMacOs->FileSize)) {
             FreePool (ContentsInfo);
             VirtualDirFree (VirtualFileHandle);
             return EFI_INVALID_PARAMETER;
           }
+
           ContentsMacOs->PhysicalSize = ContentsMacOs->FileSize;
           VirtualDirAddEntry (VirtualFileHandle, ContentsMacOs);
         }
-
       } else {
         //
         // Contents/Info.plist is being requested.
         //
         if (StrCmp (BundlePath, L"\\Contents\\Info.plist") == 0) {
           RealFileName = L"Info.plist";
-          BufferSize = Kext->PlistDataSize;
-          Buffer = AllocateCopyPool (BufferSize, Kext->PlistData);
+          BufferSize   = Kext->PlistDataSize;
+          Buffer       = AllocateCopyPool (BufferSize, Kext->PlistData);
           if (Buffer == NULL) {
             return EFI_OUT_OF_RESOURCES;
           }
 
-        //
-        // Contents/MacOS/BINARY is being requested.
-        // It should be safe to assume there will only be one binary ever requested per kext?
-        //
+          //
+          // Contents/MacOS/BINARY is being requested.
+          // It should be safe to assume there will only be one binary ever requested per kext?
+          //
         } else if (IsBinaryKext) {
-          if (OcOverflowAddUN (L_STR_SIZE (L"\\Contents\\MacOS\\"), StrSize (Kext->BinaryFileName), &BundleBinaryPathSize)) {
+          if (BaseOverflowAddUN (L_STR_SIZE (L"\\Contents\\MacOS\\"), StrSize (Kext->BinaryFileName), &BundleBinaryPathSize)) {
             return EFI_OUT_OF_RESOURCES;
           }
+
           BundleBinaryPath = AllocateZeroPool (BundleBinaryPathSize);
           if (BundleBinaryPath == NULL) {
             return EFI_OUT_OF_RESOURCES;
           }
+
           StrCatS (BundleBinaryPath, BundleBinaryPathSize / sizeof (CHAR16), L"\\Contents\\MacOS\\");
           StrCatS (BundleBinaryPath, BundleBinaryPathSize / sizeof (CHAR16), Kext->BinaryFileName);
 
@@ -1258,8 +1350,8 @@ CachelessContextPerformInject (
             FreePool (BundleBinaryPath);
 
             RealFileName = Kext->BinaryFileName;
-            BufferSize = Kext->BinaryDataSize;
-            Buffer = AllocateCopyPool (BufferSize, Kext->BinaryData);
+            BufferSize   = Kext->BinaryDataSize;
+            Buffer       = AllocateCopyPool (BufferSize, Kext->BinaryData);
             if (Buffer == NULL) {
               return EFI_OUT_OF_RESOURCES;
             }
@@ -1296,34 +1388,34 @@ CachelessContextPerformInject (
 
 EFI_STATUS
 CachelessContextHookBuiltin (
-  IN OUT CACHELESS_CONTEXT    *Context,
-  IN     CONST CHAR16         *FileName,
-  IN     EFI_FILE_PROTOCOL    *File,
-     OUT EFI_FILE_PROTOCOL    **VirtualFile
+  IN OUT CACHELESS_CONTEXT  *Context,
+  IN     CONST CHAR16       *FileName,
+  IN     EFI_FILE_PROTOCOL  *File,
+  OUT EFI_FILE_PROTOCOL     **VirtualFile
   )
 {
-  EFI_STATUS          Status;
-  EFI_TIME            ModificationTime;
-  BUILTIN_KEXT        *BuiltinKext;
-  KEXT_PATCH          *KextPatch;
-  PATCHED_KEXT        *PatchedKext;
-  DEPEND_KEXT         *DependKext;
-  LIST_ENTRY          *KextLink;
+  EFI_STATUS    Status;
+  EFI_TIME      ModificationTime;
+  BUILTIN_KEXT  *BuiltinKext;
+  KEXT_PATCH    *KextPatch;
+  PATCHED_KEXT  *PatchedKext;
+  DEPEND_KEXT   *DependKext;
+  LIST_ENTRY    *KextLink;
 
-  PATCHER_CONTEXT     Patcher;
+  PATCHER_CONTEXT  Patcher;
 
-  VOID                *Buffer;
-  UINT32              BufferSize;
-  XML_DOCUMENT        *InfoPlistDocument;
-  XML_NODE            *InfoPlistRoot;
-  XML_NODE            *InfoPlistValue;
-  CONST CHAR8         *TmpKeyValue;
-  UINT32              FieldCount;
-  UINT32              FieldIndex;
+  VOID          *Buffer;
+  UINT32        BufferSize;
+  XML_DOCUMENT  *InfoPlistDocument;
+  XML_NODE      *InfoPlistRoot;
+  XML_NODE      *InfoPlistValue;
+  CONST CHAR8   *TmpKeyValue;
+  UINT32        FieldCount;
+  UINT32        FieldIndex;
 
-  BOOLEAN             Failed;
-  CHAR8               *NewPlistData;
-  UINT32              NewPlistDataSize;
+  BOOLEAN  Failed;
+  CHAR8    *NewPlistData;
+  UINT32   NewPlistDataSize;
 
   ASSERT (Context != NULL);
   ASSERT (FileName != NULL);
@@ -1357,10 +1449,9 @@ CachelessContextHookBuiltin (
         // Kext is not present, skip.
         //
         DEBUG ((DEBUG_WARN, "OCAK: Attempted to patch non-existent kext %a\n", PatchedKext->Identifier));
-        
       } else {
         BuiltinKext->PatchKext = TRUE;
-        Status = ScanDependencies (Context, PatchedKext->Identifier);
+        Status                 = ScanDependencies (Context, PatchedKext->Identifier);
         if (EFI_ERROR (Status)) {
           return Status;
         }
@@ -1393,13 +1484,13 @@ CachelessContextHookBuiltin (
   //
   if (OcUnicodeEndsWith (FileName, L"Info.plist", FALSE)) {
     BuiltinKext = LookupBuiltinKextForPlistPath (Context, FileName);
-    if (BuiltinKext != NULL && BuiltinKext->PatchValidOSBundleRequired) {
+    if ((BuiltinKext != NULL) && BuiltinKext->PatchValidOSBundleRequired) {
       DEBUG ((DEBUG_INFO, "OCAK: Processing plist patches for %s\n", FileName));
 
       //
       // Open Info.plist
       //
-      Status = AllocateCopyFileData (File, (UINT8 **) &Buffer, &BufferSize);
+      Status = OcAllocateCopyFileData (File, (UINT8 **)&Buffer, &BufferSize);
       if (EFI_ERROR (Status)) {
         return Status;
       }
@@ -1433,9 +1524,8 @@ CachelessContextHookBuiltin (
             XmlNodeChangeContent (InfoPlistValue, OS_BUNDLE_REQUIRED_ROOT);
           }
         }
-
       } else if (BuiltinKext->OSBundleRequiredValue == KEXT_OSBUNDLE_REQUIRED_NONE) {
-        Failed = FALSE;
+        Failed  = FALSE;
         Failed |= XmlNodeAppend (InfoPlistRoot, "key", NULL, INFO_BUNDLE_OS_BUNDLE_REQUIRED_KEY) == NULL;
         Failed |= XmlNodeAppend (InfoPlistRoot, "string", NULL, OS_BUNDLE_REQUIRED_ROOT) == NULL;
         if (Failed) {
@@ -1461,7 +1551,7 @@ CachelessContextHookBuiltin (
       //
       // Virtualize newly created Info.plist.
       //
-      Status = GetFileModificationTime (File, &ModificationTime);
+      Status = OcGetFileModificationTime (File, &ModificationTime);
       if (EFI_ERROR (Status)) {
         ZeroMem (&ModificationTime, sizeof (ModificationTime));
       }
@@ -1471,6 +1561,7 @@ CachelessContextHookBuiltin (
         *VirtualFile = NULL;
         FreePool (NewPlistData);
       }
+
       return Status;
     }
   } else {
@@ -1478,7 +1569,7 @@ CachelessContextHookBuiltin (
     // Try to get binary for built-in kext.
     //
     BuiltinKext = LookupBuiltinKextForBinaryPath (Context, FileName);
-    if (BuiltinKext != NULL && BuiltinKext->PatchKext) {
+    if ((BuiltinKext != NULL) && BuiltinKext->PatchKext) {
       DEBUG ((DEBUG_INFO, "OCAK: Processing binary patches for %s\n", FileName));
 
       PatchedKext = LookupPatchedKextForIdentifier (Context, BuiltinKext->Identifier);
@@ -1486,7 +1577,7 @@ CachelessContextHookBuiltin (
         return EFI_INVALID_PARAMETER;
       }
 
-      Status = AllocateCopyFileData (File, (UINT8 **) &Buffer, &BufferSize);
+      Status = OcAllocateCopyFileData (File, (UINT8 **)&Buffer, &BufferSize);
       if (EFI_ERROR (Status)) {
         return Status;
       }
@@ -1534,9 +1625,8 @@ CachelessContextHookBuiltin (
         Status = PatcherBlockKext (&Patcher);
         DEBUG ((
           EFI_ERROR (Status) ? DEBUG_WARN : DEBUG_INFO,
-          "OCAK: Cacheless blocker result for %a (%a) - %r\n",
+          "OCAK: Cacheless blocker result for %a - %r\n",
           PatchedKext->Identifier,
-          KextPatch->Patch.Comment,
           Status
           ));
       }
@@ -1544,7 +1634,7 @@ CachelessContextHookBuiltin (
       //
       // Virtualize patched binary.
       //
-      Status = GetFileModificationTime (File, &ModificationTime);
+      Status = OcGetFileModificationTime (File, &ModificationTime);
       if (EFI_ERROR (Status)) {
         ZeroMem (&ModificationTime, sizeof (ModificationTime));
       }
@@ -1554,6 +1644,7 @@ CachelessContextHookBuiltin (
         *VirtualFile = NULL;
         FreePool (Buffer);
       }
+
       return Status;
     }
   }

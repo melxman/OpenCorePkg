@@ -4,33 +4,136 @@
 **/
 
 #include <UserFile.h>
+#include <Library/DebugLib.h>
+#include <Library/MemoryAllocationLib.h>
 
-uint8_t *UserReadFile(const char *str, uint32_t *size) {
-  FILE *f = fopen(str, "rb");
+#ifdef COVERAGE_TEST
+  #if defined (__clang__)
+void
+__wrap_llvm_gcda_emit_arcs (
+  uint32_t  num_counters,
+  uint64_t  *counters
+  )
+{
+  uint32_t  i;
+  uint64_t  *old_ctrs = NULL;
 
-  if (!f) return NULL;
+  old_ctrs = malloc (num_counters * sizeof (uint64_t));
+  if (old_ctrs == NULL) {
+    return;
+  }
 
-  fseek(f, 0, SEEK_END);
-  long fsize = ftell(f);
-  fseek(f, 0, SEEK_SET);
+  memcpy (old_ctrs, counters, num_counters * sizeof (uint64_t));
 
-  uint8_t *string = malloc(fsize + 1);
-  if (fsize > 0 && fread(string, fsize, 1, f) != 1)
-    abort();
-  fclose(f);
+  __real_llvm_gcda_emit_arcs (num_counters, counters);
 
-  string[fsize] = 0;
-  *size = fsize;
+  for (i = 0; i < num_counters; ++i) {
+    if ((old_ctrs[i] == counters[i]) && (counters[i] > 0)) {
+      fprintf (stdout, "CoverageHit\n");
+    }
+  }
 
-  return string;
+  free (old_ctrs);
 }
 
-void UserWriteFile(const char *str, void *data, uint32_t size) {
-  FILE *Fh = fopen(str, "wb");
+  #elif defined (__GNUC__)
+void
+__gcov_merge_add (
+  gcov_type  *counters,
+  unsigned   n_counters
+  )
+{
+  gcov_type  prev;
 
-  if (!Fh) abort();
-  
-  if (fwrite (data, size, 1, Fh) != 1)
-    abort();
-  fclose(Fh);
+  for ( ; n_counters; counters++, n_counters--) {
+    prev = __gcov_read_counter ();
+    if ((prev == 0) && (*counters > 0)) {
+      fprintf (stdout, "CoverageHit\n");
+    }
+
+    *counters += prev;
+  }
+}
+
+  #endif
+#endif
+
+UINT8 *
+UserReadFile (
+  IN  CONST CHAR8  *FileName,
+  OUT UINT32       *Size
+  )
+{
+  FILE   *FilePtr;
+  INT64  FileSize;
+  UINT8  *Buffer;
+
+  ASSERT (FileName != NULL);
+  ASSERT (Size != NULL);
+
+  FilePtr = fopen (FileName, "rb");
+  if (FilePtr == NULL) {
+    return NULL;
+  }
+
+  if (fseek (FilePtr, 0, SEEK_END) != 0) {
+    fclose (FilePtr);
+    return NULL;
+  }
+
+  FileSize = ftell (FilePtr);
+  if (FileSize <= 0) {
+    fclose (FilePtr);
+    return NULL;
+  }
+
+  if (fseek (FilePtr, 0, SEEK_SET) != 0) {
+    fclose (FilePtr);
+    return NULL;
+  }
+
+  Buffer = AllocatePool ((UINTN)FileSize + 1);
+  if (Buffer == NULL) {
+    fclose (FilePtr);
+    return NULL;
+  }
+
+  if (fread (Buffer, (size_t)FileSize, 1, FilePtr) != 1) {
+    fclose (FilePtr);
+    free (Buffer);
+    return NULL;
+  }
+
+  fclose (FilePtr);
+
+  Buffer[FileSize] = 0;
+  *Size            = (UINT32)FileSize;
+
+  return Buffer;
+}
+
+VOID
+UserWriteFile (
+  IN  CONST CHAR8  *FileName,
+  IN  CONST VOID   *Data,
+  IN  UINT32       Size
+  )
+{
+  FILE  *FilePtr;
+
+  ASSERT (FileName != NULL);
+  ASSERT (Data != NULL);
+
+  FilePtr = fopen (FileName, "wb");
+
+  if (FilePtr == NULL) {
+    abort ();
+  }
+
+  if (fwrite (Data, Size, 1, FilePtr) != 1) {
+    fclose (FilePtr);
+    abort ();
+  }
+
+  fclose (FilePtr);
 }

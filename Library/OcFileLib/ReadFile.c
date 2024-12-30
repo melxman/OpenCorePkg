@@ -21,47 +21,47 @@
 #include <Library/UefiLib.h>
 #include <Library/BaseLib.h>
 #include <Library/BaseMemoryLib.h>
+#include <Library/BaseOverflowLib.h>
 #include <Library/DebugLib.h>
 #include <Library/DevicePathLib.h>
 #include <Library/MemoryAllocationLib.h>
 #include <Library/UefiBootServicesTableLib.h>
 #include <Library/OcDevicePathLib.h>
 #include <Library/OcFileLib.h>
-#include <Library/OcGuardLib.h>
 
 VOID *
-ReadFile (
-  IN  EFI_SIMPLE_FILE_SYSTEM_PROTOCOL  *FileSystem,
-  IN  CONST CHAR16                     *FilePath,
-  OUT UINT32                           *FileSize   OPTIONAL,
-  IN  UINT32                           MaxFileSize OPTIONAL
+OcReadFile (
+  IN     CONST EFI_SIMPLE_FILE_SYSTEM_PROTOCOL  *FileSystem,
+  IN     CONST CHAR16                           *FilePath,
+  OUT       UINT32                              *FileSize OPTIONAL,
+  IN     CONST UINT32                           MaxFileSize OPTIONAL
   )
 {
-  EFI_STATUS                      Status;
-  EFI_FILE_HANDLE                 Volume;
-  EFI_FILE_HANDLE                 FileHandle;
-  UINT8                           *FileBuffer;
-  UINT32                          FileBufferSize;
-  UINT32                          FileReadSize;
+  EFI_STATUS       Status;
+  EFI_FILE_HANDLE  Volume;
+  EFI_FILE_HANDLE  FileHandle;
+  UINT8            *FileBuffer;
+  UINT32           FileBufferSize;
+  UINT32           FileReadSize;
 
   ASSERT (FileSystem != NULL);
   ASSERT (FilePath != NULL);
 
   Status = FileSystem->OpenVolume (
-    FileSystem,
-    &Volume
-    );
+                         (EFI_SIMPLE_FILE_SYSTEM_PROTOCOL *)FileSystem,
+                         &Volume
+                         );
   if (EFI_ERROR (Status)) {
     return NULL;
   }
 
-  Status = SafeFileOpen (
-    Volume,
-    &FileHandle,
-    (CHAR16 *) FilePath,
-    EFI_FILE_MODE_READ,
-    0
-    );
+  Status = OcSafeFileOpen (
+             Volume,
+             &FileHandle,
+             FilePath,
+             EFI_FILE_MODE_READ,
+             0
+             );
 
   Volume->Close (Volume);
 
@@ -69,28 +69,29 @@ ReadFile (
     return NULL;
   }
 
-  Status = GetFileSize (
-    FileHandle,
-    &FileReadSize
-    );
-  if (EFI_ERROR (Status)
-    || OcOverflowAddU32 (FileReadSize, sizeof (CHAR16), &FileBufferSize)
-    || (MaxFileSize > 0 && FileReadSize > MaxFileSize)) {
+  Status = OcGetFileSize (
+             FileHandle,
+             &FileReadSize
+             );
+  if (  EFI_ERROR (Status)
+     || BaseOverflowAddU32 (FileReadSize, sizeof (CHAR16), &FileBufferSize)
+     || ((MaxFileSize > 0) && (FileReadSize > MaxFileSize)))
+  {
     FileHandle->Close (FileHandle);
     return NULL;
   }
 
   FileBuffer = AllocatePool (FileBufferSize);
   if (FileBuffer != NULL) {
-    Status = GetFileData (
-      FileHandle,
-      0,
-      FileReadSize,
-      FileBuffer
-      );
+    Status = OcGetFileData (
+               FileHandle,
+               0,
+               FileReadSize,
+               FileBuffer
+               );
 
     if (!EFI_ERROR (Status)) {
-      FileBuffer[FileReadSize] = 0;
+      FileBuffer[FileReadSize]     = 0;
       FileBuffer[FileReadSize + 1] = 0;
       if (FileSize != NULL) {
         *FileSize = FileReadSize;
@@ -106,35 +107,35 @@ ReadFile (
 }
 
 EFI_STATUS
-ReadFileSize (
+OcReadFileSize (
   IN  EFI_SIMPLE_FILE_SYSTEM_PROTOCOL  *FileSystem,
   IN  CONST CHAR16                     *FilePath,
   OUT UINT32                           *Size
   )
 {
-  EFI_STATUS                      Status;
-  EFI_FILE_HANDLE                 Volume;
-  EFI_FILE_HANDLE                 FileHandle;
+  EFI_STATUS       Status;
+  EFI_FILE_HANDLE  Volume;
+  EFI_FILE_HANDLE  FileHandle;
 
   ASSERT (FileSystem != NULL);
   ASSERT (FilePath != NULL);
   ASSERT (Size != NULL);
 
   Status = FileSystem->OpenVolume (
-    FileSystem,
-    &Volume
-    );
+                         FileSystem,
+                         &Volume
+                         );
   if (EFI_ERROR (Status)) {
     return Status;
   }
 
-  Status = SafeFileOpen (
-    Volume,
-    &FileHandle,
-    (CHAR16 *) FilePath,
-    EFI_FILE_MODE_READ,
-    0
-    );
+  Status = OcSafeFileOpen (
+             Volume,
+             &FileHandle,
+             (CHAR16 *)FilePath,
+             EFI_FILE_MODE_READ,
+             0
+             );
 
   Volume->Close (Volume);
 
@@ -142,46 +143,47 @@ ReadFileSize (
     return Status;
   }
 
-  Status = GetFileSize (
-    FileHandle,
-    Size
-    );
+  Status = OcGetFileSize (
+             FileHandle,
+             Size
+             );
 
   return Status;
 }
 
 VOID *
-ReadFileFromFile (
-  IN  EFI_FILE_PROTOCOL   *RootFile,
-  IN  CONST CHAR16        *FilePath,
-  OUT UINT32              *FileSize OPTIONAL,
-  IN  UINT32              MaxFileSize OPTIONAL
+OcReadFileFromDirectory (
+  IN      CONST EFI_FILE_PROTOCOL  *RootDirectory,
+  IN      CONST CHAR16             *FilePath,
+  OUT       UINT32                 *FileSize OPTIONAL,
+  IN            UINT32             MaxFileSize OPTIONAL
   )
 {
-  EFI_STATUS            Status;
-  EFI_FILE_PROTOCOL     *File;
-  UINT32                Size;
-  UINT8                 *FileBuffer;
+  EFI_STATUS         Status;
+  EFI_FILE_PROTOCOL  *File;
+  UINT32             Size;
+  UINT8              *FileBuffer;
 
-  ASSERT (RootFile != NULL);
+  ASSERT (RootDirectory != NULL);
   ASSERT (FilePath != NULL);
 
-  Status = SafeFileOpen (
-    RootFile,
-    &File,
-    (CHAR16 *) FilePath,
-    EFI_FILE_MODE_READ,
-    0
-    );
+  Status = OcSafeFileOpen (
+             RootDirectory,
+             &File,
+             FilePath,
+             EFI_FILE_MODE_READ,
+             0
+             );
 
   if (EFI_ERROR (Status)) {
     return NULL;
   }
 
-  Status = GetFileSize (File, &Size);
-  if (EFI_ERROR (Status)
-    || Size >= MAX_UINT32 - 1
-    || (MaxFileSize > 0 && Size > MaxFileSize)) {
+  Status = OcGetFileSize (File, &Size);
+  if (  EFI_ERROR (Status)
+     || (Size >= MAX_UINT32 - 1)
+     || ((MaxFileSize > 0) && (Size > MaxFileSize)))
+  {
     File->Close (File);
     return NULL;
   }
@@ -192,7 +194,7 @@ ReadFileFromFile (
     return NULL;
   }
 
-  Status = GetFileData (File, 0, Size, FileBuffer);
+  Status = OcGetFileData (File, 0, Size, FileBuffer);
   File->Close (File);
   if (EFI_ERROR (Status)) {
     FreePool (FileBuffer);

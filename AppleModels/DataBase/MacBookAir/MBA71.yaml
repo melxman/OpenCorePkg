@@ -1,7 +1,7 @@
 BIOSVendor: "Apple Inc."
-BIOSVersion: "427.0.0.0.0"
-BIOSLegacyVersion: "MBA71.88Z.F000.B00.2102232134"
-BIOSReleaseDate: "02/23/2021"
+BIOSVersion: "489.0.0.0.0"
+BIOSLegacyVersion: "MBA71.88Z.F000.B00.2310070443"
+BIOSReleaseDate: "10/07/2023"
 SystemManufacturer: "Apple Inc."
 SystemProductName: "MacBookAir7,1"
 SystemVersion: "1.0"
@@ -22,8 +22,8 @@ ChassisAssetTag: "Chassis Board Asset Tag#"
 PlatformFeature: 0x2
 FirmwareFeatures: 0xFF0FF576
 FirmwareFeaturesMask: 0xFF1FFF7F
-ExtendedFirmwareFeatures: 0x00000000FF0FF576
-ExtendedFirmwareFeaturesMask: 0x00000000FF1FFF7F
+ExtendedFirmwareFeatures: 0x00000008FF0FF576
+ExtendedFirmwareFeaturesMask: 0x00000008FF1FFF7F
 MemoryFormFactor: 0xD
 # FIXME: check values (most should be correct?) and add missing, if any
 ProcessorType:
@@ -64,13 +64,13 @@ SmcEPCI: 0x7B007
 OEMStrings: |-
   Apple ROM Version
     Model:        MBA71
-    EFI Version:  427.0.0.0.0
-    Built by:     root@bb-g8-pdb16
-    Date:         Tue Feb 23 21:34:12 PST 2021
-    Revision:     427 (B&I)
+    EFI Version:  489.0.0.0.0
+    Built by:     root@xdv4v
+    Date:         Sat Oct  7 04:43:20 PDT 2023
+    Revision:     489 (B&I)
     ROM Version:  F000_B00
     Build Type:   Official Build, Release
-    Compiler:     clang-1205.0.19.59.6
+    Compiler:     clang-1500.1.0.2.2
 Specifications:
   CPUCodename:
     - "Broadwell"
@@ -132,6 +132,5 @@ AppleBoardCode:
 AppleModelYear:
   - 2015
   - 2016
-CloverSerialNumber: "C02PVHACGFWL"
 MinimumOSVersion: "10.10.2"
-MaximumOSVersion: null
+MaximumOSVersion: "12.7.6"

@@ -57,6 +57,7 @@
   zlib/zconf.h
   zlib/zlib.h
   zlib/zlib_uefi.c
+  zlib/zutil.c
   zlib/zutil.h
 
 [Packages]
@@ -67,3 +68,9 @@
   BaseLib
   BaseMemoryLib
   MemoryAllocationLib
+
+# REF: https://github.com/madler/zlib/issues/633
+[BuildOptions]
+  CLANGPDB:*_*_*_CC_FLAGS     = -Wno-deprecated-non-prototype
+  GCC:*_CLANGDWARF_*_CC_FLAGS = -Wno-deprecated-non-prototype
+  XCODE:*_*_*_CC_FLAGS        = -Wno-deprecated-non-prototype -Wno-unknown-warning-option

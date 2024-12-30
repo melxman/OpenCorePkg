@@ -35,10 +35,10 @@ OcConsoleControlSetMode (
   EFI_CONSOLE_CONTROL_SCREEN_MODE  OldMode;
 
   Status = OcHandleProtocolFallback (
-    &gST->ConsoleOutHandle,
-    &gEfiConsoleControlProtocolGuid,
-    (VOID *) &ConsoleControl
-    );
+             &gST->ConsoleOutHandle,
+             &gEfiConsoleControlProtocolGuid,
+             (VOID *)&ConsoleControl
+             );
 
   //
   // No console control, assume already set.
@@ -48,43 +48,76 @@ OcConsoleControlSetMode (
   }
 
   Status = ConsoleControl->GetMode (
-    ConsoleControl,
-    &OldMode,
-    NULL,
-    NULL
-    );
+                             ConsoleControl,
+                             &OldMode,
+                             NULL,
+                             NULL
+                             );
 
   //
   // Cannot get mode, assume already set.
   // Same mode, do not waste time.
   //
-  if (EFI_ERROR (Status) || OldMode == Mode) {
+  if (EFI_ERROR (Status) || (OldMode == Mode)) {
     return Mode;
   }
 
   ConsoleControl->SetMode (
-    ConsoleControl,
-    Mode
-    );
+                    ConsoleControl,
+                    Mode
+                    );
 
   return OldMode;
 }
 
+EFI_CONSOLE_CONTROL_SCREEN_MODE
+OcConsoleControlGetMode (
+  VOID
+  )
+{
+  EFI_STATUS                       Status;
+  EFI_CONSOLE_CONTROL_PROTOCOL     *ConsoleControl;
+  EFI_CONSOLE_CONTROL_SCREEN_MODE  ExistingMode;
+
+  Status = OcHandleProtocolFallback (
+             &gST->ConsoleOutHandle,
+             &gEfiConsoleControlProtocolGuid,
+             (VOID *)&ConsoleControl
+             );
+
+  if (EFI_ERROR (Status)) {
+    return EfiConsoleControlScreenText;
+  }
+
+  Status = ConsoleControl->GetMode (
+                             ConsoleControl,
+                             &ExistingMode,
+                             NULL,
+                             NULL
+                             );
+
+  if (EFI_ERROR (Status)) {
+    return EfiConsoleControlScreenText;
+  }
+
+  return ExistingMode;
+}
+
 EFI_STATUS
 OcConsoleControlInstallProtocol (
-  IN  EFI_CONSOLE_CONTROL_PROTOCOL     *NewProtocol,
-  OUT EFI_CONSOLE_CONTROL_PROTOCOL     *OldProtocol  OPTIONAL,
-  OUT EFI_CONSOLE_CONTROL_SCREEN_MODE  *OldMode  OPTIONAL
+  IN  EFI_CONSOLE_CONTROL_PROTOCOL        *NewProtocol,
+  OUT EFI_CONSOLE_CONTROL_PROTOCOL        *OldProtocol  OPTIONAL,
+  IN OUT EFI_CONSOLE_CONTROL_SCREEN_MODE  *OldMode  OPTIONAL
   )
 {
   EFI_STATUS                    Status;
   EFI_CONSOLE_CONTROL_PROTOCOL  *ConsoleControl;
 
   Status = OcHandleProtocolFallback (
-    &gST->ConsoleOutHandle,
-    &gEfiConsoleControlProtocolGuid,
-    (VOID *) &ConsoleControl
-    );
+             &gST->ConsoleOutHandle,
+             &gEfiConsoleControlProtocolGuid,
+             (VOID *)&ConsoleControl
+             );
 
   DEBUG ((
     DEBUG_INFO,
@@ -123,14 +156,55 @@ OcConsoleControlInstallProtocol (
     return EFI_SUCCESS;
   }
 
+  if (OldProtocol != NULL) {
+    ZeroMem (
+      OldProtocol,
+      sizeof (*OldProtocol)
+      );
+  }
+
   Status = gBS->InstallMultipleProtocolInterfaces (
-    &gST->ConsoleOutHandle,
-    &gEfiConsoleControlProtocolGuid,
-    NewProtocol,
-    NULL
-    );
+                  &gST->ConsoleOutHandle,
+                  &gEfiConsoleControlProtocolGuid,
+                  NewProtocol,
+                  NULL
+                  );
 
   DEBUG ((DEBUG_INFO, "OCC: Install console control, new - %r\n", Status));
 
   return Status;
+}
+
+EFI_STATUS
+OcConsoleControlRestoreProtocol (
+  IN EFI_CONSOLE_CONTROL_PROTOCOL  *OldProtocol
+  )
+{
+  EFI_STATUS                    Status;
+  EFI_CONSOLE_CONTROL_PROTOCOL  *ConsoleControl;
+
+  Status = gBS->HandleProtocol (
+                  &gST->ConsoleOutHandle,
+                  &gEfiConsoleControlProtocolGuid,
+                  (VOID *)&ConsoleControl
+                  );
+
+  if (OldProtocol->GetMode == NULL) {
+    Status = gBS->UninstallMultipleProtocolInterfaces (
+                    &gST->ConsoleOutHandle,
+                    &gEfiConsoleControlProtocolGuid,
+                    ConsoleControl,
+                    NULL
+                    );
+
+    return Status;
+  }
+
+  CopyMem (
+    ConsoleControl,
+    OldProtocol,
+    sizeof (*ConsoleControl)
+    );
+
+  return EFI_SUCCESS;
 }

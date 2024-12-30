@@ -6,54 +6,68 @@
 #include <UserBootServices.h>
 
 #include <stdio.h>
+#include <stdlib.h>
+#include <time.h>
 
-EFI_BOOT_SERVICES mBootServices = {
+EFI_BOOT_SERVICES  mBootServices = {
   .RaiseTPL                  = DummyRaiseTPL,
+  .RestoreTPL                = DummyRestoreTPL,
   .LocateProtocol            = DummyLocateProtocol,
   .AllocatePages             = DummyAllocatePages,
-  .InstallConfigurationTable = DummyInstallConfigurationTable
+  .InstallConfigurationTable = DummyInstallConfigurationTable,
+  .CalculateCrc32            = DummyCalculateCrc32
 };
 
-EFI_SIMPLE_TEXT_OUTPUT_PROTOCOL mConOut = {
+EFI_SIMPLE_TEXT_OUTPUT_PROTOCOL  mConOut = {
   .OutputString = NullTextOutputString
 };
 
-EFI_SYSTEM_TABLE mSystemTable = {
+EFI_SYSTEM_TABLE  mSystemTable = {
   .BootServices = &mBootServices,
   .ConOut       = &mConOut
 };
 
-EFI_RUNTIME_SERVICES  mRuntimeServices = {};
+EFI_RUNTIME_SERVICES  mRuntimeServices = {
+  .Hdr     = { 0 },
+  .GetTime = DummyGetTime,
+};
 
-EFI_SYSTEM_TABLE      *gST  = &mSystemTable;
-EFI_BOOT_SERVICES     *gBS  = &mBootServices;
+EFI_SYSTEM_TABLE   *gST = &mSystemTable;
+EFI_BOOT_SERVICES  *gBS = &mBootServices;
 
-EFI_HANDLE            gImageHandle = (EFI_HANDLE) 0xDEADBABEULL;
+EFI_HANDLE  gImageHandle = (EFI_HANDLE)(UINTN)0xDEADBABEULL;
 
-BOOLEAN               mPostEBS  = FALSE;
-EFI_SYSTEM_TABLE      *mDebugST = &mSystemTable;
+BOOLEAN           mPostEBS  = FALSE;
+EFI_SYSTEM_TABLE  *mDebugST = &mSystemTable;
 
-EFI_RUNTIME_SERVICES  *gRT      = &mRuntimeServices;
+EFI_RUNTIME_SERVICES  *gRT = &mRuntimeServices;
 
 #define CONFIG_TABLE_SIZE_INCREASED  0x10
-UINTN mSystemTableAllocateSize  = 0ULL;
+UINTN  mSystemTableAllocateSize = 0ULL;
 
 EFI_TPL
 EFIAPI
 DummyRaiseTPL (
-  IN EFI_TPL      NewTpl
+  IN EFI_TPL  NewTpl
   )
 {
-  ASSERT (FALSE);
-
   return 0;
+}
+
+VOID
+EFIAPI
+DummyRestoreTPL (
+  IN EFI_TPL  NewTpl
+  )
+{
+  return;
 }
 
 EFI_STATUS
 EFIAPI
 DummyLocateProtocol (
-  IN  EFI_GUID  *Protocol,
-  IN  VOID      *Registration, OPTIONAL
+  IN  EFI_GUID *Protocol,
+  IN  VOID *Registration, OPTIONAL
   OUT VOID      **Interface
   )
 {
@@ -63,13 +77,13 @@ DummyLocateProtocol (
 EFI_STATUS
 EFIAPI
 DummyAllocatePages (
-  IN     EFI_ALLOCATE_TYPE            Type,
-  IN     EFI_MEMORY_TYPE              MemoryType,
-  IN     UINTN                        Pages,
-  IN OUT EFI_PHYSICAL_ADDRESS         *Memory
+  IN     EFI_ALLOCATE_TYPE     Type,
+  IN     EFI_MEMORY_TYPE       MemoryType,
+  IN     UINTN                 Pages,
+  IN OUT EFI_PHYSICAL_ADDRESS  *Memory
   )
 {
-  *Memory = (UINTN) AllocatePages (Pages);
+  *Memory = (UINTN)AllocatePages (Pages);
 
   return Memory != NULL ? EFI_SUCCESS : EFI_NOT_FOUND;
 }
@@ -77,8 +91,8 @@ DummyAllocatePages (
 EFI_STATUS
 EFIAPI
 DummyInstallConfigurationTable (
-  IN EFI_GUID                 *Guid,
-  IN VOID                     *Table
+  IN EFI_GUID  *Guid,
+  IN VOID      *Table
   )
 {
   //
@@ -201,8 +215,8 @@ DummyInstallConfigurationTable (
     //
     // Fill in the new entry
     //
-    CopyGuid ((VOID *) &EfiConfigurationTable[Index].VendorGuid, Guid);
-    EfiConfigurationTable[Index].VendorTable  = Table;
+    CopyGuid ((VOID *)&EfiConfigurationTable[Index].VendorGuid, Guid);
+    EfiConfigurationTable[Index].VendorTable = Table;
 
     //
     // This is an add operation, so increment the number of table entries
@@ -210,6 +224,22 @@ DummyInstallConfigurationTable (
     gST->NumberOfTableEntries++;
   }
 
+  return EFI_SUCCESS;
+}
+
+EFI_STATUS
+EFIAPI
+DummyCalculateCrc32 (
+  IN  VOID    *Data,
+  IN  UINTN   DataSize,
+  OUT UINT32  *CrcOut
+  )
+{
+  if ((Data == NULL) || (DataSize == 0) || (CrcOut == NULL)) {
+    return EFI_INVALID_PARAMETER;
+  }
+
+  *CrcOut = CalculateCrc32 (Data, DataSize);
   return EFI_SUCCESS;
 }
 
@@ -225,11 +255,58 @@ NullTextOutputString (
       //
       // Cast string to CHAR8 to truncate unicode symbols.
       //
-      putchar ((CHAR8) *String);
+      putchar ((CHAR8)*String);
     }
 
     ++String;
   }
-  
+
+  return EFI_SUCCESS;
+}
+
+EFI_STATUS
+EFIAPI
+DummyGetTime (
+  OUT EFI_TIME               *Time,
+  OUT EFI_TIME_CAPABILITIES  *Capabilities
+  )
+{
+  time_t     EpochTime;
+  struct tm  *TimeInfo;
+
+  if (Time == NULL) {
+    return EFI_INVALID_PARAMETER;
+  }
+
+  EpochTime = time (NULL);
+  TimeInfo  = localtime (&EpochTime);
+
+  if (TimeInfo == NULL) {
+    return EFI_DEVICE_ERROR;
+  }
+
+  Time->TimeZone = EFI_UNSPECIFIED_TIMEZONE;
+  Time->Daylight = 0;
+  Time->Second   = (UINT8)TimeInfo->tm_sec;
+  Time->Minute   = (UINT8)TimeInfo->tm_min;
+  Time->Hour     = (UINT8)TimeInfo->tm_hour;
+  Time->Day      = (UINT8)TimeInfo->tm_mday;
+  //
+  // The EFI_TIME Month field count months from 1 to 12,
+  // while tm_mon counts from 0 to 11
+  //
+  Time->Month = (UINT8)(TimeInfo->tm_mon + 1);
+  //
+  // According ISO/IEC 9899:1999 7.23.1 the tm_year field
+  // contains number of years since 1900
+  //
+  Time->Year = (UINT16)(TimeInfo->tm_year + 1900);
+
+  if (Capabilities) {
+    Capabilities->Accuracy   = 0;
+    Capabilities->Resolution = 1;
+    Capabilities->SetsToZero = FALSE;
+  }
+
   return EFI_SUCCESS;
 }
