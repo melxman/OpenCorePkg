@@ -29,15 +29,9 @@
 #
 
 [Sources]
-  Alignment.c
-  BitOverflow.c
-  Canary.c
-  Math.c
-  NativeOverflow.c
-  TripleOverflow.c
-  UbsanPrintf.c
   Ubsan.c
   Ubsan.h
+  UbsanPrintf.c
 
 [Packages]
   MdePkg/MdePkg.dec

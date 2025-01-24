@@ -13,9 +13,9 @@
 **/
 
 #include <Library/BaseLib.h>
+#include <Library/BaseOverflowLib.h>
 #include <Library/DebugLib.h>
 #include <Library/OcConsoleLib.h>
-#include <Library/OcGuardLib.h>
 
 /**
   Parse resolution string.
@@ -29,11 +29,11 @@
 STATIC
 VOID
 ParseResolution (
-  IN  CONST CHAR8         *String,
-  OUT UINT32              *Width,
-  OUT UINT32              *Height,
-  OUT UINT32              *Bpp OPTIONAL,
-  OUT BOOLEAN             *Max
+  IN  CONST CHAR8  *String,
+  OUT UINT32       *Width,
+  OUT UINT32       *Height,
+  OUT UINT32       *Bpp OPTIONAL,
+  OUT BOOLEAN      *Max
   )
 {
   UINT32  TmpWidth;
@@ -44,7 +44,7 @@ ParseResolution (
   *Max    = FALSE;
 
   if (Bpp != NULL) {
-    *Bpp    = 0;
+    *Bpp = 0;
   }
 
   if (AsciiStrCmp (String, "Max") == 0) {
@@ -52,29 +52,29 @@ ParseResolution (
     return;
   }
 
-  if (*String == '\0' || *String < '0' || *String > '9') {
+  if ((*String == '\0') || (*String < '0') || (*String > '9')) {
     return;
   }
 
   TmpWidth = TmpHeight = 0;
 
   while (*String >= '0' && *String <= '9') {
-    if (OcOverflowMulAddU32 (TmpWidth, 10, *String++ - '0', &TmpWidth)) {
+    if (BaseOverflowMulAddU32 (TmpWidth, 10, *String++ - '0', &TmpWidth)) {
       return;
     }
   }
 
-  if (*String++ != 'x' || *String < '0' || *String > '9') {
+  if ((*String++ != 'x') || (*String < '0') || (*String > '9')) {
     return;
   }
 
   while (*String >= '0' && *String <= '9') {
-    if (OcOverflowMulAddU32 (TmpHeight, 10, *String++ - '0', &TmpHeight)) {
+    if (BaseOverflowMulAddU32 (TmpHeight, 10, *String++ - '0', &TmpHeight)) {
       return;
     }
   }
 
-  if (*String != '\0' && (*String != '@' || Bpp == NULL)) {
+  if ((*String != '\0') && ((*String != '@') || (Bpp == NULL))) {
     return;
   }
 
@@ -87,7 +87,7 @@ ParseResolution (
 
   TmpWidth = 0;
   while (*String >= '0' && *String <= '9') {
-    if (OcOverflowMulAddU32 (TmpWidth, 10, *String++ - '0', &TmpWidth)) {
+    if (BaseOverflowMulAddU32 (TmpWidth, 10, *String++ - '0', &TmpWidth)) {
       return;
     }
   }
@@ -101,11 +101,11 @@ ParseResolution (
 
 VOID
 OcParseScreenResolution (
-  IN  CONST CHAR8         *String,
-  OUT UINT32              *Width,
-  OUT UINT32              *Height,
-  OUT UINT32              *Bpp,
-  OUT BOOLEAN             *Max
+  IN  CONST CHAR8  *String,
+  OUT UINT32       *Width,
+  OUT UINT32       *Height,
+  OUT UINT32       *Bpp,
+  OUT BOOLEAN      *Max
   )
 {
   ASSERT (String != NULL);
@@ -119,10 +119,10 @@ OcParseScreenResolution (
 
 VOID
 OcParseConsoleMode (
-  IN  CONST CHAR8         *String,
-  OUT UINT32              *Width,
-  OUT UINT32              *Height,
-  OUT BOOLEAN             *Max
+  IN  CONST CHAR8  *String,
+  OUT UINT32       *Width,
+  OUT UINT32       *Height,
+  OUT BOOLEAN      *Max
   )
 {
   ASSERT (String != NULL);

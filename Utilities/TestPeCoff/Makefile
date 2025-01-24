@@ -4,12 +4,13 @@
 ##
 
 PROJECT = PeCoff
-PRODUCT = $(PROJECT)$(SUFFIX)
+PRODUCT = $(PROJECT)$(INFIX)$(SUFFIX)
 OBJS    = $(PROJECT).o \
 	PeCoffDebug.o \
 	PeCoffHash.o \
+	PeCoffInfo.o \
 	PeCoffInit.o \
 	PeCoffLoad.o \
 	PeCoffRelocate.o
-VPATH   = ../../Library/OcPeCoffLib
+VPATH   = $(UDK_PATH)/MdePkg/Library/BasePeCoffLib2:$
 include ../../User/Makefile

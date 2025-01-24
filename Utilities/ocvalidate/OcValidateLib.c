@@ -21,7 +21,8 @@ GetCurrentTimestamp (
   VOID
   )
 {
-  struct timeval Time;
+  struct timeval  Time;
+
   //
   // Get current time.
   //
@@ -46,13 +47,14 @@ AsciiFileSystemPathIsLegal (
     //
     // Skip allowed characters (0-9, A-Z, a-z, '_', '-', '.', '/', and '\').
     //
-    if (IsAsciiNumber (Path[Index])
-      || IsAsciiAlpha (Path[Index])
-      || Path[Index] == '_'
-      || Path[Index] == '-'
-      || Path[Index] == '.'
-      || Path[Index] == '/'
-      || Path[Index] == '\\') {
+    if (  IsAsciiNumber (Path[Index])
+       || IsAsciiAlpha (Path[Index])
+       || (Path[Index] == '_')
+       || (Path[Index] == '-')
+       || (Path[Index] == '.')
+       || (Path[Index] == '/')
+       || (Path[Index] == '\\'))
+    {
       continue;
     }
 
@@ -89,8 +91,8 @@ AsciiCommentIsLegal (
 
 BOOLEAN
 AsciiIdentifierIsLegal (
-  IN  CONST CHAR8    *Identifier,
-  IN  BOOLEAN        IsKernelIdentifier
+  IN  CONST CHAR8  *Identifier,
+  IN  BOOLEAN      IsKernelIdentifier
   )
 {
   UINTN  Index;
@@ -108,10 +110,12 @@ AsciiIdentifierIsLegal (
     // Any and Apple are two fixed values accepted by Booter->Patch.
     // TODO: Drop empty string support in OC.
     //
-    if (AsciiStrCmp (Identifier, "Any") == 0
-      || AsciiStrCmp (Identifier, "Apple") == 0) {
+    if (  (AsciiStrCmp (Identifier, "Any") == 0)
+       || (AsciiStrCmp (Identifier, "Apple") == 0))
+    {
       return TRUE;
     }
+
     //
     // For customised bootloader, it must have .efi suffix.
     //
@@ -134,11 +138,12 @@ AsciiIdentifierIsLegal (
     // Skip allowed characters (0-9, A-Z, a-z, '_', '-', and '.').
     // FIXME: Discuss what exactly is legal for identifiers, or update the allowed list on request.
     //
-    if (IsAsciiNumber (Identifier[Index])
-      || IsAsciiAlpha (Identifier[Index])
-      || Identifier[Index] == '_'
-      || Identifier[Index] == '-'
-      || Identifier[Index] == '.') {
+    if (  IsAsciiNumber (Identifier[Index])
+       || IsAsciiAlpha (Identifier[Index])
+       || (Identifier[Index] == '_')
+       || (Identifier[Index] == '-')
+       || (Identifier[Index] == '.'))
+    {
       continue;
     }
 
@@ -153,8 +158,8 @@ AsciiIdentifierIsLegal (
 
 BOOLEAN
 AsciiArchIsLegal (
-  IN  CONST CHAR8    *Arch,
-  IN  BOOLEAN        IsKernelArch
+  IN  CONST CHAR8  *Arch,
+  IN  BOOLEAN      IsKernelArch
   )
 {
   //
@@ -164,8 +169,9 @@ AsciiArchIsLegal (
     //
     // Auto and i386-user32 are two special values allowed in KernelArch.
     //
-    if (AsciiStrCmp (Arch, "Auto") == 0
-      || AsciiStrCmp (Arch, "i386-user32") == 0) {
+    if (  (AsciiStrCmp (Arch, "Auto") == 0)
+       || (AsciiStrCmp (Arch, "i386-user32") == 0))
+    {
       return TRUE;
     }
   } else {
@@ -181,8 +187,9 @@ AsciiArchIsLegal (
   // i386 and x86_64 are allowed in both modes.
   // TODO: Do not allow empty string in OC.
   //
-  if (AsciiStrCmp (Arch, "i386") != 0
-    && AsciiStrCmp (Arch, "x86_64") != 0) {
+  if (  (AsciiStrCmp (Arch, "i386") != 0)
+     && (AsciiStrCmp (Arch, "x86_64") != 0))
+  {
     return FALSE;
   }
 
@@ -203,38 +210,46 @@ AsciiPropertyIsLegal (
 
 BOOLEAN
 AsciiUefiDriverIsLegal (
-  IN  CONST CHAR8  *Driver
+  IN  CONST CHAR8  *Driver,
+  IN  CONST UINTN  DriverIndex
   )
 {
   UINTN  Index;
   UINTN  DriverLength;
 
-  //
-  // If an EFI driver does not contain .efi suffix,
-  // then it must be illegal.
-  //
-  if (!OcAsciiEndsWith (Driver, ".efi", TRUE)) {
+  DriverLength = AsciiStrLen (Driver);
+  if (DriverLength == 0) {
+    DEBUG ((DEBUG_WARN, "UEFI->Drivers[%u].Path value is missing!\n", DriverIndex));
     return FALSE;
   }
 
-  DriverLength = AsciiStrLen (Driver);
+  //
+  // If an EFI driver does not have .efi suffix,
+  // then it must be illegal.
+  //
+  if (!OcAsciiEndsWith (Driver, ".efi", TRUE)) {
+    DEBUG ((DEBUG_WARN, "UEFI->Drivers[%u].Path does not end with \"%a\"!\n", DriverIndex, ".efi"));
+    return FALSE;
+  }
 
   for (Index = 0; Index < DriverLength; ++Index) {
     //
     // Skip allowed characters (0-9, A-Z, a-z, '_', '-', '.', '/').
     //
-    if (IsAsciiNumber (Driver[Index])
-      || IsAsciiAlpha (Driver[Index])
-      || Driver[Index] == '_'
-      || Driver[Index] == '-'
-      || Driver[Index] == '.'
-      || Driver[Index] == '/') {
+    if (  IsAsciiNumber (Driver[Index])
+       || IsAsciiAlpha (Driver[Index])
+       || (Driver[Index] == '_')
+       || (Driver[Index] == '-')
+       || (Driver[Index] == '.')
+       || (Driver[Index] == '/'))
+    {
       continue;
     }
 
     //
     // Disallowed characters matched.
     //
+    DEBUG ((DEBUG_WARN, "UEFI->Drivers[%u].Path contains illegal character!\n", DriverIndex));
     return FALSE;
   }
 
@@ -284,10 +299,13 @@ AsciiDevicePathIsLegal (
           //
           RetVal = FALSE;
         }
+
         FreePool (TextualDevicePath);
       }
+
       FreePool (DevicePath);
     }
+
     FreePool (UnicodeDevicePath);
   }
 
@@ -312,19 +330,24 @@ AsciiGuidIsLegal (
 
 BOOLEAN
 DataHasProperMasking (
-  IN  CONST VOID   *Data,
-  IN  CONST VOID   *Mask,
-  IN  UINTN        Size
+  IN  CONST VOID  *Data,
+  IN  CONST VOID  *Mask,
+  IN  UINTN       DataSize,
+  IN  UINTN       MaskSize
   )
 {
   CONST UINT8  *ByteData;
   CONST UINT8  *ByteMask;
   UINTN        Index;
 
-  ByteData = Data;
-  ByteMask = Mask;
+  if (DataSize != MaskSize) {
+    return FALSE;
+  }
 
-  for (Index = 0; Index < Size; ++Index) {
+  ByteData = (CONST UINT8 *)Data;
+  ByteMask = (CONST UINT8 *)Mask;
+
+  for (Index = 0; Index < DataSize; ++Index) {
     //
     // Mask should only be set when corresponding bits on Data are inactive.
     //
@@ -338,17 +361,17 @@ DataHasProperMasking (
 
 UINT32
 ValidatePatch (
-  IN   CONST   CHAR8   *PatchSection,
-  IN   UINT32          PatchIndex,
-  IN   BOOLEAN         FindSizeCanBeZero,
-  IN   CONST   UINT8   *Find,
-  IN   UINT32          FindSize,
-  IN   CONST   UINT8   *Replace,
-  IN   UINT32          ReplaceSize,
-  IN   CONST   UINT8   *Mask,
-  IN   UINT32          MaskSize,
-  IN   CONST   UINT8   *ReplaceMask,
-  IN   UINT32          ReplaceMaskSize
+  IN   CONST   CHAR8  *PatchSection,
+  IN   UINT32         PatchIndex,
+  IN   BOOLEAN        FindSizeCanBeZero,
+  IN   CONST   UINT8  *Find,
+  IN   UINT32         FindSize,
+  IN   CONST   UINT8  *Replace,
+  IN   UINT32         ReplaceSize,
+  IN   CONST   UINT8  *Mask,
+  IN   UINT32         MaskSize,
+  IN   CONST   UINT8  *ReplaceMask,
+  IN   UINT32         ReplaceMaskSize
   )
 {
   UINT32  ErrorCount;
@@ -358,7 +381,7 @@ ValidatePatch (
   //
   // If size of Find cannot be zero and it is different from that of Replace, then error.
   //
-  if (!FindSizeCanBeZero && FindSize != ReplaceSize) {
+  if (!FindSizeCanBeZero && (FindSize != ReplaceSize)) {
     DEBUG ((
       DEBUG_WARN,
       "%a[%u] has different Find and Replace size (%u vs %u)!\n",
@@ -384,7 +407,7 @@ ValidatePatch (
         FindSize
         ));
       ++ErrorCount;
-    } else if (!DataHasProperMasking (Find, Mask, FindSize)) {
+    } else if (!DataHasProperMasking (Find, Mask, FindSize, MaskSize)) {
       //
       // If Mask is set without corresponding bits being active for Find, then error.
       //
@@ -412,7 +435,7 @@ ValidatePatch (
         ReplaceSize
         ));
       ++ErrorCount;
-    } else if (!DataHasProperMasking (Replace, ReplaceMask, ReplaceSize)) {
+    } else if (!DataHasProperMasking (Replace, ReplaceMask, ReplaceSize, ReplaceMaskSize)) {
       //
       // If ReplaceMask is set without corresponding bits being active for Replace, then error.
       //
@@ -437,11 +460,11 @@ FindArrayDuplication (
   IN  DUPLICATION_CHECK  DupChecker
   )
 {
-  UINT32        ErrorCount;
-  UINTN         Index;
-  UINTN         Index2;
-  CONST UINT8   *PrimaryEntry;
-  CONST UINT8   *SecondaryEntry;
+  UINT32       ErrorCount;
+  UINTN        Index;
+  UINTN        Index2;
+  CONST UINT8  *PrimaryEntry;
+  CONST UINT8  *SecondaryEntry;
 
   ErrorCount = 0;
 
@@ -451,8 +474,8 @@ FindArrayDuplication (
       // As First is now being read byte-by-byte after casting to UINT8*,
       // its next element is now First + Size * Index.
       //
-      PrimaryEntry   = (UINT8 *) First + Size * Index;
-      SecondaryEntry = (UINT8 *) First + Size * Index2;
+      PrimaryEntry   = (UINT8 *)First + Size * Index;
+      SecondaryEntry = (UINT8 *)First + Size * Index2;
       if (DupChecker (PrimaryEntry, SecondaryEntry)) {
         //
         // DupChecker prints what is duplicated, and here the index is printed.

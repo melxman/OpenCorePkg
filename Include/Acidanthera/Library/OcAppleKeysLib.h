@@ -15,19 +15,19 @@
 #ifndef OC_APPLE_KEYS_LIB_H
 #define OC_APPLE_KEYS_LIB_H
 
-#include <Library/OcGuardLib.h>
+#include <Library/BaseOverflowLib.h>
 #include <Library/OcCryptoLib.h>
 
-#define NUM_OF_PK 2
+#define NUM_OF_PK  2
 
 typedef struct APPLE_PK_ENTRY_ {
-  UINT8                   Hash[SHA256_DIGEST_SIZE];
-  CONST OC_RSA_PUBLIC_KEY *PublicKey;
+  UINT8                      Hash[SHA256_DIGEST_SIZE];
+  CONST OC_RSA_PUBLIC_KEY    *PublicKey;
 } APPLE_PK_ENTRY;
 
-extern CONST APPLE_PK_ENTRY PkDataBase[NUM_OF_PK];
+extern CONST APPLE_PK_ENTRY  PkDataBase[NUM_OF_PK];
 
-extern CONST UINT8 gAppleX86SecureBootRootCaCert[];
-extern CONST UINTN gAppleX86SecureBootRootCaCertSize;
+extern CONST UINT8  gAppleX86SecureBootRootCaCert[];
+extern CONST UINTN  gAppleX86SecureBootRootCaCertSize;
 
 #endif // OC_APPLE_KEYS_LIB_H

@@ -26,9 +26,9 @@
 #include <Library/UefiBootServicesTableLib.h>
 
 EFI_SIMPLE_FILE_SYSTEM_PROTOCOL *
-LocateFileSystem (
-  IN  EFI_HANDLE                         DeviceHandle  OPTIONAL,
-  IN  EFI_DEVICE_PATH_PROTOCOL           *FilePath     OPTIONAL
+OcLocateFileSystem (
+  IN  EFI_HANDLE                DeviceHandle  OPTIONAL,
+  IN  EFI_DEVICE_PATH_PROTOCOL  *FilePath     OPTIONAL
   )
 {
   EFI_STATUS                       Status;
@@ -39,6 +39,7 @@ LocateFileSystem (
   if (FilePath != NULL) {
     DebugPrintDevicePath (DEBUG_INFO, "OCFS: Filesystem DP", FilePath);
   }
+
   DEBUG_CODE_END ();
 
   if (DeviceHandle == NULL) {
@@ -51,10 +52,10 @@ LocateFileSystem (
     }
 
     Status = gBS->LocateDevicePath (
-      &gEfiSimpleFileSystemProtocolGuid,
-      &FilePath,
-      &DeviceHandle
-      );
+                    &gEfiSimpleFileSystemProtocolGuid,
+                    &FilePath,
+                    &DeviceHandle
+                    );
 
     if (EFI_ERROR (Status)) {
       DEBUG ((DEBUG_WARN, "OCFS: Failed to locate device handle over path - %r\n", Status));
@@ -63,10 +64,10 @@ LocateFileSystem (
   }
 
   Status = gBS->HandleProtocol (
-    DeviceHandle,
-    &gEfiSimpleFileSystemProtocolGuid,
-    (VOID **) &FileSystem
-    );
+                  DeviceHandle,
+                  &gEfiSimpleFileSystemProtocolGuid,
+                  (VOID **)&FileSystem
+                  );
 
   if (EFI_ERROR (Status)) {
     DEBUG ((DEBUG_INFO, "OCFS: No filesystem on device handle %p\n", DeviceHandle));
@@ -77,16 +78,16 @@ LocateFileSystem (
 }
 
 EFI_FILE_PROTOCOL *
-LocateRootVolume (
-  IN  EFI_HANDLE                         DeviceHandle  OPTIONAL,
-  IN  EFI_DEVICE_PATH_PROTOCOL           *FilePath     OPTIONAL
+OcLocateRootVolume (
+  IN  EFI_HANDLE                DeviceHandle  OPTIONAL,
+  IN  EFI_DEVICE_PATH_PROTOCOL  *FilePath     OPTIONAL
   )
 {
   EFI_STATUS                       Status;
   EFI_SIMPLE_FILE_SYSTEM_PROTOCOL  *FileSystem;
   EFI_FILE_PROTOCOL                *RootVolume;
 
-  FileSystem = LocateFileSystem (DeviceHandle, FilePath);
+  FileSystem = OcLocateFileSystem (DeviceHandle, FilePath);
   if (FileSystem == NULL) {
     return NULL;
   }
@@ -100,20 +101,20 @@ LocateRootVolume (
 }
 
 EFI_SIMPLE_FILE_SYSTEM_PROTOCOL *
-LocateFileSystemByGuid (
+OcLocateFileSystemByGuid (
   IN CONST GUID  *Guid
   )
 {
-  EFI_SIMPLE_FILE_SYSTEM_PROTOCOL *SimpleFs;
+  EFI_SIMPLE_FILE_SYSTEM_PROTOCOL  *SimpleFs;
 
-  EFI_STATUS                      Status;
+  EFI_STATUS  Status;
 
-  UINTN                           NumHandles;
-  EFI_HANDLE                      *HandleBuffer;
-  UINTN                           Index;
+  UINTN       NumHandles;
+  EFI_HANDLE  *HandleBuffer;
+  UINTN       Index;
 
-  EFI_DEVICE_PATH_PROTOCOL        *DevicePath;
-  CONST HARDDRIVE_DEVICE_PATH     *HardDrive;
+  EFI_DEVICE_PATH_PROTOCOL     *DevicePath;
+  CONST HARDDRIVE_DEVICE_PATH  *HardDrive;
 
   ASSERT (Guid != NULL);
 
@@ -141,12 +142,12 @@ LocateFileSystemByGuid (
     }
 
     HardDrive = (HARDDRIVE_DEVICE_PATH *)(
-                  FindDevicePathNodeWithType (
-                    DevicePath,
-                    MEDIA_DEVICE_PATH,
-                    MEDIA_HARDDRIVE_DP
-                    )
-                  );
+                                          FindDevicePathNodeWithType (
+                                            DevicePath,
+                                            MEDIA_DEVICE_PATH,
+                                            MEDIA_HARDDRIVE_DP
+                                            )
+                                          );
     if ((HardDrive == NULL) || (HardDrive->SignatureType != 0x02)) {
       continue;
     }

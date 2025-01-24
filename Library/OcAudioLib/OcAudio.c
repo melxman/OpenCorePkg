@@ -35,27 +35,47 @@ OcAudioGetCodecDevicePath (
   IN UINT8                     CodecAddress
   )
 {
-  EFI_HDA_IO_DEVICE_PATH     CodecDevicePathNode;
+  EFI_HDA_IO_DEVICE_PATH  CodecDevicePathNode;
 
   CodecDevicePathNode.Header.Type    = MESSAGING_DEVICE_PATH;
   CodecDevicePathNode.Header.SubType = MSG_VENDOR_DP;
   SetDevicePathNodeLength (&CodecDevicePathNode, sizeof (CodecDevicePathNode));
   CopyGuid (&CodecDevicePathNode.Guid, &gEfiHdaIoDevicePathGuid);
-  CodecDevicePathNode.Address        = CodecAddress;
+  CodecDevicePathNode.Address = CodecAddress;
 
   return AppendDevicePathNode (
-    ControllerDevicePath,
-    (EFI_DEVICE_PATH_PROTOCOL *) &CodecDevicePathNode
-    );
+           ControllerDevicePath,
+           (EFI_DEVICE_PATH_PROTOCOL *)&CodecDevicePathNode
+           );
+}
+
+STATIC
+EFI_STATUS
+AudioIoProtocolConfirmRevision (
+  IN CONST EFI_AUDIO_IO_PROTOCOL  *AudioIo
+  )
+{
+  if (AudioIo->Revision == EFI_AUDIO_IO_PROTOCOL_REVISION) {
+    return EFI_SUCCESS;
+  }
+
+  DEBUG ((
+    DEBUG_WARN,
+    "OCAU: Incorrect audio I/O protocol revision %u != %u\n",
+    AudioIo->Revision,
+    EFI_AUDIO_IO_PROTOCOL_REVISION
+    ));
+
+  return EFI_UNSUPPORTED;
 }
 
 STATIC
 EFI_STATUS
 InternalMatchCodecDevicePath (
-  IN OUT OC_AUDIO_PROTOCOL_PRIVATE   *Private,
-  IN     EFI_DEVICE_PATH_PROTOCOL    *DevicePath,
-  IN     EFI_HANDLE                  *AudioIoHandles,
-  IN     UINTN                       AudioIoHandleCount
+  IN OUT OC_AUDIO_PROTOCOL_PRIVATE  *Private,
+  IN     EFI_DEVICE_PATH_PROTOCOL   *DevicePath,
+  IN     EFI_HANDLE                 *AudioIoHandles,
+  IN     UINTN                      AudioIoHandleCount
   )
 {
   EFI_STATUS                  Status;
@@ -75,14 +95,15 @@ InternalMatchCodecDevicePath (
   if (DevicePathText != NULL) {
     FreePool (DevicePathText);
   }
+
   DEBUG_CODE_END ();
 
   for (Index = 0; Index < AudioIoHandleCount; ++Index) {
     Status = gBS->HandleProtocol (
-      AudioIoHandles[Index],
-      &gEfiDevicePathProtocolGuid,
-      (VOID **) &CodecDevicePath
-      );
+                    AudioIoHandles[Index],
+                    &gEfiDevicePathProtocolGuid,
+                    (VOID **)&CodecDevicePath
+                    );
 
     DEBUG_CODE_BEGIN ();
     DevicePathText = NULL;
@@ -91,17 +112,21 @@ InternalMatchCodecDevicePath (
     }
 
     OutputPortsCount = 0;
-    Status = gBS->HandleProtocol (
-      AudioIoHandles[Index],
-      &gEfiAudioIoProtocolGuid,
-      (VOID **) &Private->AudioIo
-      );
+    Status           = gBS->HandleProtocol (
+                              AudioIoHandles[Index],
+                              &gEfiAudioIoProtocolGuid,
+                              (VOID **)&Private->AudioIo
+                              );
+    if (!EFI_ERROR (Status)) {
+      Status = AudioIoProtocolConfirmRevision (Private->AudioIo);
+    }
+
     if (!EFI_ERROR (Status)) {
       Status = Private->AudioIo->GetOutputs (
-        Private->AudioIo,
-        &OutputPorts,
-        &OutputPortsCount
-        );
+                                   Private->AudioIo,
+                                   &OutputPorts,
+                                   &OutputPortsCount
+                                   );
       if (!EFI_ERROR (Status)) {
         FreePool (OutputPorts);
       }
@@ -110,24 +135,29 @@ InternalMatchCodecDevicePath (
     DEBUG ((
       DEBUG_INFO,
       "OCAU: %u/%u %s (%u outputs) - %r\n",
-      (UINT32) (Index + 1),
-      (UINT32) (AudioIoHandleCount),
+      (UINT32)(Index + 1),
+      (UINT32)(AudioIoHandleCount),
       DevicePathText != NULL ? DevicePathText : L"<invalid>",
-      (UINT32) OutputPortsCount,
+      (UINT32)OutputPortsCount,
       Status
       ));
 
     if (DevicePathText != NULL) {
       FreePool (DevicePathText);
     }
+
     DEBUG_CODE_END ();
 
     if (IsDevicePathEqual (DevicePath, CodecDevicePath)) {
       Status = gBS->HandleProtocol (
-        AudioIoHandles[Index],
-        &gEfiAudioIoProtocolGuid,
-        (VOID **) &Private->AudioIo
-        );
+                      AudioIoHandles[Index],
+                      &gEfiAudioIoProtocolGuid,
+                      (VOID **)&Private->AudioIo
+                      );
+      if (!EFI_ERROR (Status)) {
+        Status = AudioIoProtocolConfirmRevision (Private->AudioIo);
+      }
+
       return Status;
     }
   }
@@ -137,39 +167,56 @@ InternalMatchCodecDevicePath (
 
 EFI_STATUS
 EFIAPI
-InternalOcAudioConnect (
-  IN OUT OC_AUDIO_PROTOCOL         *This,
-  IN     EFI_DEVICE_PATH_PROTOCOL  *DevicePath  OPTIONAL,
-  IN     UINT8                     CodecAddress OPTIONAL,
-  IN     UINT8                     OutputIndex  OPTIONAL,
-  IN     UINT8                     Volume
+InternalOcAudioSetDefaultGain (
+  IN OUT OC_AUDIO_PROTOCOL  *This,
+  IN     INT8               Gain
   )
 {
-  EFI_STATUS                  Status;
-  OC_AUDIO_PROTOCOL_PRIVATE   *Private;
-  EFI_HANDLE                  *AudioIoHandles;
-  UINTN                       AudioIoHandleCount;
-  EFI_DEVICE_PATH_PROTOCOL    *TmpDevicePath;
+  OC_AUDIO_PROTOCOL_PRIVATE  *Private;
 
   Private = OC_AUDIO_PROTOCOL_PRIVATE_FROM_OC_AUDIO (This);
 
-  Private->OutputIndex = OutputIndex;
-  Private->Volume      = Volume;
+  Private->Gain = Gain;
+
+  return EFI_SUCCESS;
+}
+
+EFI_STATUS
+EFIAPI
+InternalOcAudioConnect (
+  IN OUT OC_AUDIO_PROTOCOL         *This,
+  IN     EFI_DEVICE_PATH_PROTOCOL  *DevicePath      OPTIONAL,
+  IN     UINT8                     CodecAddress     OPTIONAL,
+  IN     UINT64                    OutputIndexMask
+  )
+{
+  EFI_STATUS                 Status;
+  OC_AUDIO_PROTOCOL_PRIVATE  *Private;
+  EFI_HANDLE                 *AudioIoHandles;
+  UINTN                      AudioIoHandleCount;
+  EFI_DEVICE_PATH_PROTOCOL   *TmpDevicePath;
+
+  Private = OC_AUDIO_PROTOCOL_PRIVATE_FROM_OC_AUDIO (This);
+
+  Private->OutputIndexMask = OutputIndexMask;
 
   if (DevicePath == NULL) {
     Status = gBS->LocateProtocol (
-      &gEfiAudioIoProtocolGuid,
-      NULL,
-      (VOID **) &Private->AudioIo
-      );
+                    &gEfiAudioIoProtocolGuid,
+                    NULL,
+                    (VOID **)&Private->AudioIo
+                    );
+    if (!EFI_ERROR (Status)) {
+      Status = AudioIoProtocolConfirmRevision (Private->AudioIo);
+    }
   } else {
     Status = gBS->LocateHandleBuffer (
-      ByProtocol,
-      &gEfiAudioIoProtocolGuid,
-      NULL,
-      &AudioIoHandleCount,
-      &AudioIoHandles
-      );
+                    ByProtocol,
+                    &gEfiAudioIoProtocolGuid,
+                    NULL,
+                    &AudioIoHandleCount,
+                    &AudioIoHandles
+                    );
 
     if (!EFI_ERROR (Status)) {
       DevicePath = OcAudioGetCodecDevicePath (DevicePath, CodecAddress);
@@ -180,11 +227,11 @@ InternalOcAudioConnect (
       }
 
       Status = InternalMatchCodecDevicePath (
-        Private,
-        DevicePath,
-        AudioIoHandles,
-        AudioIoHandleCount
-        );
+                 Private,
+                 DevicePath,
+                 AudioIoHandles,
+                 AudioIoHandleCount
+                 );
 
       if (EFI_ERROR (Status)) {
         //
@@ -193,11 +240,11 @@ InternalOcAudioConnect (
         if (OcFixAppleBootDevicePath (&DevicePath, &TmpDevicePath) > 0) {
           DEBUG ((DEBUG_INFO, "OCAU: Retrying with fixed device path\n"));
           Status = InternalMatchCodecDevicePath (
-            Private,
-            DevicePath,
-            AudioIoHandles,
-            AudioIoHandleCount
-            );
+                     Private,
+                     DevicePath,
+                     AudioIoHandles,
+                     AudioIoHandleCount
+                     );
         }
       }
 
@@ -245,11 +292,11 @@ STATIC
 VOID
 EFIAPI
 InernalOcAudioPlayFileDone (
-  IN EFI_AUDIO_IO_PROTOCOL        *AudioIo,
-  IN VOID                         *Context
+  IN EFI_AUDIO_IO_PROTOCOL  *AudioIo,
+  IN VOID                   *Context
   )
 {
-  OC_AUDIO_PROTOCOL_PRIVATE       *Private;
+  OC_AUDIO_PROTOCOL_PRIVATE  *Private;
 
   Private = Context;
 
@@ -264,6 +311,7 @@ InernalOcAudioPlayFileDone (
   if (Private->ProviderRelease != NULL) {
     Private->ProviderRelease (Private->ProviderContext, Private->CurrentBuffer);
   }
+
   Private->CurrentBuffer = NULL;
 
   gBS->SignalEvent (Private->PlaybackEvent);
@@ -271,94 +319,127 @@ InernalOcAudioPlayFileDone (
 
 EFI_STATUS
 EFIAPI
-InternalOcAudioPlayFile (
-  IN OUT OC_AUDIO_PROTOCOL          *This,
-  IN     UINT32                     File,
-  IN     BOOLEAN                    Wait
+InternalOcAudioRawGainToDecibels (
+  IN OUT OC_AUDIO_PROTOCOL  *This,
+  IN     UINT8              GainParam,
+  OUT INT8                  *Gain
   )
 {
-  EFI_STATUS                      Status;
-  OC_AUDIO_PROTOCOL_PRIVATE       *Private;
-  UINT8                           *RawBuffer;
-  UINT32                          RawBufferSize;
-  EFI_AUDIO_IO_PROTOCOL_FREQ      Frequency;
-  EFI_AUDIO_IO_PROTOCOL_BITS      Bits;
-  UINT8                           Channels;
-  EFI_TPL                         OldTpl;
+  EFI_STATUS                 Status;
+  OC_AUDIO_PROTOCOL_PRIVATE  *Private;
 
   Private = OC_AUDIO_PROTOCOL_PRIVATE_FROM_OC_AUDIO (This);
 
-  if (Private->AudioIo == NULL || Private->ProviderAcquire == NULL) {
+  if (Private->AudioIo == NULL) {
+    DEBUG ((DEBUG_INFO, "OCAU: RawGainToDecibels has no AudioIo\n"));
+    return EFI_ABORTED;
+  }
+
+  Status = Private->AudioIo->RawGainToDecibels (
+                               Private->AudioIo,
+                               Private->OutputIndexMask,
+                               GainParam,
+                               Gain
+                               );
+
+  if (EFI_ERROR (Status)) {
+    DEBUG ((DEBUG_INFO, "OCAU: RawGainToDecibels conversion failure - %r\n", Status));
+  }
+
+  return Status;
+}
+
+EFI_STATUS
+EFIAPI
+InternalOcAudioPlayFile (
+  IN OUT OC_AUDIO_PROTOCOL  *This,
+  IN     CONST CHAR8        *BasePath,
+  IN     CONST CHAR8        *BaseType,
+  IN     BOOLEAN            Localised,
+  IN     INT8               Gain  OPTIONAL,
+  IN     BOOLEAN            UseGain,
+  IN     BOOLEAN            Wait
+  )
+{
+  EFI_STATUS                  Status;
+  OC_AUDIO_PROTOCOL_PRIVATE   *Private;
+  UINT8                       *RawBuffer;
+  UINT32                      RawBufferSize;
+  EFI_AUDIO_IO_PROTOCOL_FREQ  Frequency;
+  EFI_AUDIO_IO_PROTOCOL_BITS  Bits;
+  UINT8                       Channels;
+  EFI_TPL                     OldTpl;
+
+  Private = OC_AUDIO_PROTOCOL_PRIVATE_FROM_OC_AUDIO (This);
+
+  if ((Private->AudioIo == NULL) || (Private->ProviderAcquire == NULL)) {
     DEBUG ((DEBUG_INFO, "OCAU: PlayFile has no AudioIo or provider is unconfigured\n"));
     return EFI_ABORTED;
   }
 
   Status = Private->ProviderAcquire (
-    Private->ProviderContext,
-    File,
-    Private->Language,
-    &RawBuffer,
-    &RawBufferSize,
-    &Frequency,
-    &Bits,
-    &Channels
-    );
+                      Private->ProviderContext,
+                      BasePath,
+                      BaseType,
+                      Localised,
+                      Private->Language,
+                      &RawBuffer,
+                      &RawBufferSize,
+                      &Frequency,
+                      &Bits,
+                      &Channels
+                      );
 
   if (EFI_ERROR (Status)) {
-    DEBUG ((DEBUG_INFO, "OCAU: PlayFile has no file %d for lang %d - %r\n", File, Private->Language, Status));
+    DEBUG ((DEBUG_INFO, "OCAU: PlayFile has no file %a for type %a lang %u - %r\n", BasePath, BaseType, Private->Language, Status));
     return EFI_NOT_FOUND;
   }
 
   DEBUG ((
     DEBUG_INFO,
-    "OCAU: File %d for lang %d is %d %d %d (%u) - %r\n",
-    File,
+    "OCAU: File %a for type %a lang %u is %d %d %d (%u) - %r\n",
+    BasePath,
+    BaseType,
     Private->Language,
     Frequency,
     Bits,
     Channels,
-    (UINT32) RawBufferSize,
+    (UINT32)RawBufferSize,
     Status
     ));
 
   if (EFI_ERROR (Status)) {
-    DEBUG ((DEBUG_INFO, "OCAU: PlayFile has invalid file %d for lang %d - %r\n", File, Private->Language, Status));
+    DEBUG ((DEBUG_INFO, "OCAU: PlayFile has invalid file %a for type %a lang %u - %r\n", BasePath, BaseType, Private->Language, Status));
     if (Private->ProviderRelease != NULL) {
       Private->ProviderRelease (Private->ProviderContext, RawBuffer);
     }
+
     return EFI_NOT_FOUND;
   }
 
   This->StopPlayback (This, Wait);
 
-  OldTpl = gBS->RaiseTPL (TPL_NOTIFY);
+  OldTpl                 = gBS->RaiseTPL (TPL_NOTIFY);
   Private->CurrentBuffer = RawBuffer;
 
   Status = Private->AudioIo->SetupPlayback (
-    Private->AudioIo,
-    Private->OutputIndex,
-    Private->Volume,
-    Frequency,
-    Bits,
-    Channels
-    );
+                               Private->AudioIo,
+                               Private->OutputIndexMask,
+                               UseGain ? Gain : Private->Gain,
+                               Frequency,
+                               Bits,
+                               Channels,
+                               Private->PlaybackDelay
+                               );
   if (!EFI_ERROR (Status)) {
-    //
-    // We are required to wait for some time after codec setup on some systems.
-    // REF: https://github.com/acidanthera/bugtracker/issues/971
-    //
-    if (Private->PlaybackDelay > 0) {
-      gBS->Stall (Private->PlaybackDelay);
-    }
-
     Status = Private->AudioIo->StartPlaybackAsync (
-      Private->AudioIo,
-      RawBuffer,
-      RawBufferSize,
-      0,
-      InernalOcAudioPlayFileDone,
-      Private
-      );
+                                 Private->AudioIo,
+                                 RawBuffer,
+                                 RawBufferSize,
+                                 0,
+                                 InernalOcAudioPlayFileDone,
+                                 Private
+                                 );
     if (EFI_ERROR (Status)) {
       DEBUG ((DEBUG_INFO, "OCAU: PlayFile playback failure - %r\n", Status));
     }
@@ -370,6 +451,7 @@ InternalOcAudioPlayFile (
     if (Private->ProviderRelease != NULL) {
       Private->ProviderRelease (Private->ProviderContext, Private->CurrentBuffer);
     }
+
     Private->CurrentBuffer = NULL;
   }
 
@@ -379,16 +461,16 @@ InternalOcAudioPlayFile (
 
 EFI_STATUS
 EFIAPI
-InternalOcAudioStopPlayBack (
-  IN OUT OC_AUDIO_PROTOCOL          *This,
-  IN     BOOLEAN                    Wait
+InternalOcAudioStopPlayback (
+  IN OUT OC_AUDIO_PROTOCOL  *This,
+  IN     BOOLEAN            Wait
   )
 {
-  OC_AUDIO_PROTOCOL_PRIVATE       *Private;
-  EFI_TPL                         OldTpl;
-  UINTN                           Index;
-  EFI_STATUS                      Status;
-  BOOLEAN                         CheckEvent;
+  OC_AUDIO_PROTOCOL_PRIVATE  *Private;
+  EFI_TPL                    OldTpl;
+  UINTN                      Index;
+  EFI_STATUS                 Status;
+  BOOLEAN                    CheckEvent;
 
   Private = OC_AUDIO_PROTOCOL_PRIVATE_FROM_OC_AUDIO (This);
 
@@ -434,8 +516,8 @@ InternalOcAudioStopPlayBack (
     // The audio is still playing. Stop playback now.
     //
     Private->AudioIo->StopPlayback (
-      Private->AudioIo
-      );
+                        Private->AudioIo
+                        );
 
     //
     // Calling StopPlayback ignores the registered callback, free file here.
@@ -470,16 +552,16 @@ InternalOcAudioStopPlayBack (
 UINTN
 EFIAPI
 InternalOcAudioSetDelay (
-  IN OUT OC_AUDIO_PROTOCOL          *This,
-  IN     UINTN                      Delay
+  IN OUT OC_AUDIO_PROTOCOL  *This,
+  IN     UINTN              Delay
   )
 {
-  OC_AUDIO_PROTOCOL_PRIVATE       *Private;
-  UINTN                           PreviousDelay;
+  OC_AUDIO_PROTOCOL_PRIVATE  *Private;
+  UINTN                      PreviousDelay;
 
   Private = OC_AUDIO_PROTOCOL_PRIVATE_FROM_OC_AUDIO (This);
 
-  PreviousDelay = Private->PlaybackDelay;
+  PreviousDelay          = Private->PlaybackDelay;
   Private->PlaybackDelay = Delay;
 
   return PreviousDelay;

@@ -13,6 +13,7 @@
 **/
 
 #include <Uefi.h>
+#include <Library/BaseLib.h>
 #include <Library/DebugLib.h>
 #include <Library/DevicePathLib.h>
 #include <Library/MemoryAllocationLib.h>
@@ -22,10 +23,11 @@
 
 EFI_STATUS
 OcLoadAndRunImage (
-  IN   EFI_DEVICE_PATH_PROTOCOL  *DevicePath  OPTIONAL,
-  IN   VOID                      *Buffer      OPTIONAL,
+  IN   EFI_DEVICE_PATH_PROTOCOL  *DevicePath   OPTIONAL,
+  IN   VOID                      *Buffer       OPTIONAL,
   IN   UINTN                     BufferSize,
-  OUT  EFI_HANDLE                *ImageHandle OPTIONAL
+  OUT  EFI_HANDLE                *ImageHandle  OPTIONAL,
+  IN   CHAR16                    *OptionalData OPTIONAL
   )
 {
   EFI_STATUS                 Status;
@@ -36,14 +38,14 @@ OcLoadAndRunImage (
   // Run OpenCore image
   //
   NewHandle = NULL;
-  Status = gBS->LoadImage (
-    FALSE,
-    gImageHandle,
-    DevicePath,
-    Buffer,
-    BufferSize,
-    &NewHandle
-    );
+  Status    = gBS->LoadImage (
+                     FALSE,
+                     gImageHandle,
+                     DevicePath,
+                     Buffer,
+                     BufferSize,
+                     &NewHandle
+                     );
   if (EFI_ERROR (Status)) {
     DEBUG ((DEBUG_ERROR, "OCM: Failed to load image - %r\n", Status));
     return Status;
@@ -52,10 +54,10 @@ OcLoadAndRunImage (
   DEBUG ((DEBUG_INFO, "OCM: Loaded image at %p handle\n", NewHandle));
 
   Status = gBS->HandleProtocol (
-    NewHandle,
-    &gEfiLoadedImageProtocolGuid,
-    (VOID **) &LoadedImage
-    );
+                  NewHandle,
+                  &gEfiLoadedImageProtocolGuid,
+                  (VOID **)&LoadedImage
+                  );
   if (!EFI_ERROR (Status)) {
     DEBUG ((
       DEBUG_INFO,
@@ -64,18 +66,17 @@ OcLoadAndRunImage (
       LoadedImage->FilePath,
       DevicePath
       ));
-
     //
     // Some fragile firmware fail to properly set LoadedImage when buffer is provided.
     // REF: https://github.com/acidanthera/bugtracker/issues/712
     // REF: https://github.com/acidanthera/bugtracker/issues/1502
     //
-    if (DevicePath != NULL && LoadedImage->DeviceHandle == NULL) {
+    if ((DevicePath != NULL) && (LoadedImage->DeviceHandle == NULL)) {
       Status = gBS->LocateDevicePath (
-        &gEfiSimpleFileSystemProtocolGuid,
-        &DevicePath,
-        &LoadedImage->DeviceHandle
-        );
+                      &gEfiSimpleFileSystemProtocolGuid,
+                      &DevicePath,
+                      &LoadedImage->DeviceHandle
+                      );
 
       DEBUG ((
         DEBUG_INFO,
@@ -88,16 +89,22 @@ OcLoadAndRunImage (
         if (LoadedImage->FilePath != NULL) {
           FreePool (LoadedImage->FilePath);
         }
+
         LoadedImage->FilePath = DuplicateDevicePath (DevicePath);
       }
+    }
+
+    if (OptionalData != NULL) {
+      LoadedImage->LoadOptionsSize = (UINT32)StrSize (OptionalData);
+      LoadedImage->LoadOptions     = AllocateCopyPool (LoadedImage->LoadOptionsSize, OptionalData);
     }
   }
 
   Status = gBS->StartImage (
-    NewHandle,
-    NULL,
-    NULL
-    );
+                  NewHandle,
+                  NULL,
+                  NULL
+                  );
 
   if (EFI_ERROR (Status)) {
     DEBUG ((DEBUG_WARN, "OCM: Failed to start image - %r\n", Status));

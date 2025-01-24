@@ -31,6 +31,7 @@
   OpenCoreUefi.c
   OpenCoreUefiAudio.c
   OpenCoreUefiInOut.c
+  OpenCoreUefiUnloadDrivers.c
   OpenCoreVault.c
 
 [Packages]
@@ -40,19 +41,37 @@
   UefiCpuPkg/UefiCpuPkg.dec
 
 [Guids]
+  gEfiMdeModulePkgTokenSpaceGuid
   gOcVendorVariableGuid
 
 [Protocols]
   gEfiAudioDecodeProtocolGuid         ## SOMETIMES_CONSUMES
   gEfiDevicePathProtocolGuid          ## CONSUMES
   gEfiDevicePathProtocolGuid          ## CONSUMES
+  gEfiDriverBindingProtocolGuid       ## CONSUMES
+  gEfiSimplePointerProtocolGuid       ## SOMETIMES_CONSUMES
   gEfiLoadedImageProtocolGuid         ## CONSUMES
   gEfiSimpleFileSystemProtocolGuid    ## CONSUMES
   gOcInterfaceProtocolGuid            ## SOMETIMES_CONSUMES
   gEfiSecurityArchProtocolGuid        ## SOMETIMES_CONSUMES
   gEfiSecurity2ArchProtocolGuid       ## SOMETIMES_CONSUMES
 
+[Pcd]
+  gEfiMdeModulePkgTokenSpaceGuid.PcdSerialRegisterAccessWidth     ## SOMETIMES_CONSUMES
+  gEfiMdeModulePkgTokenSpaceGuid.PcdSerialUseMmio                 ## CONSUMES
+  gEfiMdeModulePkgTokenSpaceGuid.PcdSerialUseHardwareFlowControl  ## CONSUMES
+  gEfiMdeModulePkgTokenSpaceGuid.PcdSerialDetectCable             ## SOMETIMES_CONSUMES
+  gEfiMdeModulePkgTokenSpaceGuid.PcdSerialRegisterBase            ## CONSUMES
+  gEfiMdeModulePkgTokenSpaceGuid.PcdSerialBaudRate                ## CONSUMES
+  gEfiMdeModulePkgTokenSpaceGuid.PcdSerialLineControl             ## CONSUMES
+  gEfiMdeModulePkgTokenSpaceGuid.PcdSerialFifoControl             ## CONSUMES
+  gEfiMdeModulePkgTokenSpaceGuid.PcdSerialClockRate               ## CONSUMES
+  gEfiMdeModulePkgTokenSpaceGuid.PcdSerialPciDeviceInfo           ## CONSUMES
+  gEfiMdeModulePkgTokenSpaceGuid.PcdSerialExtendedTxFifoSize      ## CONSUMES
+  gEfiMdeModulePkgTokenSpaceGuid.PcdSerialRegisterStride          ## CONSUMES
+
 [LibraryClasses]
+  BaseOverflowLib
   DevicePathLib
   IoLib
   OcAcpiLib
@@ -77,17 +96,19 @@
   OcDevicePropertyLib
   OcDriverConnectionLib
   OcFirmwareVolumeLib
-  OcGuardLib
   OcHashServicesLib
+  OcLogAggregatorLib
   OcMachoLib
   OcMiscLib
   OcOSInfoLib
+  OcPciIoLib
   OcSmbiosLib
   OcSmcLib
   OcStorageLib
   OcUnicodeCollationEngGenericLib
   OcVirtualFsLib
   OcMacInfoLib
+  OcVariableLib
   PcdLib
   PrintLib
   SerialPortLib

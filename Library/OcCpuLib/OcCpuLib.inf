@@ -28,13 +28,17 @@
 
 [Packages]
   OpenCorePkg/OpenCorePkg.dec
+  OpenCorePkg/OpenDuetPkg.dec
   MdePkg/MdePkg.dec
   MdeModulePkg/MdeModulePkg.dec
   UefiCpuPkg/UefiCpuPkg.dec
 
 [LibraryClasses]
   BaseLib
-  OcGuardLib
+  BaseOverflowLib
+  OcMiscLib
+  OcVariableLib
+  HobLib
   IoLib
   UefiRuntimeServicesTableLib
 
@@ -42,6 +46,7 @@
   gAppleFsbFrequencyPlatformInfoGuid
   gAppleFsbFrequencyListPlatformInfoGuid
   gAppleFsbFrequencyPlatformInfoIndexHobGuid
+  gEfiAcpiDescriptionGuid
   gOcVendorVariableGuid
 
 [Protocols]

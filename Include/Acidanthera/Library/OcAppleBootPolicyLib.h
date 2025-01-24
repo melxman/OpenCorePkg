@@ -94,29 +94,49 @@ OcBootPolicyGetBootFile (
 **/
 EFI_STATUS
 OcBootPolicyGetBootFileEx (
-  IN  EFI_HANDLE                      Device,
-  IN  CONST CHAR16                    **PredefinedPaths,
-  IN  UINTN                           NumPredefinedPaths,
-  OUT EFI_DEVICE_PATH_PROTOCOL        **FilePath
+  IN  EFI_HANDLE                Device,
+  IN  CONST CHAR16              **PredefinedPaths,
+  IN  UINTN                     NumPredefinedPaths,
+  OUT EFI_DEVICE_PATH_PROTOCOL  **FilePath
   );
 
 /**
-  Retrieves information about DevicePath.
+  Retrieves folder and file system associated with DevicePath.
 
   @param[in]  DevicePath          The device path to describe.
   @param[out] BootPathName        A pointer into which the folder portion of
-                                  DevicePath is returned.
-  @param[out] Device              A pointer into which the device handle of
-                                  DevicePath is returned.
+                                  DevicePath is returned. When EFI_SUCCESS is
+                                  returned, caller is responsible for freeing
+                                  this pool memory.
+  @param[out] FileSystem          A pointer into which the simple file system
+                                  for the folder is returned.
 
   @retval EFI_SUCCESS  The operation has been completed successfully.
   @retval other        DevicePath is not a valid file path.
 **/
 EFI_STATUS
 OcBootPolicyDevicePathToDirPath (
+  IN  EFI_DEVICE_PATH_PROTOCOL         *DevicePath,
+  OUT CHAR16                           **BootPathName,
+  OUT EFI_SIMPLE_FILE_SYSTEM_PROTOCOL  **FileSystem
+  );
+
+/**
+  Retrieves file path associated with DevicePath.
+
+  @param[in]  DevicePath          The device path to describe.
+  @param[out] BootPathName        A pointer into which the file path for
+                                  DevicePath is returned. When EFI_SUCCESS is
+                                  returned, caller is responsible for freeing
+                                  this pool memory.
+
+  @retval EFI_SUCCESS  The operation has been completed successfully.
+  @retval other        DevicePath is not a valid file path.
+**/
+EFI_STATUS
+OcBootPolicyDevicePathToFilePath (
   IN  EFI_DEVICE_PATH_PROTOCOL  *DevicePath,
-  OUT CHAR16                    **BootPathName,
-  OUT EFI_HANDLE                *Device
+  OUT CHAR16                    **BootPathName
   );
 
 /**
@@ -173,16 +193,16 @@ OcBootPolicyGetAllApfsRecoveryFilePath (
   OUT UINTN       *NumberOfEntries
   );
 
-extern CONST CHAR16 *gAppleBootPolicyPredefinedPaths[];
+extern CONST CHAR16  *gAppleBootPolicyPredefinedPaths[];
 
 ///
 /// All Apple Boot Policy predefined booter paths.
 ///
-extern CONST UINTN gAppleBootPolicyNumPredefinedPaths;
+extern CONST UINTN  gAppleBootPolicyNumPredefinedPaths;
 
 ///
 /// Core Apple Boot Policy predefined booter paths.
 ///
-extern CONST UINTN gAppleBootPolicyCoreNumPredefinedPaths;
+extern CONST UINTN  gAppleBootPolicyCoreNumPredefinedPaths;
 
 #endif // OC_APPLE_BOOT_POLICY_LIB_H

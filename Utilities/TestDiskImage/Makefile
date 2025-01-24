@@ -4,7 +4,7 @@
 ##
 
 PROJECT = DiskImage
-PRODUCT = $(PROJECT)$(SUFFIX)
+PRODUCT = $(PROJECT)$(INFIX)$(SUFFIX)
 OBJS    = $(PROJECT).o \
 	FileDummy.o \
 	OcAppleChunklistLib.o \
@@ -21,9 +21,17 @@ OBJS    = $(PROJECT).o \
 	inftrees.o \
 	trees.o \
 	uncompr.o \
-	zlib_uefi.o
+	zlib_uefi.o \
+	zutil.o
 VPATH   = ../../Library/OcAppleChunklistLib:$\
 	../../Library/OcAppleDiskImageLib:$\
 	../../Library/OcAppleRamDiskLib:$\
 	../../Library/OcCompressionLib/zlib
 include ../../User/Makefile
+
+#
+# Silence zlib warning.
+#
+ifeq ($(shell echo 'int a;' | "${CC}" -Wno-deprecated-non-prototype -x c -c - -o /dev/null 2>&1),)
+	CFLAGS += -Wno-deprecated-non-prototype
+endif

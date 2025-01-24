@@ -40,7 +40,6 @@
 #include <Library/UefiRuntimeServicesTableLib.h>
 #include <Library/UefiLib.h>
 
-
 #include <IndustryStandard/HdaVerbs.h>
 
 //
@@ -56,15 +55,17 @@
 #include <Protocol/HdaControllerInfo.h>
 
 // Driver version
-#define AUDIODXE_VERSION        0xA
-#define AUDIODXE_PKG_VERSION    1
-
-#define MS_TO_MICROSECOND(a) ((a) * 1000)
-#define MS_TO_NANOSECOND(a)  ((a) * 1000000)
+#define AUDIODXE_VERSION      0xD
+#define AUDIODXE_PKG_VERSION  1
 
 // Driver Bindings.
-extern EFI_DRIVER_BINDING_PROTOCOL gHdaControllerDriverBinding;
-extern EFI_DRIVER_BINDING_PROTOCOL gHdaCodecDriverBinding;
-extern EFI_AUDIO_DECODE_PROTOCOL   gEfiAudioDecodeProtocol;
+extern EFI_DRIVER_BINDING_PROTOCOL  gHdaControllerDriverBinding;
+extern EFI_DRIVER_BINDING_PROTOCOL  gHdaCodecDriverBinding;
+extern EFI_AUDIO_DECODE_PROTOCOL    gEfiAudioDecodeProtocol;
+
+// Cannot raise TPL above this value round any code which calls gBS->SetTimer
+// (using the DxeCore implementation of it, e.g. at least OVMF).
+// REF: MdeModulePkg/Core/Dxe/Event/Timer.c
+#define TPL_DXE_CORE_TIMER  (TPL_HIGH_LEVEL - 1)
 
 #endif // EFI_AUDIODXE_H

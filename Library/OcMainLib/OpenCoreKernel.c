@@ -12,7 +12,8 @@ WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 
 **/
 
-#include "ProcessorBind.h"
+#include <Base.h>
+
 #include <Library/OcMainLib.h>
 
 #include <Library/BaseLib.h>
@@ -33,11 +34,14 @@ STATIC OC_GLOBAL_CONFIG    *mOcConfiguration;
 STATIC OC_CPU_INFO         *mOcCpuInfo;
 STATIC UINT8               mKernelDigest[SHA384_DIGEST_SIZE];
 
-STATIC UINT32              mOcDarwinVersion;
-STATIC BOOLEAN             mUse32BitKernel;
+STATIC UINT32   mOcDarwinVersion;
+STATIC BOOLEAN  mUse32BitKernel;
 
-STATIC CACHELESS_CONTEXT   mOcCachelessContext;
-STATIC BOOLEAN             mOcCachelessInProgress;
+STATIC CACHELESS_CONTEXT  mOcCachelessContext;
+STATIC BOOLEAN            mOcCachelessInProgress;
+
+STATIC EFI_FILE_PROTOCOL  *mCustomKernelDirectory;
+STATIC BOOLEAN            mCustomKernelDirectoryInProgress;
 
 STATIC
 VOID
@@ -67,8 +71,9 @@ OcKernelConfigureCapabilities (
   //
   // Skip if not Apple image.
   //
-  if (LoadedImage->FilePath == NULL
-    || (OcGetBootDevicePathType (LoadedImage->FilePath, NULL, NULL) & OC_BOOT_APPLE_ANY) == 0) {
+  if (  (LoadedImage->FilePath == NULL)
+     || ((OcGetBootDevicePathType (LoadedImage->FilePath, NULL, NULL) & OC_BOOT_APPLE_ANY) == 0))
+  {
     return;
   }
 
@@ -76,12 +81,12 @@ OcKernelConfigureCapabilities (
   // arch boot argument overrides any compatibility checks.
   //
   HasAppleArch = OcCheckArgumentFromEnv (
-    LoadedImage,
-    gRT->GetVariable,
-    "arch=",
-    L_STR_LEN ("arch="),
-    &AppleArchValue
-    );
+                   LoadedImage,
+                   gRT->GetVariable,
+                   "arch=",
+                   L_STR_LEN ("arch="),
+                   &AppleArchValue
+                   );
 
   if (HasAppleArch) {
     mUse32BitKernel = AsciiStrCmp (AppleArchValue, "i386") == 0;
@@ -121,11 +126,12 @@ OcKernelConfigureCapabilities (
     RequestedArch = OC_KERN_CAPABILITY_K64_U64;
   } else if (AsciiStrCmp (KernelArch, "i386") == 0) {
     RequestedArch = OC_KERN_CAPABILITY_K32_U64;
-  } else if (AsciiStrCmp (KernelArch, "i386-user32") == 0
-#if defined(MDE_CPU_X64)
-    && (IsSnowLeo || IsLion)
-#endif
-    ) {
+  } else if (  AsciiStrCmp (KernelArch, "i386-user32") == 0
+ #if defined (MDE_CPU_X64)
+            && (IsSnowLeo || IsLion)
+ #endif
+               )
+  {
     if (!IsLion) {
       RequestedArch = OC_KERN_CAPABILITY_K32_U32;
     } else {
@@ -140,13 +146,14 @@ OcKernelConfigureCapabilities (
   // In automatic mode, if we do not support SSSE3 and can downgrade to U32, do it.
   // See also note above regarding 10.4 and 10.5.
   //
-  if (RequestedArch == 0
-#if defined(MDE_CPU_X64)
-    && IsSnowLeo
-#endif
-    && (mOcCpuInfo->ExtFeatures & CPUID_EXTFEATURE_EM64T) != 0
-    && (mOcCpuInfo->Features & CPUID_FEATURE_SSSE3) == 0
-    && (Capabilities & OC_KERN_CAPABILITY_K32_U32) != 0) {
+  if (  RequestedArch == 0
+ #if defined (MDE_CPU_X64)
+     && IsSnowLeo
+ #endif
+     && (mOcCpuInfo->ExtFeatures & CPUID_EXTFEATURE_EM64T) != 0
+     && (mOcCpuInfo->Features & CPUID_FEATURE_SSSE3) == 0
+     && (Capabilities & OC_KERN_CAPABILITY_K32_U32) != 0)
+  {
     //
     // Should be guaranteed that we support 32-bit kernel with a 64-bit userspace.
     //
@@ -159,8 +166,9 @@ OcKernelConfigureCapabilities (
   //
   // If we support K64 mode, check whether the board supports it.
   //
-  if ((Capabilities & OC_KERN_CAPABILITY_K64_U64) != 0
-    && !OcPlatformIs64BitSupported (KernelVersion)) {
+  if (  ((Capabilities & OC_KERN_CAPABILITY_K64_U64) != 0)
+     && !OcPlatformIs64BitSupported (KernelVersion))
+  {
     DEBUG ((DEBUG_INFO, "OC: K64 forbidden due to current platform on version %u\n", KernelVersion));
     Capabilities &= ~(OC_KERN_CAPABILITY_K64_U64);
   }
@@ -169,7 +177,7 @@ OcKernelConfigureCapabilities (
   // If we are not choosing the architecture automatically, try to use the requested one.
   // Otherwise try best available.
   //
-  if (RequestedArch != 0 && (Capabilities & RequestedArch) != 0) {
+  if ((RequestedArch != 0) && ((Capabilities & RequestedArch) != 0)) {
     Capabilities = RequestedArch;
   } else if ((Capabilities & OC_KERN_CAPABILITY_K64_U64) != 0) {
     Capabilities = OC_KERN_CAPABILITY_K64_U64;
@@ -187,17 +195,18 @@ OcKernelConfigureCapabilities (
   // - SnowLeo64 or Lion64 and try to boot i386.
   //
   ArgumentCount = 0;
-  if (Capabilities == OC_KERN_CAPABILITY_K64_U64 && IsSnowLeo) {
+  if ((Capabilities == OC_KERN_CAPABILITY_K64_U64) && IsSnowLeo) {
     NewArguments[ArgumentCount++] = "arch=x86_64";
-  } else if (Capabilities != OC_KERN_CAPABILITY_K64_U64 && (IsSnowLeo || IsLion)) {
+  } else if ((Capabilities != OC_KERN_CAPABILITY_K64_U64) && (IsSnowLeo || IsLion)) {
     NewArguments[ArgumentCount++] = "arch=i386";
   }
 
   //
   // Pass legacy argument when we are booting i386.
   //
-  if (Capabilities == OC_KERN_CAPABILITY_K32_U32
-    && !OcCheckArgumentFromEnv (LoadedImage, gRT->GetVariable, "-legacy", L_STR_LEN ("-legacy"), NULL)) {
+  if (  (Capabilities == OC_KERN_CAPABILITY_K32_U32)
+     && !OcCheckArgumentFromEnv (LoadedImage, gRT->GetVariable, "-legacy", L_STR_LEN ("-legacy"), NULL))
+  {
     NewArguments[ArgumentCount++] = "-legacy";
   }
 
@@ -237,14 +246,14 @@ OcKernelLoadAndReserveKext (
   IN OUT UINT32               *NumReservedKexts
   )
 {
-  EFI_STATUS              Status;
-  CHAR8                   *Identifier;
-  CHAR8                   *BundlePath;
-  CHAR8                   *Comment;
-  CONST CHAR8             *Arch;
-  CHAR8                   *PlistPath;
-  CHAR8                   *ExecutablePath;
-  CHAR16                  FullPath[OC_STORAGE_SAFE_PATH_MAX];
+  EFI_STATUS   Status;
+  CHAR8        *Identifier;
+  CHAR8        *BundlePath;
+  CHAR8        *Comment;
+  CONST CHAR8  *Arch;
+  CHAR8        *PlistPath;
+  CHAR8        *ExecutablePath;
+  CHAR16       FullPath[OC_STORAGE_SAFE_PATH_MAX];
 
   if (!Kext->Enabled) {
     return;
@@ -254,24 +263,24 @@ OcKernelLoadAndReserveKext (
   // Free existing data if present, but only for forced kexts.
   // Injected kexts will never change.
   //
-  if (IsForced && Kext->PlistData != NULL) {
+  if (IsForced && (Kext->PlistData != NULL)) {
     FreePool (Kext->PlistData);
-    Kext->PlistDataSize  = 0;
-    Kext->PlistData      = NULL;
+    Kext->PlistDataSize = 0;
+    Kext->PlistData     = NULL;
 
     if (Kext->ImageData != NULL) {
       FreePool (Kext->ImageData);
-      Kext->ImageDataSize  = 0;
-      Kext->ImageData      = NULL;
+      Kext->ImageDataSize = 0;
+      Kext->ImageData     = NULL;
     }
   }
 
-  Identifier    = OC_BLOB_GET (&Kext->Identifier);
-  BundlePath    = OC_BLOB_GET (&Kext->BundlePath);
-  Comment       = OC_BLOB_GET (&Kext->Comment);
-  Arch          = OC_BLOB_GET (&Kext->Arch);
-  PlistPath     = OC_BLOB_GET (&Kext->PlistPath);
-  if (BundlePath[0] == '\0' || PlistPath[0] == '\0' || (IsForced && Identifier[0] == '\0')) {
+  Identifier = OC_BLOB_GET (&Kext->Identifier);
+  BundlePath = OC_BLOB_GET (&Kext->BundlePath);
+  Comment    = OC_BLOB_GET (&Kext->Comment);
+  Arch       = OC_BLOB_GET (&Kext->Arch);
+  PlistPath  = OC_BLOB_GET (&Kext->PlistPath);
+  if ((BundlePath[0] == '\0') || (PlistPath[0] == '\0') || (IsForced && (Identifier[0] == '\0'))) {
     DEBUG ((
       DEBUG_ERROR,
       "OC: %s kext %u (%a) has invalid info\n",
@@ -306,12 +315,12 @@ OcKernelLoadAndReserveKext (
   // Get plist path and data.
   //
   Status = OcUnicodeSafeSPrint (
-    FullPath,
-    sizeof (FullPath),
-    IsForced ? L"%a\\%a" : OPEN_CORE_KEXT_PATH "%a\\%a",
-    BundlePath,
-    PlistPath
-    );
+             FullPath,
+             sizeof (FullPath),
+             IsForced ? L"%a\\%a" : OPEN_CORE_KEXT_PATH "%a\\%a",
+             BundlePath,
+             PlistPath
+             );
   if (EFI_ERROR (Status)) {
     DEBUG ((
       DEBUG_WARN,
@@ -328,18 +337,18 @@ OcKernelLoadAndReserveKext (
   UnicodeUefiSlashes (FullPath);
 
   if (IsForced) {
-    Kext->PlistData = ReadFileFromFile (
-      RootFile,
-      FullPath,
-      &Kext->PlistDataSize,
-      0
-      );
+    Kext->PlistData = OcReadFileFromDirectory (
+                        RootFile,
+                        FullPath,
+                        &Kext->PlistDataSize,
+                        0
+                        );
   } else {
     Kext->PlistData = OcStorageReadFileUnicode (
-      Storage,
-      FullPath,
-      &Kext->PlistDataSize
-      );
+                        Storage,
+                        FullPath,
+                        &Kext->PlistDataSize
+                        );
   }
 
   if (Kext->PlistData == NULL) {
@@ -361,12 +370,12 @@ OcKernelLoadAndReserveKext (
   ExecutablePath = OC_BLOB_GET (&Kext->ExecutablePath);
   if (ExecutablePath[0] != '\0') {
     Status = OcUnicodeSafeSPrint (
-      FullPath,
-      sizeof (FullPath),
-      IsForced ? L"%a\\%a" : OPEN_CORE_KEXT_PATH "%a\\%a",
-      BundlePath,
-      ExecutablePath
-      );
+               FullPath,
+               sizeof (FullPath),
+               IsForced ? L"%a\\%a" : OPEN_CORE_KEXT_PATH "%a\\%a",
+               BundlePath,
+               ExecutablePath
+               );
     if (EFI_ERROR (Status)) {
       DEBUG ((
         DEBUG_WARN,
@@ -385,18 +394,18 @@ OcKernelLoadAndReserveKext (
     UnicodeUefiSlashes (FullPath);
 
     if (IsForced) {
-      Kext->ImageData = ReadFileFromFile (
-        RootFile,
-        FullPath,
-        &Kext->ImageDataSize,
-        0
-        );
+      Kext->ImageData = OcReadFileFromDirectory (
+                          RootFile,
+                          FullPath,
+                          &Kext->ImageDataSize,
+                          0
+                          );
     } else {
       Kext->ImageData = OcStorageReadFileUnicode (
-        Storage,
-        FullPath,
-        &Kext->ImageDataSize
-        );
+                          Storage,
+                          FullPath,
+                          &Kext->ImageDataSize
+                          );
     }
 
     if (Kext->ImageData == NULL) {
@@ -415,24 +424,24 @@ OcKernelLoadAndReserveKext (
     }
   }
 
-  if (CacheType == CacheTypeCacheless || CacheType == CacheTypeMkext) {
+  if ((CacheType == CacheTypeCacheless) || (CacheType == CacheTypeMkext)) {
     Status = MkextReserveKextSize (
-      ReservedInfoSize,
-      ReservedExeSize,
-      Kext->PlistDataSize,
-      Kext->ImageData,
-      Kext->ImageDataSize,
-      Is32Bit
-      );
+               ReservedInfoSize,
+               ReservedExeSize,
+               Kext->PlistDataSize,
+               Kext->ImageData,
+               Kext->ImageDataSize,
+               Is32Bit
+               );
   } else if (CacheType == CacheTypePrelinked) {
     Status = PrelinkedReserveKextSize (
-      ReservedInfoSize,
-      ReservedExeSize,
-      Kext->PlistDataSize,
-      Kext->ImageData,
-      Kext->ImageDataSize,
-      Is32Bit
-      );
+               ReservedInfoSize,
+               ReservedExeSize,
+               Kext->PlistDataSize,
+               Kext->ImageData,
+               Kext->ImageDataSize,
+               Is32Bit
+               );
   }
 
   if (EFI_ERROR (Status)) {
@@ -448,6 +457,7 @@ OcKernelLoadAndReserveKext (
       FreePool (Kext->ImageData);
       Kext->ImageData = NULL;
     }
+
     FreePool (Kext->PlistData);
     Kext->PlistData = NULL;
     return;
@@ -469,8 +479,8 @@ OcKernelLoadKextsAndReserve (
   OUT UINT32              *NumReservedKexts
   )
 {
-  UINT32                  Index;
-  OC_KERNEL_ADD_ENTRY     *Kext;
+  UINT32               Index;
+  OC_KERNEL_ADD_ENTRY  *Kext;
 
   *ReservedInfoSize = PRELINK_INFO_RESERVE_SIZE;
   *ReservedExeSize  = 0;
@@ -519,8 +529,9 @@ OcKernelLoadKextsAndReserve (
   }
 
   if (CacheType == CacheTypePrelinked) {
-    if (*ReservedExeSize > PRELINKED_KEXTS_MAX_SIZE
-      || *ReservedInfoSize + *ReservedExeSize < *ReservedExeSize) {
+    if (  (*ReservedExeSize > PRELINKED_KEXTS_MAX_SIZE)
+       || (*ReservedInfoSize + *ReservedExeSize < *ReservedExeSize))
+    {
       return EFI_UNSUPPORTED;
     }
   }
@@ -528,7 +539,8 @@ OcKernelLoadKextsAndReserve (
   DEBUG ((
     DEBUG_INFO,
     "OC: Kext reservation size info %X exe %X\n",
-    *ReservedInfoSize, *ReservedExeSize
+    *ReservedInfoSize,
+    *ReservedExeSize
     ));
   return EFI_SUCCESS;
 }
@@ -545,24 +557,31 @@ OcKernelInjectKext (
   IN BOOLEAN              Is32Bit
   )
 {
-  EFI_STATUS              Status;
-  CONST CHAR8             *Identifier;
-  CONST CHAR8             *BundlePath;
-  CONST CHAR8             *ExecutablePath;
-  CONST CHAR8             *Comment;
-  CHAR8                   FullPath[OC_STORAGE_SAFE_PATH_MAX];
-  UINT32                  MaxKernel;
-  UINT32                  MinKernel;
+  EFI_STATUS   Status;
+  CONST CHAR8  *Identifier;
+  CONST CHAR8  *BundlePath;
+  CONST CHAR8  *ExecutablePath;
+  CONST CHAR8  *Comment;
+  CHAR8        FullPath[OC_STORAGE_SAFE_PATH_MAX];
+  UINT32       MaxKernel;
+  UINT32       MinKernel;
+  CHAR8        BundleVersion[MAX_INFO_BUNDLE_VERSION_KEY_SIZE];
 
-  if (!Kext->Enabled || Kext->PlistData == NULL) {
+  if (!Kext->Enabled || (Kext->PlistData == NULL)) {
     return;
   }
 
-  Identifier  = OC_BLOB_GET (&Kext->Identifier);
-  BundlePath  = OC_BLOB_GET (&Kext->BundlePath);
-  Comment     = OC_BLOB_GET (&Kext->Comment);
-  MaxKernel   = OcParseDarwinVersion (OC_BLOB_GET (&Kext->MaxKernel));
-  MinKernel   = OcParseDarwinVersion (OC_BLOB_GET (&Kext->MinKernel));
+  Identifier = OC_BLOB_GET (&Kext->Identifier);
+  BundlePath = OC_BLOB_GET (&Kext->BundlePath);
+  Comment    = OC_BLOB_GET (&Kext->Comment);
+  MaxKernel  = OcParseDarwinVersion (OC_BLOB_GET (&Kext->MaxKernel));
+  MinKernel  = OcParseDarwinVersion (OC_BLOB_GET (&Kext->MinKernel));
+
+  //
+  // Assume no bundle version from the beginning.
+  // 'v' will be printed in the message, and hence is omitted here.
+  //
+  AsciiStrCpyS (BundleVersion, MAX_INFO_BUNDLE_VERSION_KEY_SIZE, "ersion unavailable");
 
   if (!OcMatchDarwinVersion (DarwinVersion, MinKernel, MaxKernel)) {
     DEBUG ((
@@ -595,39 +614,43 @@ OcKernelInjectKext (
   }
 
   if (CacheType == CacheTypeCacheless) {
-    if (IsForced
-      && AsciiStrnCmp (BundlePath, "System\\Library\\Extensions", L_STR_LEN ("System\\Library\\Extensions")) == 0) {
+    if (  IsForced
+       && (AsciiStrnCmp (BundlePath, "System\\Library\\Extensions", L_STR_LEN ("System\\Library\\Extensions")) == 0))
+    {
       Status = CachelessContextForceKext (Context, Identifier);
     } else {
       Status = CachelessContextAddKext (
-        Context,
-        Kext->PlistData,
-        Kext->PlistDataSize,
-        Kext->ImageData,
-        Kext->ImageDataSize
-        );
+                 Context,
+                 Kext->PlistData,
+                 Kext->PlistDataSize,
+                 Kext->ImageData,
+                 Kext->ImageDataSize,
+                 BundleVersion
+                 );
     }
   } else if (CacheType == CacheTypeMkext) {
     Status = MkextInjectKext (
-      Context,
-      IsForced ? Identifier : NULL,
-      IsForced ? BundlePath : FullPath,
-      Kext->PlistData,
-      Kext->PlistDataSize,
-      Kext->ImageData,
-      Kext->ImageDataSize
-      );
+               Context,
+               IsForced ? Identifier : NULL,
+               IsForced ? BundlePath : FullPath,
+               Kext->PlistData,
+               Kext->PlistDataSize,
+               Kext->ImageData,
+               Kext->ImageDataSize,
+               BundleVersion
+               );
   } else if (CacheType == CacheTypePrelinked) {
     Status = PrelinkedInjectKext (
-      Context,
-      IsForced ? Identifier : NULL,
-      IsForced ? BundlePath : FullPath,
-      Kext->PlistData,
-      Kext->PlistDataSize,
-      ExecutablePath,
-      Kext->ImageData,
-      Kext->ImageDataSize
-      );
+               Context,
+               IsForced ? Identifier : NULL,
+               IsForced ? BundlePath : FullPath,
+               Kext->PlistData,
+               Kext->PlistDataSize,
+               ExecutablePath,
+               Kext->ImageData,
+               Kext->ImageDataSize,
+               BundleVersion
+               );
   } else {
     Status = EFI_UNSUPPORTED;
   }
@@ -641,9 +664,23 @@ OcKernelInjectKext (
     Comment,
     Status
     ));
+
+  //
+  // Report kext bundle version for DEBUG build.
+  //
+  DEBUG_CODE_BEGIN ();
+  DEBUG ((
+    !IsForced && EFI_ERROR (Status) ? DEBUG_WARN : DEBUG_INFO,
+    "OC: %a%a injection %a v%a\n",
+    PRINT_KERNEL_CACHE_TYPE (CacheType),
+    IsForced ? " force" : "",
+    BundlePath,
+    BundleVersion
+    ));
+
+  DEBUG_CODE_END ();
 }
 
-STATIC
 VOID
 OcKernelInjectKexts (
   IN OC_GLOBAL_CONFIG   *Config,
@@ -655,15 +692,15 @@ OcKernelInjectKexts (
   IN UINT32             ReservedExeSize
   )
 {
-  EFI_STATUS      Status;
-  UINT32          Index;
+  EFI_STATUS  Status;
+  UINT32      Index;
 
   if (CacheType == CacheTypePrelinked) {
     Status = PrelinkedInjectPrepare (
-      Context,
-      LinkedExpansion,
-      ReservedExeSize
-      );
+               Context,
+               LinkedExpansion,
+               ReservedExeSize
+               );
     if (EFI_ERROR (Status)) {
       DEBUG ((DEBUG_WARN, "OC: Prelink inject prepare error - %r\n", Status));
       return;
@@ -700,22 +737,22 @@ OcKernelInjectKexts (
       );
   }
 
-  if (CacheType == CacheTypeCacheless || CacheType == CacheTypeMkext) {
+  if ((CacheType == CacheTypeCacheless) || (CacheType == CacheTypeMkext)) {
     Status = EFI_SUCCESS;
   } else if (CacheType == CacheTypePrelinked) {
     DEBUG ((
       DEBUG_INFO,
       "OC: Prelink size %u kext offset %u reserved %u\n",
-      ((PRELINKED_CONTEXT *) Context)->PrelinkedSize,
-      ((PRELINKED_CONTEXT *) Context)->KextsFileOffset,
+      ((PRELINKED_CONTEXT *)Context)->PrelinkedSize,
+      ((PRELINKED_CONTEXT *)Context)->KextsFileOffset,
       ReservedExeSize
       ));
 
     ASSERT (
-      ((PRELINKED_CONTEXT *) Context)->PrelinkedSize -
-      ((PRELINKED_CONTEXT *) Context)->KextsFileOffset <= ReservedExeSize
+      ((PRELINKED_CONTEXT *)Context)->PrelinkedSize -
+      ((PRELINKED_CONTEXT *)Context)->KextsFileOffset <= ReservedExeSize
       );
-    
+
     Status = PrelinkedInjectComplete (Context);
   } else {
     Status = EFI_UNSUPPORTED;
@@ -726,7 +763,6 @@ OcKernelInjectKexts (
   }
 }
 
-STATIC
 EFI_STATUS
 OcKernelProcessPrelinked (
   IN     OC_GLOBAL_CONFIG  *Config,
@@ -739,17 +775,17 @@ OcKernelProcessPrelinked (
   IN     UINT32            ReservedExeSize
   )
 {
-  EFI_STATUS           Status;
-  PRELINKED_CONTEXT    Context;
+  EFI_STATUS         Status;
+  PRELINKED_CONTEXT  Context;
 
   Status = PrelinkedContextInit (&Context, Kernel, *KernelSize, AllocatedSize, Is32Bit);
 
   if (!EFI_ERROR (Status)) {
+    OcKernelBlockKexts (Config, DarwinVersion, Is32Bit, CacheTypePrelinked, &Context);
+
     OcKernelInjectKexts (Config, CacheTypePrelinked, &Context, DarwinVersion, Is32Bit, LinkedExpansion, ReservedExeSize);
 
     OcKernelApplyPatches (Config, mOcCpuInfo, DarwinVersion, Is32Bit, CacheTypePrelinked, &Context, NULL, 0);
-
-    OcKernelBlockKexts (Config, DarwinVersion, Is32Bit, CacheTypePrelinked, &Context);
 
     *KernelSize = Context.PrelinkedSize;
 
@@ -770,19 +806,19 @@ OcKernelProcessMkext (
   IN     UINT32            AllocatedSize
   )
 {
-  EFI_STATUS            Status;
-  MKEXT_CONTEXT         Context;
+  EFI_STATUS     Status;
+  MKEXT_CONTEXT  Context;
 
   Status = MkextContextInit (&Context, Mkext, *MkextSize, AllocatedSize);
   if (EFI_ERROR (Status)) {
     return Status;
   }
 
+  OcKernelBlockKexts (Config, DarwinVersion, Is32Bit, CacheTypeMkext, &Context);
+
   OcKernelInjectKexts (Config, CacheTypeMkext, &Context, DarwinVersion, Is32Bit, 0, 0);
 
   OcKernelApplyPatches (Config, mOcCpuInfo, DarwinVersion, Is32Bit, CacheTypeMkext, &Context, NULL, 0);
-
-  OcKernelBlockKexts (Config, DarwinVersion, Is32Bit, CacheTypeMkext, &Context);
 
   MkextInjectPatchComplete (&Context);
 
@@ -795,33 +831,33 @@ OcKernelProcessMkext (
 STATIC
 EFI_STATUS
 OcKernelInitCacheless (
-  IN     OC_GLOBAL_CONFIG       *Config,
-  IN     CACHELESS_CONTEXT      *Context,
-  IN     UINT32                 DarwinVersion,
-  IN     BOOLEAN                Is32Bit,
-  IN     CHAR16                 *FileName,
-  IN     EFI_FILE_PROTOCOL      *ExtensionsDir,
-     OUT EFI_FILE_PROTOCOL      **File
+  IN     OC_GLOBAL_CONFIG   *Config,
+  IN     CACHELESS_CONTEXT  *Context,
+  IN     UINT32             DarwinVersion,
+  IN     BOOLEAN            Is32Bit,
+  IN     CHAR16             *FileName,
+  IN     EFI_FILE_PROTOCOL  *ExtensionsDir,
+  OUT EFI_FILE_PROTOCOL     **File
   )
 {
-  EFI_STATUS            Status;
+  EFI_STATUS  Status;
 
   Status = CachelessContextInit (
-    Context,
-    FileName,
-    ExtensionsDir,
-    DarwinVersion,
-    Is32Bit
-    );
+             Context,
+             FileName,
+             ExtensionsDir,
+             DarwinVersion,
+             Is32Bit
+             );
   if (EFI_ERROR (Status)) {
     return Status;
   }
 
+  OcKernelBlockKexts (Config, DarwinVersion, Is32Bit, CacheTypeCacheless, Context);
+
   OcKernelInjectKexts (Config, CacheTypeCacheless, Context, DarwinVersion, Is32Bit, 0, 0);
 
   OcKernelApplyPatches (Config, mOcCpuInfo, DarwinVersion, Is32Bit, CacheTypeCacheless, Context, NULL, 0);
-
-  OcKernelBlockKexts (Config, DarwinVersion, Is32Bit, CacheTypeCacheless, Context);
 
   return CachelessContextOverlayExtensionsDir (Context, File);
 }
@@ -834,22 +870,22 @@ OcKernelReadAppleKernel (
   IN     CHAR16             *FileName,
   IN     BOOLEAN            Is32Bit,
   IN OUT UINT32             *DarwinVersion,
-     OUT UINT8              **Kernel,
-     OUT UINT32             *KernelSize,
-     OUT UINT32             *AllocatedSize,
-     OUT UINT32             *ReservedExeSize,
-     OUT UINT32             *LinkedExpansion,
-     OUT UINT8              *Digest  OPTIONAL
+  OUT UINT8                 **Kernel,
+  OUT UINT32                *KernelSize,
+  OUT UINT32                *AllocatedSize,
+  OUT UINT32                *ReservedExeSize,
+  OUT UINT32                *LinkedExpansion,
+  OUT UINT8                 *Digest  OPTIONAL
   )
 {
-  EFI_STATUS         Status;
-  BOOLEAN            Result;
-  UINT32             DarwinVersionNew;
-  BOOLEAN            IsKernel32Bit;
+  EFI_STATUS  Status;
+  BOOLEAN     Result;
+  UINT32      DarwinVersionNew;
+  BOOLEAN     IsKernel32Bit;
 
-  UINT32             ReservedInfoSize;
-  UINT32             NumReservedKexts;
-  UINT32             ReservedFullSize;
+  UINT32  ReservedInfoSize;
+  UINT32  NumReservedKexts;
+  UINT32  ReservedFullSize;
 
   OcKernelLoadKextsAndReserve (
     RootFile,
@@ -867,12 +903,12 @@ OcKernelReadAppleKernel (
     return EFI_UNSUPPORTED;
   }
 
-  Result = OcOverflowTriAddU32 (
-    ReservedInfoSize,
-    *ReservedExeSize,
-    *LinkedExpansion,
-    &ReservedFullSize
-    );
+  Result = BaseOverflowTriAddU32 (
+             ReservedInfoSize,
+             *ReservedExeSize,
+             *LinkedExpansion,
+             &ReservedFullSize
+             );
   if (Result) {
     return EFI_UNSUPPORTED;
   }
@@ -882,15 +918,15 @@ OcKernelReadAppleKernel (
   //
   DEBUG ((DEBUG_INFO, "OC: Trying %a XNU hook on %s\n", Is32Bit ? "32-bit" : "64-bit", FileName));
   Status = ReadAppleKernel (
-    KernelFile,
-    Is32Bit,
-    &IsKernel32Bit,
-    Kernel,
-    KernelSize,
-    AllocatedSize,
-    ReservedFullSize,
-    Digest
-    );
+             KernelFile,
+             Is32Bit,
+             &IsKernel32Bit,
+             Kernel,
+             KernelSize,
+             AllocatedSize,
+             ReservedFullSize,
+             Digest
+             );
   DEBUG ((
     DEBUG_INFO,
     "OC: Result of %a XNU hook on %s (%02X%02X%02X%02X) is %r\n",
@@ -940,42 +976,43 @@ OcKernelFuzzyMatch (
   IN     UINT64             Attributes,
   IN     BOOLEAN            Is32Bit,
   IN OUT UINT32             *DarwinVersion,
-     OUT EFI_FILE_PROTOCOL  **KernelFile,
-     OUT UINT8              **Kernel,
-     OUT UINT32             *KernelSize,
-     OUT UINT32             *AllocatedSize,
-     OUT UINT32             *ReservedExeSize,
-     OUT UINT32             *LinkedExpansion,
-     OUT UINT8              *Digest  OPTIONAL
+  OUT EFI_FILE_PROTOCOL     **KernelFile,
+  OUT UINT8                 **Kernel,
+  OUT UINT32                *KernelSize,
+  OUT UINT32                *AllocatedSize,
+  OUT UINT32                *ReservedExeSize,
+  OUT UINT32                *LinkedExpansion,
+  OUT UINT8                 *Digest  OPTIONAL
   )
 {
-  EFI_STATUS          Status;
-  EFI_FILE_PROTOCOL   *FileDirectory;
-  CHAR16              *FileNameDir;
-  UINTN               FileNameDirLength;
+  EFI_STATUS         Status;
+  EFI_FILE_PROTOCOL  *FileDirectory;
+  CHAR16             *FileNameDir;
+  UINTN              FileNameDirLength;
 
-  EFI_FILE_INFO       *FileInfo;
-  EFI_FILE_INFO       *FileInfoNext;
-  CHAR16              *FileNameCacheNew;
-  UINTN               FileNameCacheNewLength;
-  UINTN               FileNameCacheNewSize;
+  EFI_FILE_INFO  *FileInfo;
+  EFI_FILE_INFO  *FileInfoNext;
+  CHAR16         *FileNameCacheNew;
+  UINTN          FileNameCacheNewLength;
+  UINTN          FileNameCacheNewSize;
 
-  DIRECTORY_SEARCH_CONTEXT Context;
+  DIRECTORY_SEARCH_CONTEXT  Context;
 
-  FileInfo          = NULL;
-  FileNameCacheNew  = NULL;
+  FileInfo         = NULL;
+  FileNameCacheNew = NULL;
 
   //
   // Open parent directory.
   //
   FileNameDirLength = OcStriStr (FileName, L"\\kernelcache") - FileName;
-  FileNameDir = AllocateZeroPool (StrnSizeS (FileName, FileNameDirLength));
+  FileNameDir       = AllocateZeroPool (StrnSizeS (FileName, FileNameDirLength));
   if (FileNameDir == NULL) {
     return EFI_OUT_OF_RESOURCES;
   }
+
   CopyMem (FileNameDir, FileName, StrnSizeS (FileName, FileNameDirLength) - sizeof (*FileName));
 
-  Status = SafeFileOpen (RootFile, &FileDirectory, FileNameDir, EFI_FILE_MODE_READ, 0);
+  Status = OcSafeFileOpen (RootFile, &FileDirectory, FileNameDir, EFI_FILE_MODE_READ, 0);
   if (EFI_ERROR (Status)) {
     FreePool (FileNameDir);
     return Status;
@@ -984,30 +1021,32 @@ OcKernelFuzzyMatch (
   //
   // Search for kernelcache files, trying each one.
   //
-  DirectorySeachContextInit (&Context);
+  OcDirectorySeachContextInit (&Context);
   do {
-    Status = GetNewestFileFromDirectory (
-      &Context,
-      FileDirectory,
-      L"kernelcache",
-      &FileInfoNext
-      );
+    Status = OcGetNewestFileFromDirectory (
+               &Context,
+               FileDirectory,
+               L"kernelcache",
+               &FileInfoNext
+               );
 
     if (EFI_ERROR (Status)) {
       break;
     }
-        
+
     if (FileInfo != NULL) {
       FreePool (FileInfo);
     }
+
     if (FileNameCacheNew != NULL) {
       FreePool (FileNameCacheNew);
     }
+
     FileInfo = FileInfoNext;
 
     FileNameCacheNewLength = FileNameDirLength + L_STR_LEN ("\\") + StrLen (FileInfo->FileName);
-    FileNameCacheNewSize = (FileNameCacheNewLength + 1) * sizeof (*FileNameCacheNew);
-    FileNameCacheNew = AllocateZeroPool (FileNameCacheNewSize);
+    FileNameCacheNewSize   = (FileNameCacheNewLength + 1) * sizeof (*FileNameCacheNew);
+    FileNameCacheNew       = AllocateZeroPool (FileNameCacheNewSize);
     if (FileNameCacheNew == NULL) {
       Status = EFI_OUT_OF_RESOURCES;
       break;
@@ -1018,32 +1057,34 @@ OcKernelFuzzyMatch (
       break;
     }
 
-    Status = SafeFileOpen (RootFile, KernelFile, FileNameCacheNew, OpenMode, Attributes);
+    Status = OcSafeFileOpen (RootFile, KernelFile, FileNameCacheNew, OpenMode, Attributes);
     if (EFI_ERROR (Status)) {
       continue;
     }
 
     Status = OcKernelReadAppleKernel (
-      RootFile,
-      *KernelFile,
-      FileNameCacheNew,
-      Is32Bit,
-      DarwinVersion,
-      Kernel,
-      KernelSize,
-      AllocatedSize,
-      ReservedExeSize,
-      LinkedExpansion,
-      Digest
-      );
+               RootFile,
+               *KernelFile,
+               FileNameCacheNew,
+               Is32Bit,
+               DarwinVersion,
+               Kernel,
+               KernelSize,
+               AllocatedSize,
+               ReservedExeSize,
+               LinkedExpansion,
+               Digest
+               );
   } while (EFI_ERROR (Status));
 
   if (FileInfo != NULL) {
     FreePool (FileInfo);
   }
+
   if (FileNameCacheNew != NULL) {
     FreePool (FileNameCacheNew);
   }
+
   FreePool (FileNameDir);
 
   return Status;
@@ -1053,11 +1094,11 @@ STATIC
 EFI_STATUS
 EFIAPI
 OcKernelFileOpen (
-  IN  EFI_FILE_PROTOCOL       *This,
-  OUT EFI_FILE_PROTOCOL       **NewHandle,
-  IN  CHAR16                  *FileName,
-  IN  UINT64                  OpenMode,
-  IN  UINT64                  Attributes
+  IN  EFI_FILE_PROTOCOL  *This,
+  OUT EFI_FILE_PROTOCOL  **NewHandle,
+  IN  CHAR16             *FileName,
+  IN  UINT64             OpenMode,
+  IN  UINT64             Attributes
   )
 {
   EFI_STATUS         Status;
@@ -1078,6 +1119,13 @@ OcKernelFileOpen (
   UINT32             NumReservedKexts;
   UINT32             LinkedExpansion;
   UINT32             ReservedFullSize;
+  CHAR16             *NewFileName;
+  EFI_FILE_PROTOCOL  *EspNewHandle;
+
+  if (mCustomKernelDirectoryInProgress) {
+    DEBUG ((DEBUG_INFO, "OC: Skipping OpenFile hooking on ESP Kernels directory\n"));
+    return OcSafeFileOpen (This, NewHandle, FileName, OpenMode, Attributes);
+  }
 
   //
   // Prevent access to cache files depending on maximum cache type allowed.
@@ -1102,28 +1150,29 @@ OcKernelFileOpen (
   //
   // Hook injected OcXXXXXXXX.kext reads from /S/L/E.
   //
-  if (mOcCachelessInProgress
-    && OpenMode == EFI_FILE_MODE_READ
-    && StrnCmp (FileName, L"System\\Library\\Extensions\\Oc", L_STR_LEN (L"System\\Library\\Extensions\\Oc")) == 0) {
+  if (  mOcCachelessInProgress
+     && (OpenMode == EFI_FILE_MODE_READ)
+     && (StrnCmp (FileName, L"System\\Library\\Extensions\\Oc", L_STR_LEN (L"System\\Library\\Extensions\\Oc")) == 0))
+  {
     Status = CachelessContextPerformInject (&mOcCachelessContext, FileName, NewHandle);
     DEBUG ((
       DEBUG_INFO,
       "OC: Hooking SLE injected file %s with %u mode gave - %r\n",
       FileName,
-      (UINT32) OpenMode,
+      (UINT32)OpenMode,
       Status
       ));
 
     return Status;
   }
 
-  Status = SafeFileOpen (This, NewHandle, FileName, OpenMode, Attributes);
+  Status = OcSafeFileOpen (This, NewHandle, FileName, OpenMode, Attributes);
 
   DEBUG ((
     DEBUG_VERBOSE,
     "OC: Opening file %s with %u mode gave - %r\n",
     FileName,
-    (UINT32) OpenMode,
+    (UINT32)OpenMode,
     Status
     ));
 
@@ -1132,28 +1181,44 @@ OcKernelFileOpen (
   // Only hook if the desired kernelcache file does not exist.
   //
   Kernel = NULL;
-  if (mOcConfiguration->Kernel.Scheme.FuzzyMatch
-    && Status == EFI_NOT_FOUND
-    && OpenMode == EFI_FILE_MODE_READ
-    && (StrStr (FileName, L"\\kernelcache") != NULL)) {
+  if (  mOcConfiguration->Kernel.Scheme.FuzzyMatch
+     && (Status == EFI_NOT_FOUND)
+     && (OpenMode == EFI_FILE_MODE_READ)
+     && (StrStr (FileName, L"\\kernelcache") != NULL))
+  {
+    //
+    // Change the target to the custom one if requested CustomKernel.
+    //
+    if (mCustomKernelDirectory != NULL) {
+      DEBUG ((DEBUG_INFO, "OC: Redirecting %s to the custom one on ESP\n", FileName));
+      NewFileName = OcStrrChr (FileName, L'\\');
+      if (NewFileName == NULL) {
+        NewFileName = FileName;
+      }
+
+      DEBUG ((DEBUG_INFO, "OC: Filename after redirection: %s\n", NewFileName));
+
+      This     = mCustomKernelDirectory;
+      FileName = NewFileName;
+    }
 
     DEBUG ((DEBUG_INFO, "OC: Trying kernelcache fuzzy matching on %s\n", FileName));
 
     Status = OcKernelFuzzyMatch (
-      This,
-      FileName,
-      OpenMode,
-      Attributes,
-      mUse32BitKernel,
-      &mOcDarwinVersion,
-      NewHandle,
-      &Kernel,
-      &KernelSize,
-      &AllocatedSize,
-      &ReservedExeSize,
-      &LinkedExpansion,
-      UseSecureBoot ? mKernelDigest : NULL
-      );
+               This,
+               FileName,
+               OpenMode,
+               Attributes,
+               mUse32BitKernel,
+               &mOcDarwinVersion,
+               NewHandle,
+               &Kernel,
+               &KernelSize,
+               &AllocatedSize,
+               &ReservedExeSize,
+               &LinkedExpansion,
+               UseSecureBoot ? mKernelDigest : NULL
+               );
   }
 
   if (EFI_ERROR (Status)) {
@@ -1166,32 +1231,56 @@ OcKernelFileOpen (
   // On 10.9 mach_kernel is loaded for manual linking aferwards, so we cannot skip it.
   // We also want to skip files named "kernel" that are part of kext bundles, and im4m.
   //
-  if (OpenMode == EFI_FILE_MODE_READ
-    && OcStriStr (FileName, L"kernel") != NULL
-    && StrCmp (FileName, L"System\\Library\\Kernels\\kernel") != 0
-    && OcStriStr (FileName, L".kext\\") == NULL
-    && OcStriStr (FileName, L".im4m") == NULL) {
+  if (  (OpenMode == EFI_FILE_MODE_READ)
+     && (OcStriStr (FileName, L"kernel") != NULL)
+     && (StrCmp (FileName, L"System\\Library\\Kernels\\kernel") != 0)
+     && (OcStriStr (FileName, L".kext\\") == NULL)
+     && (OcStriStr (FileName, L".im4m") == NULL))
+  {
+    //
+    // Change the target to the custom one if requested CustomKernel.
+    //
+    if (mCustomKernelDirectory != NULL) {
+      DEBUG ((DEBUG_INFO, "OC: Redirecting %s to the custom one on ESP\n", FileName));
+      NewFileName = OcStrrChr (FileName, L'\\');
+      if (NewFileName == NULL) {
+        NewFileName = FileName;
+      }
+
+      DEBUG ((DEBUG_INFO, "OC: Filename after redirection: %s\n", NewFileName));
+
+      mCustomKernelDirectoryInProgress = TRUE;
+      Status                           = OcSafeFileOpen (mCustomKernelDirectory, &EspNewHandle, NewFileName, OpenMode, Attributes);
+      mCustomKernelDirectoryInProgress = FALSE;
+      if (!EFI_ERROR (Status)) {
+        (*NewHandle)->Close (*NewHandle);
+
+        This       = mCustomKernelDirectory;
+        *NewHandle = EspNewHandle;
+        FileName   = NewFileName;
+      }
+    }
 
     //
     // Kernel loading for fuzzy kernelcache is performed earlier.
     //
     if (Kernel == NULL) {
       Status = OcKernelReadAppleKernel (
-        This,
-        *NewHandle,
-        FileName,
-        mUse32BitKernel,
-        &mOcDarwinVersion,
-        &Kernel,
-        &KernelSize,
-        &AllocatedSize,
-        &ReservedExeSize,
-        &LinkedExpansion,
-        UseSecureBoot ? mKernelDigest : NULL
-        );
+                 This,
+                 *NewHandle,
+                 FileName,
+                 mUse32BitKernel,
+                 &mOcDarwinVersion,
+                 &Kernel,
+                 &KernelSize,
+                 &AllocatedSize,
+                 &ReservedExeSize,
+                 &LinkedExpansion,
+                 UseSecureBoot ? mKernelDigest : NULL
+                 );
 
       if (Status == EFI_NOT_FOUND) {
-        (*NewHandle)->Close(*NewHandle);
+        (*NewHandle)->Close (*NewHandle);
         *NewHandle = NULL;
 
         return Status;
@@ -1203,14 +1292,15 @@ OcKernelFileOpen (
       // Disable prelinked if forcing mkext or cacheless, but only on appropriate versions.
       // We also disable prelinked on 10.5 or older due to prelinked on those versions being unsupported.
       //
-      if ((OcStriStr (FileName, L"kernelcache") != NULL || OcStriStr (FileName, L"prelinkedkernel") != NULL)
-        && ((MaxCacheTypeAllowed == CacheTypeNone && mOcDarwinVersion <= KERNEL_VERSION_LEOPARD_MAX)
-        || (MaxCacheTypeAllowed == CacheTypeMkext && mOcDarwinVersion <= KERNEL_VERSION_SNOW_LEOPARD_MAX)
-        || (MaxCacheTypeAllowed == CacheTypeCacheless && mOcDarwinVersion <= KERNEL_VERSION_MAVERICKS_MAX))) {
-        DEBUG ((DEBUG_INFO, "OC: Blocking prelinked due to ForceKernelCache=%s: %a\n", FileName, ForceCacheType));
+      if (  ((OcStriStr (FileName, L"kernelcache") != NULL) || (OcStriStr (FileName, L"prelinkedkernel") != NULL))
+         && (  ((MaxCacheTypeAllowed == CacheTypeNone) && (mOcDarwinVersion <= KERNEL_VERSION_LEOPARD_MAX))
+            || ((MaxCacheTypeAllowed == CacheTypeMkext) && (mOcDarwinVersion <= KERNEL_VERSION_SNOW_LEOPARD_MAX))
+            || ((MaxCacheTypeAllowed == CacheTypeCacheless) && (mOcDarwinVersion <= KERNEL_VERSION_MAVERICKS_MAX))))
+      {
+        DEBUG ((DEBUG_INFO, "OC: Blocking prelinked due to ForceKernelCache=%a: %s\n", ForceCacheType, FileName));
 
         FreePool (Kernel);
-        (*NewHandle)->Close(*NewHandle);
+        (*NewHandle)->Close (*NewHandle);
         *NewHandle = NULL;
 
         return EFI_NOT_FOUND;
@@ -1231,24 +1321,24 @@ OcKernelFileOpen (
         );
 
       PrelinkedStatus = OcKernelProcessPrelinked (
-        mOcConfiguration,
-        mOcDarwinVersion,
-        mUse32BitKernel,
-        Kernel,
-        &KernelSize,
-        AllocatedSize,
-        LinkedExpansion,
-        ReservedExeSize
-        );
+                          mOcConfiguration,
+                          mOcDarwinVersion,
+                          mUse32BitKernel,
+                          Kernel,
+                          &KernelSize,
+                          AllocatedSize,
+                          LinkedExpansion,
+                          ReservedExeSize
+                          );
 
       DEBUG ((DEBUG_INFO, "OC: Prelinked status - %r\n", PrelinkedStatus));
 
-      Status = GetFileModificationTime (*NewHandle, &ModificationTime);
+      Status = OcGetFileModificationTime (*NewHandle, &ModificationTime);
       if (EFI_ERROR (Status)) {
         ZeroMem (&ModificationTime, sizeof (ModificationTime));
       }
 
-      (*NewHandle)->Close(*NewHandle);
+      (*NewHandle)->Close (*NewHandle);
 
       //
       // Virtualise newly created kernel.
@@ -1272,20 +1362,20 @@ OcKernelFileOpen (
     }
   }
 
-  if (OpenMode == EFI_FILE_MODE_READ
-    && OcStriStr (FileName, L"Extensions.mkext") != NULL) {
-
+  if (  (OpenMode == EFI_FILE_MODE_READ)
+     && (OcStriStr (FileName, L"Extensions.mkext") != NULL))
+  {
     //
     // Disable mkext booting if forcing cacheless.
     //
     if (MaxCacheTypeAllowed == CacheTypeCacheless) {
-      DEBUG ((DEBUG_INFO, "OC: Blocking mkext due to ForceKernelCache=%s: %a\n", FileName, ForceCacheType));
-      (*NewHandle)->Close(*NewHandle);
+      DEBUG ((DEBUG_INFO, "OC: Blocking mkext due to ForceKernelCache=%a: %s\n", ForceCacheType, FileName));
+      (*NewHandle)->Close (*NewHandle);
       *NewHandle = NULL;
 
       return EFI_NOT_FOUND;
     }
-    
+
     OcKernelLoadKextsAndReserve (
       This,
       mOcStorage,
@@ -1297,25 +1387,25 @@ OcKernelFileOpen (
       &NumReservedKexts
       );
 
-    Result = OcOverflowAddU32 (
-      ReservedInfoSize,
-      ReservedExeSize,
-      &ReservedFullSize
-      );
+    Result = BaseOverflowAddU32 (
+               ReservedInfoSize,
+               ReservedExeSize,
+               &ReservedFullSize
+               );
     if (Result) {
       return EFI_UNSUPPORTED;
     }
 
     DEBUG ((DEBUG_INFO, "OC: Trying %a mkext hook on %s\n", mUse32BitKernel ? "32-bit" : "64-bit", FileName));
     Status = ReadAppleMkext (
-      *NewHandle,
-      mUse32BitKernel,
-      &Kernel,
-      &KernelSize,
-      &AllocatedSize,
-      ReservedFullSize,
-      NumReservedKexts
-      );
+               *NewHandle,
+               mUse32BitKernel,
+               &Kernel,
+               &KernelSize,
+               &AllocatedSize,
+               ReservedFullSize,
+               NumReservedKexts
+               );
     DEBUG ((DEBUG_INFO, "OC: Result of mkext hook on %s is %r\n", FileName, Status));
 
     if (!EFI_ERROR (Status)) {
@@ -1323,21 +1413,21 @@ OcKernelFileOpen (
       // Process mkext.
       //
       Status = OcKernelProcessMkext (
-        mOcConfiguration,
-        mOcDarwinVersion,
-        mUse32BitKernel,
-        Kernel,
-        &KernelSize,
-        AllocatedSize
-        );
+                 mOcConfiguration,
+                 mOcDarwinVersion,
+                 mUse32BitKernel,
+                 Kernel,
+                 &KernelSize,
+                 AllocatedSize
+                 );
       DEBUG ((DEBUG_INFO, "OC: Mkext status - %r\n", Status));
       if (!EFI_ERROR (Status)) {
-        Status = GetFileModificationTime (*NewHandle, &ModificationTime);
+        Status = OcGetFileModificationTime (*NewHandle, &ModificationTime);
         if (EFI_ERROR (Status)) {
           ZeroMem (&ModificationTime, sizeof (ModificationTime));
         }
 
-        (*NewHandle)->Close(*NewHandle);
+        (*NewHandle)->Close (*NewHandle);
 
         //
         // Virtualise newly created mkext.
@@ -1360,15 +1450,16 @@ OcKernelFileOpen (
   //
   // Hook /S/L/E for cacheless boots.
   //
-  if (OpenMode == EFI_FILE_MODE_READ
-    && StrCmp (FileName, L"System\\Library\\Extensions") == 0) {
-
+  if (  (OpenMode == EFI_FILE_MODE_READ)
+     && (StrCmp (FileName, L"System\\Library\\Extensions") == 0))
+  {
     //
     // Free existing context if we are re-opening Extensions directory.
     //
     if (mOcCachelessInProgress) {
       CachelessContextFree (&mOcCachelessContext);
     }
+
     mOcCachelessInProgress = FALSE;
 
     OcKernelLoadKextsAndReserve (
@@ -1386,20 +1477,20 @@ OcKernelFileOpen (
     // Initialize Extensions directory overlay for cacheless injection.
     //
     Status = OcKernelInitCacheless (
-      mOcConfiguration,
-      &mOcCachelessContext,
-      mOcDarwinVersion,
-      mUse32BitKernel,
-      FileName,
-      *NewHandle,
-      &VirtualFileHandle
-      );
-    
+               mOcConfiguration,
+               &mOcCachelessContext,
+               mOcDarwinVersion,
+               mUse32BitKernel,
+               FileName,
+               *NewHandle,
+               &VirtualFileHandle
+               );
+
     DEBUG ((DEBUG_INFO, "OC: Result of SLE hook on %s is %r\n", FileName, Status));
 
     if (!EFI_ERROR (Status)) {
-      mOcCachelessInProgress  = TRUE;
-      *NewHandle              = VirtualFileHandle;
+      mOcCachelessInProgress = TRUE;
+      *NewHandle             = VirtualFileHandle;
       return EFI_SUCCESS;
     }
   }
@@ -1407,24 +1498,25 @@ OcKernelFileOpen (
   //
   // Hook /S/L/E contents for processing during cacheless boots.
   //
-  if (mOcCachelessInProgress
-    && OpenMode == EFI_FILE_MODE_READ
-    && StrnCmp (FileName, L"System\\Library\\Extensions\\", L_STR_LEN (L"System\\Library\\Extensions\\")) == 0) {
-      Status = CachelessContextHookBuiltin (
-        &mOcCachelessContext,
-        FileName,
-        *NewHandle,
-        &VirtualFileHandle
-        );
+  if (  mOcCachelessInProgress
+     && (OpenMode == EFI_FILE_MODE_READ)
+     && (StrnCmp (FileName, L"System\\Library\\Extensions\\", L_STR_LEN (L"System\\Library\\Extensions\\")) == 0))
+  {
+    Status = CachelessContextHookBuiltin (
+               &mOcCachelessContext,
+               FileName,
+               *NewHandle,
+               &VirtualFileHandle
+               );
 
-      if (EFI_ERROR (Status)) {
-        DEBUG ((DEBUG_INFO, "OC: Error SLE hooking %s - %r\n", FileName, Status));
-      }
+    if (EFI_ERROR (Status)) {
+      DEBUG ((DEBUG_INFO, "OC: Error SLE hooking %s - %r\n", FileName, Status));
+    }
 
-      if (!EFI_ERROR (Status) && VirtualFileHandle != NULL) {
-        *NewHandle = VirtualFileHandle;
-        return EFI_SUCCESS;
-      }
+    if (!EFI_ERROR (Status) && (VirtualFileHandle != NULL)) {
+      *NewHandle = VirtualFileHandle;
+      return EFI_SUCCESS;
+    }
   }
 
   //
@@ -1441,16 +1533,44 @@ OcLoadKernelSupport (
   IN OC_CPU_INFO         *CpuInfo
   )
 {
-  EFI_STATUS  Status;
+  EFI_STATUS         Status;
+  EFI_FILE_PROTOCOL  *Root;
 
   Status = EnableVirtualFs (gBS, OcKernelFileOpen);
 
   if (!EFI_ERROR (Status)) {
-    mOcStorage              = Storage;
-    mOcConfiguration        = Config;
-    mOcCpuInfo              = CpuInfo;
-    mOcDarwinVersion        = 0;
-    mOcCachelessInProgress  = FALSE;
+    mOcStorage                       = Storage;
+    mOcConfiguration                 = Config;
+    mOcCpuInfo                       = CpuInfo;
+    mOcDarwinVersion                 = 0;
+    mOcCachelessInProgress           = FALSE;
+    mCustomKernelDirectoryInProgress = FALSE;
+    //
+    // Open customised Kernels if needed.
+    //
+    mCustomKernelDirectory = NULL;
+    if (mOcConfiguration->Kernel.Scheme.CustomKernel) {
+      Status = OcFindWritableOcFileSystem (&Root);
+      if (!EFI_ERROR (Status)) {
+        //
+        // Open Kernels directory.
+        //
+        Status = Root->Open (
+                         Root,
+                         &mCustomKernelDirectory,
+                         L"Kernels",
+                         EFI_FILE_MODE_READ,
+                         EFI_FILE_DIRECTORY
+                         );
+        if (EFI_ERROR (Status)) {
+          DEBUG ((DEBUG_INFO, "OC: Unable to open Kernels folder for custom kernel - %r, falling back to normal one\n", Status));
+          mCustomKernelDirectory = NULL;
+        }
+      } else {
+        DEBUG ((DEBUG_INFO, "OC: Unable to find root writable filesystem for custom kernel - %r, falling back to normal one\n", Status));
+      }
+    }
+
     OcImageLoaderRegisterConfigure (OcKernelConfigureCapabilities);
   } else {
     DEBUG ((DEBUG_ERROR, "OC: Failed to enable vfs - %r\n", Status));
@@ -1470,6 +1590,7 @@ OcUnloadKernelSupport (
     if (EFI_ERROR (Status)) {
       DEBUG ((DEBUG_ERROR, "OC: Failed to disable vfs - %r\n", Status));
     }
+
     mOcStorage       = NULL;
     mOcConfiguration = NULL;
   }

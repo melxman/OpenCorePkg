@@ -40,7 +40,7 @@ Abstract:
 
 #include <Protocol/PciIo.h>
 
-EFI_GUID *gTableGuidArray[] = {
+EFI_GUID  *gTableGuidArray[] = {
   &gEfiAcpi10TableGuid,
   &gEfiAcpiTableGuid,
   &gEfiSmbiosTableGuid,
@@ -54,9 +54,10 @@ EFI_GUID *gTableGuidArray[] = {
 STATIC
 EFI_STATUS
 ConvertAcpiTable (
-  IN     UINTN                       TableLen,
-  IN OUT VOID                        **Table
+  IN     UINTN  TableLen,
+  IN OUT VOID   **Table
   )
+
 /*++
 
 Routine Description:
@@ -81,18 +82,18 @@ Returns:
   EFI_STATUS            Status;
   EFI_PHYSICAL_ADDRESS  BufferPtr;
 
-  AcpiTableOri    =  (VOID *)(UINTN)(*(UINT64*)(*Table));
+  AcpiTableOri =  (VOID *)(UINTN)(*(UINT64 *)(*Table));
   if (((UINTN)AcpiTableOri < 0x100000) && ((UINTN)AcpiTableOri > 0xE0000)) {
     BufferPtr = EFI_SYSTEM_TABLE_MAX_ADDRESS;
-    Status = gBS->AllocatePages (
-      AllocateMaxAddress,
-      EfiACPIMemoryNVS,
-      EFI_SIZE_TO_PAGES (TableLen),
-      &BufferPtr
-      );
+    Status    = gBS->AllocatePages (
+                       AllocateMaxAddress,
+                       EfiACPIMemoryNVS,
+                       EFI_SIZE_TO_PAGES (TableLen),
+                       &BufferPtr
+                       );
     ASSERT_EFI_ERROR (Status);
 
-    AcpiTableNew = (VOID *)(UINTN) BufferPtr;
+    AcpiTableNew = (VOID *)(UINTN)BufferPtr;
     CopyMem (AcpiTableNew, AcpiTableOri, TableLen);
   } else {
     AcpiTableNew = AcpiTableOri;
@@ -109,8 +110,9 @@ Returns:
 STATIC
 EFI_STATUS
 ConvertSmbiosTable (
-  IN OUT VOID        **Table
+  IN OUT VOID  **Table
   )
+
 /*++
 
 Routine Description:
@@ -129,44 +131,47 @@ Returns:
 
 --*/
 {
-  SMBIOS_TABLE_ENTRY_POINT *SmbiosTableNew;
-  SMBIOS_TABLE_ENTRY_POINT *SmbiosTableOri;
-  EFI_STATUS               Status;
-  UINT32                   SmbiosEntryLen;
-  UINT32                   BufferLen;
-  EFI_PHYSICAL_ADDRESS     BufferPtr;
+  SMBIOS_TABLE_ENTRY_POINT  *SmbiosTableNew;
+  SMBIOS_TABLE_ENTRY_POINT  *SmbiosTableOri;
+  EFI_STATUS                Status;
+  UINT32                    SmbiosEntryLen;
+  UINT32                    BufferLen;
+  EFI_PHYSICAL_ADDRESS      BufferPtr;
 
-  SmbiosTableNew  = NULL;
+  SmbiosTableNew = NULL;
 
   //
   // Get Smibos configuration Table
   //
-  SmbiosTableOri =  (SMBIOS_TABLE_ENTRY_POINT *)(UINTN)(*(UINT64*)(*Table));
+  SmbiosTableOri =  (SMBIOS_TABLE_ENTRY_POINT *)(UINTN)(*(UINT64 *)(*Table));
 
   if ((SmbiosTableOri == NULL) ||
       ((UINTN)SmbiosTableOri > 0x100000) ||
-      ((UINTN)SmbiosTableOri < 0xF0000)){
+      ((UINTN)SmbiosTableOri < 0xF0000))
+  {
     return EFI_SUCCESS;
   }
+
   //
   // Relocate the Smibos memory
   //
   BufferPtr = EFI_SYSTEM_TABLE_MAX_ADDRESS;
   if (SmbiosTableOri->SmbiosBcdRevision != 0x21) {
-    SmbiosEntryLen  = SmbiosTableOri->EntryPointLength;
+    SmbiosEntryLen = SmbiosTableOri->EntryPointLength;
   } else {
     //
     // According to Smbios Spec 2.4, we should set entry point length as 0x1F if version is 2.1
     //
     SmbiosEntryLen = 0x1F;
   }
-  BufferLen = SmbiosEntryLen + SYS_TABLE_PAD(SmbiosEntryLen) + SmbiosTableOri->TableLength;
-  Status = gBS->AllocatePages (
-                  AllocateMaxAddress,
-                  EfiACPIMemoryNVS,
-                  EFI_SIZE_TO_PAGES(BufferLen),
-                  &BufferPtr
-                  );
+
+  BufferLen = SmbiosEntryLen + SYS_TABLE_PAD (SmbiosEntryLen) + SmbiosTableOri->TableLength;
+  Status    = gBS->AllocatePages (
+                     AllocateMaxAddress,
+                     EfiACPIMemoryNVS,
+                     EFI_SIZE_TO_PAGES (BufferLen),
+                     &BufferPtr
+                     );
   ASSERT_EFI_ERROR (Status);
 
   SmbiosTableNew = (SMBIOS_TABLE_ENTRY_POINT *)(UINTN)BufferPtr;
@@ -178,18 +183,19 @@ Returns:
   //
   // Get Smbios Structure table address, and make sure the start address is 32-bit align
   //
-  BufferPtr += SmbiosEntryLen + SYS_TABLE_PAD(SmbiosEntryLen);
+  BufferPtr += SmbiosEntryLen + SYS_TABLE_PAD (SmbiosEntryLen);
   CopyMem (
     (VOID *)(UINTN)BufferPtr,
     (VOID *)(UINTN)(SmbiosTableOri->TableAddress),
     SmbiosTableOri->TableLength
     );
-  SmbiosTableNew->TableAddress = (UINT32)BufferPtr;
-  SmbiosTableNew->SmbiosBcdRevision = 0x26;
+  SmbiosTableNew->TableAddress         = (UINT32)BufferPtr;
+  SmbiosTableNew->SmbiosBcdRevision    = 0x26;
   SmbiosTableNew->IntermediateChecksum = 0;
   SmbiosTableNew->IntermediateChecksum =  CalculateCheckSum8 (
-    (UINT8*)SmbiosTableNew + 0x10, SmbiosEntryLen - 0x10
-    );
+                                            (UINT8 *)SmbiosTableNew + 0x10,
+                                            SmbiosEntryLen - 0x10
+                                            );
   //
   // Change the SMBIOS pointer
   //
@@ -201,9 +207,10 @@ Returns:
 STATIC
 EFI_STATUS
 ConvertSystemTable (
-  IN     EFI_GUID        *TableGuid,
-  IN OUT VOID            **Table
+  IN     EFI_GUID  *TableGuid,
+  IN OUT VOID      **Table
   )
+
 /*++
 
 Routine Description:
@@ -223,22 +230,22 @@ Returns:
 
 --*/
 {
-  EFI_STATUS      Status;
-  VOID            *AcpiHeader;
-  UINTN           AcpiTableLen;
+  EFI_STATUS  Status;
+  VOID        *AcpiHeader;
+  UINTN       AcpiTableLen;
 
   //
   // If match acpi guid (1.0, 2.0, or later), Convert ACPI table according to version.
   //
-  AcpiHeader = (VOID*)(UINTN)(*(UINT64 *)(*Table));
+  AcpiHeader = (VOID *)(UINTN)(*(UINT64 *)(*Table));
 
-  if (CompareGuid(TableGuid, &gEfiAcpiTableGuid) || CompareGuid(TableGuid, &gEfiAcpi20TableGuid)){
-    if (((EFI_ACPI_1_0_ROOT_SYSTEM_DESCRIPTION_POINTER *)AcpiHeader)->Reserved == 0x00){
+  if (CompareGuid (TableGuid, &gEfiAcpiTableGuid) || CompareGuid (TableGuid, &gEfiAcpi20TableGuid)) {
+    if (((EFI_ACPI_1_0_ROOT_SYSTEM_DESCRIPTION_POINTER *)AcpiHeader)->Reserved == 0x00) {
       //
       // If Acpi 1.0 Table, then RSDP structure doesn't contain Length field, use structure size
       //
       AcpiTableLen = sizeof (EFI_ACPI_1_0_ROOT_SYSTEM_DESCRIPTION_POINTER);
-    } else if (((EFI_ACPI_1_0_ROOT_SYSTEM_DESCRIPTION_POINTER *)AcpiHeader)->Reserved >= 0x02){
+    } else if (((EFI_ACPI_1_0_ROOT_SYSTEM_DESCRIPTION_POINTER *)AcpiHeader)->Reserved >= 0x02) {
       //
       // If Acpi 2.0 or later, use RSDP Length fied.
       //
@@ -249,6 +256,7 @@ Returns:
       //
       return EFI_UNSUPPORTED;
     }
+
     Status = ConvertAcpiTable (AcpiTableLen, Table);
     return Status;
   }
@@ -256,8 +264,9 @@ Returns:
   //
   // If matches smbios guid, convert Smbios table.
   //
-  if (CompareGuid(TableGuid, &gEfiSmbiosTableGuid) ||
-      CompareGuid(TableGuid, &gEfiSmbios3TableGuid)){
+  if (CompareGuid (TableGuid, &gEfiSmbiosTableGuid) ||
+      CompareGuid (TableGuid, &gEfiSmbios3TableGuid))
+  {
     Status = ConvertSmbiosTable (Table);
     return Status;
   }
@@ -270,6 +279,7 @@ VOID
 GetSystemTablesFromHob (
   VOID
   )
+
 /*++
 
 Routine Description:
@@ -283,10 +293,10 @@ Returns:
 
 --*/
 {
-  EFI_PEI_HOB_POINTERS        GuidHob;
-  EFI_PEI_HOB_POINTERS        HobStart;
-  EFI_PHYSICAL_ADDRESS        *Table;
-  UINTN                       Index;
+  EFI_PEI_HOB_POINTERS  GuidHob;
+  EFI_PEI_HOB_POINTERS  HobStart;
+  EFI_PHYSICAL_ADDRESS  *Table;
+  UINTN                 Index;
 
   //
   // Get Hob List
@@ -305,7 +315,7 @@ Returns:
         // According to UEFI Spec, we should make sure Smbios table,
         // ACPI table and Mps tables kept in memory of specified type
         //
-        ConvertSystemTable (gTableGuidArray[Index], (VOID**)&Table);
+        ConvertSystemTable (gTableGuidArray[Index], (VOID **)&Table);
         gBS->InstallConfigurationTable (gTableGuidArray[Index], (VOID *)Table);
       }
     }
@@ -318,17 +328,17 @@ UpdateMemoryMap (
   VOID
   )
 {
-  EFI_STATUS                      Status;
-  UINTN                           NumberOfDescriptors;
-  EFI_GCD_MEMORY_SPACE_DESCRIPTOR *MemorySpaceMap;
-  UINT64                          Capabilities;
-  EFI_PEI_HOB_POINTERS            GuidHob;
-  VOID                            *Table;
-  MEMORY_DESC_HOB                 MemoryDescHob;
-  UINTN                           Index;
-  EFI_PHYSICAL_ADDRESS            Memory;
-  EFI_GCD_MEMORY_SPACE_DESCRIPTOR Descriptor;
-  EFI_PHYSICAL_ADDRESS            FirstNonConventionalAddr;
+  EFI_STATUS                       Status;
+  UINTN                            NumberOfDescriptors;
+  EFI_GCD_MEMORY_SPACE_DESCRIPTOR  *MemorySpaceMap;
+  UINT64                           Capabilities;
+  EFI_PEI_HOB_POINTERS             GuidHob;
+  VOID                             *Table;
+  MEMORY_DESC_HOB                  MemoryDescHob;
+  UINTN                            Index;
+  EFI_PHYSICAL_ADDRESS             Memory;
+  EFI_GCD_MEMORY_SPACE_DESCRIPTOR  Descriptor;
+  EFI_PHYSICAL_ADDRESS             FirstNonConventionalAddr;
 
   //
   // Promote reserved memory to system memory.
@@ -339,24 +349,53 @@ UpdateMemoryMap (
   for (Index = 0; Index < NumberOfDescriptors; ++Index) {
     Capabilities = MemorySpaceMap[Index].Capabilities;
 
-    if (MemorySpaceMap[Index].GcdMemoryType == EfiGcdMemoryTypeReserved
-      && (Capabilities & (EFI_MEMORY_PRESENT | EFI_MEMORY_INITIALIZED | EFI_MEMORY_TESTED))
-        == (EFI_MEMORY_PRESENT | EFI_MEMORY_INITIALIZED)) {
+    if (  (MemorySpaceMap[Index].GcdMemoryType == EfiGcdMemoryTypeReserved)
+       && ((Capabilities & (EFI_MEMORY_PRESENT | EFI_MEMORY_INITIALIZED | EFI_MEMORY_TESTED))
+           == (EFI_MEMORY_PRESENT | EFI_MEMORY_INITIALIZED)))
+    {
       Status = gDS->RemoveMemorySpace (
-        MemorySpaceMap[Index].BaseAddress,
-        MemorySpaceMap[Index].Length
-        );
-      if (!EFI_ERROR (Status)) {
-        Status = gDS->AddMemorySpace (
-          (Capabilities & EFI_MEMORY_MORE_RELIABLE) == EFI_MEMORY_MORE_RELIABLE
-            ? EfiGcdMemoryTypeMoreReliable : EfiGcdMemoryTypeSystemMemory,
+                      MemorySpaceMap[Index].BaseAddress,
+                      MemorySpaceMap[Index].Length
+                      );
+      if (EFI_ERROR (Status)) {
+        //
+        // This loop's purpose is to free reserved memory above 4GB. DxeCore
+        // itself is also found (below 4GB) and gives Access Denied here
+        // because it is associated with an image handle.
+        // TODO: Is it is possible to work round issue in first REF (note: that
+        // line dates to original EDK II DuetPkg) while still allowing DxeCore
+        // memory to be mapped as System rather than Reserved in the first place
+        // (see second REF)? (If it's not mapped correctly in the first place
+        // and it's associated with an image handle, it can't be remapped later
+        // using gDS calls.)
+        // REF: https://github.com/acidanthera/OpenCorePkg/blob/2462e02d49b8b9f2562ca76850b73477cc573d47/Legacy/BootPlatform/DxeIpl/HobGeneration.c#L201
+        // REF: https://github.com/acidanthera/audk/blob/e26eb0f9c18e6672c9516dbfdebf2dd9f750207e/MdeModulePkg/Core/Dxe/Gcd/Gcd.c#L2577-L2587
+        //
+        DEBUG ((
+          EFI_D_INFO,
+          "UpdateMemoryMap: Remove %016lx %016lx - %r\n",
           MemorySpaceMap[Index].BaseAddress,
           MemorySpaceMap[Index].Length,
-          Capabilities &~ (EFI_MEMORY_PRESENT | EFI_MEMORY_INITIALIZED | EFI_MEMORY_TESTED | EFI_MEMORY_RUNTIME)
-          );
+          Status
+          ));
+        continue;
       }
 
+      Status = gDS->AddMemorySpace (
+                      (Capabilities & EFI_MEMORY_MORE_RELIABLE) == EFI_MEMORY_MORE_RELIABLE
+          ? EfiGcdMemoryTypeMoreReliable : EfiGcdMemoryTypeSystemMemory,
+                      MemorySpaceMap[Index].BaseAddress,
+                      MemorySpaceMap[Index].Length,
+                      Capabilities &~(EFI_MEMORY_PRESENT | EFI_MEMORY_INITIALIZED | EFI_MEMORY_TESTED | EFI_MEMORY_RUNTIME)
+                      );
       ASSERT_EFI_ERROR (Status);
+      DEBUG ((
+        EFI_D_INFO,
+        "UpdateMemoryMap: Remap %016lx %016lx - %r\n",
+        MemorySpaceMap[Index].BaseAddress,
+        MemorySpaceMap[Index].Length,
+        Status
+        ));
     }
   }
 
@@ -376,28 +415,31 @@ UpdateMemoryMap (
   }
 
   MemoryDescHob.MemDescCount = *(UINTN *)Table;
-  MemoryDescHob.MemDesc      = *(EFI_MEMORY_DESCRIPTOR **)((UINTN)Table + sizeof(UINTN));
+  MemoryDescHob.MemDesc      = *(EFI_MEMORY_DESCRIPTOR **)((UINTN)Table + sizeof (UINTN));
 
   FirstNonConventionalAddr = 0xFFFFFFFF;
   for (Index = 0; Index < MemoryDescHob.MemDescCount; Index++) {
     if (MemoryDescHob.MemDesc[Index].PhysicalStart < 0x100000) {
       continue;
     }
+
     if (MemoryDescHob.MemDesc[Index].PhysicalStart >= 0x100000000ULL) {
       continue;
     }
-    if ((MemoryDescHob.MemDesc[Index].Type == EfiReservedMemoryType)
-      || (MemoryDescHob.MemDesc[Index].Type == EfiRuntimeServicesData)
-      || (MemoryDescHob.MemDesc[Index].Type == EfiRuntimeServicesCode)
-      || (MemoryDescHob.MemDesc[Index].Type == EfiACPIReclaimMemory)
-      || (MemoryDescHob.MemDesc[Index].Type == EfiACPIMemoryNVS)) {
 
+    if (  (MemoryDescHob.MemDesc[Index].Type == EfiReservedMemoryType)
+       || (MemoryDescHob.MemDesc[Index].Type == EfiRuntimeServicesData)
+       || (MemoryDescHob.MemDesc[Index].Type == EfiRuntimeServicesCode)
+       || (MemoryDescHob.MemDesc[Index].Type == EfiACPIReclaimMemory)
+       || (MemoryDescHob.MemDesc[Index].Type == EfiACPIMemoryNVS))
+    {
       if (MemoryDescHob.MemDesc[Index].PhysicalStart < FirstNonConventionalAddr) {
         FirstNonConventionalAddr = MemoryDescHob.MemDesc[Index].PhysicalStart;
       }
 
-      if ((MemoryDescHob.MemDesc[Index].Type == EfiRuntimeServicesData)
-        || (MemoryDescHob.MemDesc[Index].Type == EfiRuntimeServicesCode)) {
+      if (  (MemoryDescHob.MemDesc[Index].Type == EfiRuntimeServicesData)
+         || (MemoryDescHob.MemDesc[Index].Type == EfiRuntimeServicesCode))
+      {
         //
         // For RuntimeSevicesData and RuntimeServicesCode, they are BFV or DxeCore.
         // The memory type is assigned in EfiLdr
@@ -418,18 +460,18 @@ UpdateMemoryMap (
         // Untested DXE Core region, free and remove
         //
         Status = gDS->FreeMemorySpace (
-          MemoryDescHob.MemDesc[Index].PhysicalStart,
-          LShiftU64 (MemoryDescHob.MemDesc[Index].NumberOfPages, EFI_PAGE_SHIFT)
-          );
+                        MemoryDescHob.MemDesc[Index].PhysicalStart,
+                        LShiftU64 (MemoryDescHob.MemDesc[Index].NumberOfPages, EFI_PAGE_SHIFT)
+                        );
 
         if (EFI_ERROR (Status)) {
           continue;
         }
 
         Status = gDS->RemoveMemorySpace (
-          MemoryDescHob.MemDesc[Index].PhysicalStart,
-          LShiftU64 (MemoryDescHob.MemDesc[Index].NumberOfPages, EFI_PAGE_SHIFT)
-          );
+                        MemoryDescHob.MemDesc[Index].PhysicalStart,
+                        LShiftU64 (MemoryDescHob.MemDesc[Index].NumberOfPages, EFI_PAGE_SHIFT)
+                        );
         if (EFI_ERROR (Status)) {
           continue;
         }
@@ -447,15 +489,16 @@ UpdateMemoryMap (
         // PassThrough, let below code add and allocate.
         //
       }
+
       //
       // ACPI or reserved memory
       //
       Status = gDS->AddMemorySpace (
-        EfiGcdMemoryTypeSystemMemory,
-        MemoryDescHob.MemDesc[Index].PhysicalStart,
-        LShiftU64 (MemoryDescHob.MemDesc[Index].NumberOfPages, EFI_PAGE_SHIFT),
-        MemoryDescHob.MemDesc[Index].Attribute
-        );
+                      EfiGcdMemoryTypeSystemMemory,
+                      MemoryDescHob.MemDesc[Index].PhysicalStart,
+                      LShiftU64 (MemoryDescHob.MemDesc[Index].NumberOfPages, EFI_PAGE_SHIFT),
+                      MemoryDescHob.MemDesc[Index].Attribute
+                      );
       if (EFI_ERROR (Status)) {
         continue;
       }
@@ -483,136 +526,25 @@ UpdateMemoryMap (
     if (MemoryDescHob.MemDesc[Index].PhysicalStart < 0x100000) {
       continue;
     }
+
     if (MemoryDescHob.MemDesc[Index].Type != EfiConventionalMemory) {
       continue;
     }
+
     if (MemoryDescHob.MemDesc[Index].PhysicalStart < FirstNonConventionalAddr) {
       continue;
     }
+
     //
     // This is our candidate - add it.
     //
     gDS->AddMemorySpace (
-      EfiGcdMemoryTypeSystemMemory,
-      MemoryDescHob.MemDesc[Index].PhysicalStart,
-      LShiftU64 (MemoryDescHob.MemDesc[Index].NumberOfPages, EFI_PAGE_SHIFT),
-      MemoryDescHob.MemDesc[Index].Attribute
-      );
+           EfiGcdMemoryTypeSystemMemory,
+           MemoryDescHob.MemDesc[Index].PhysicalStart,
+           LShiftU64 (MemoryDescHob.MemDesc[Index].NumberOfPages, EFI_PAGE_SHIFT),
+           MemoryDescHob.MemDesc[Index].Attribute
+           );
   }
-}
-
-STATIC
-EFI_STATUS
-DisableUsbLegacySupport (
-  VOID
-  )
-/*++
-
-Routine Description:
-  Disable the USB legacy Support in all Ehci and Uhci.
-  This function assume all PciIo handles have been created in system.
-
-Arguments:
-  None
-
-Returns:
-  EFI_SUCCESS
-  EFI_NOT_FOUND
---*/
-{
-  EFI_STATUS                            Status;
-  EFI_HANDLE                            *HandleArray;
-  UINTN                                 HandleArrayCount;
-  UINTN                                 Index;
-  EFI_PCI_IO_PROTOCOL                   *PciIo;
-  UINT8                                 Class[3];
-  UINT16                                Command;
-  UINT32                                HcCapParams;
-  UINT32                                ExtendCap;
-  UINT32                                Value;
-  UINT32                                TimeOut;
-
-  //
-  // Find the usb host controller
-  //
-  Status = gBS->LocateHandleBuffer (
-                                    ByProtocol,
-                                    &gEfiPciIoProtocolGuid,
-                                    NULL,
-                                    &HandleArrayCount,
-                                    &HandleArray
-                                    );
-  if (!EFI_ERROR (Status)) {
-    for (Index = 0; Index < HandleArrayCount; Index++) {
-      Status = gBS->HandleProtocol (
-                                    HandleArray[Index],
-                                    &gEfiPciIoProtocolGuid,
-                                    (VOID **)&PciIo
-                                    );
-      if (!EFI_ERROR (Status)) {
-        //
-        // Find the USB host controller controller
-        //
-        Status = PciIo->Pci.Read (PciIo, EfiPciIoWidthUint8, 0x09, 3, &Class);
-        if (!EFI_ERROR (Status)) {
-          if ((PCI_CLASS_SERIAL == Class[2]) &&
-              (PCI_CLASS_SERIAL_USB == Class[1])) {
-            if (PCI_IF_UHCI == Class[0]) {
-              //
-              // Found the UHCI, then disable the legacy support
-              //
-              Command = 0;
-              Status = PciIo->Pci.Write (PciIo, EfiPciIoWidthUint16, 0xC0, 1, &Command);
-            } else if (PCI_IF_EHCI == Class[0]) {
-
-              //
-              // Found the EHCI, then disable the legacy support
-              //
-              Status = PciIo->Mem.Read (
-                                        PciIo,
-                                        EfiPciIoWidthUint32,
-                                        0,                   ///< EHC_BAR_INDEX
-                                        (UINT64) 0x08,       ///< EHC_HCCPARAMS_OFFSET
-                                        1,
-                                        &HcCapParams
-                                        );
-
-              ExtendCap = (HcCapParams >> 8) & 0xFF;
-              //
-              // Disable the SMI in USBLEGCTLSTS firstly
-              // Not doing this may result in a hardlock soon after
-              //
-              PciIo->Pci.Read (PciIo, EfiPciIoWidthUint32, ExtendCap + 0x4, 1, &Value);
-              Value &= 0xFFFF0000;
-              PciIo->Pci.Write (PciIo, EfiPciIoWidthUint32, ExtendCap + 0x4, 1, &Value);
-
-              //
-              // Get EHCI Ownership from legacy bios
-              //
-              PciIo->Pci.Read (PciIo, EfiPciIoWidthUint32, ExtendCap, 1, &Value);
-              Value |= (0x1 << 24);
-              PciIo->Pci.Write (PciIo, EfiPciIoWidthUint32, ExtendCap, 1, &Value);
-
-              TimeOut = 40;
-              while (TimeOut--) {
-                gBS->Stall (500);
-
-                PciIo->Pci.Read (PciIo, EfiPciIoWidthUint32, ExtendCap, 1, &Value);
-
-                if ((Value & 0x01010000) == 0x01000000) {
-                  break;
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-    gBS->FreePool (HandleArray);
-  } else {
-    return Status;
-  }
-  return EFI_SUCCESS;
 }
 
 STATIC
@@ -620,6 +552,7 @@ EFI_STATUS
 ConnectRootBridge (
   VOID
   )
+
 /*++
 
 Routine Description:
@@ -637,8 +570,8 @@ Returns:
 
 --*/
 {
-  EFI_STATUS                Status;
-  EFI_HANDLE                RootHandle;
+  EFI_STATUS  Status;
+  EFI_HANDLE  RootHandle;
 
   //
   // Make all the PCI_IO protocols on PCI Seg 0 show up
@@ -666,8 +599,9 @@ Returns:
 STATIC
 EFI_STATUS
 PrepareLpcBridgeDevicePath (
-  IN EFI_HANDLE                DeviceHandle
+  IN EFI_HANDLE  DeviceHandle
   )
+
 /*++
 
 Routine Description:
@@ -691,14 +625,15 @@ Returns:
   EFI_DEVICE_PATH_PROTOCOL  *DevicePath;
 
   DevicePath = NULL;
-  Status = gBS->HandleProtocol (
-                  DeviceHandle,
-                  &gEfiDevicePathProtocolGuid,
-                  (VOID*)&DevicePath
-                  );
+  Status     = gBS->HandleProtocol (
+                      DeviceHandle,
+                      &gEfiDevicePathProtocolGuid,
+                      (VOID *)&DevicePath
+                      );
   if (EFI_ERROR (Status)) {
     return Status;
   }
+
   //
   // Register Keyboard
   //
@@ -712,19 +647,19 @@ Returns:
 STATIC
 EFI_STATUS
 GetGopDevicePath (
-  IN  EFI_DEVICE_PATH_PROTOCOL *PciDevicePath,
-  OUT EFI_DEVICE_PATH_PROTOCOL **GopDevicePath
+  IN  EFI_DEVICE_PATH_PROTOCOL  *PciDevicePath,
+  OUT EFI_DEVICE_PATH_PROTOCOL  **GopDevicePath
   )
 {
-  UINTN                           Index;
-  EFI_STATUS                      Status;
-  EFI_HANDLE                      PciDeviceHandle;
-  EFI_DEVICE_PATH_PROTOCOL        *TempDevicePath;
-  EFI_DEVICE_PATH_PROTOCOL        *TempPciDevicePath;
-  UINTN                           GopHandleCount;
-  EFI_HANDLE                      *GopHandleBuffer;
+  UINTN                     Index;
+  EFI_STATUS                Status;
+  EFI_HANDLE                PciDeviceHandle;
+  EFI_DEVICE_PATH_PROTOCOL  *TempDevicePath;
+  EFI_DEVICE_PATH_PROTOCOL  *TempPciDevicePath;
+  UINTN                     GopHandleCount;
+  EFI_HANDLE                *GopHandleBuffer;
 
-  if (PciDevicePath == NULL || GopDevicePath == NULL) {
+  if ((PciDevicePath == NULL) || (GopDevicePath == NULL)) {
     return EFI_INVALID_PARAMETER;
   }
 
@@ -763,16 +698,21 @@ GetGopDevicePath (
     // Add all the child handles as possible Console Device
     //
     for (Index = 0; Index < GopHandleCount; Index++) {
-      Status = gBS->HandleProtocol (GopHandleBuffer[Index],
-                      &gEfiDevicePathProtocolGuid, (VOID*)&TempDevicePath);
+      Status = gBS->HandleProtocol (
+                      GopHandleBuffer[Index],
+                      &gEfiDevicePathProtocolGuid,
+                      (VOID *)&TempDevicePath
+                      );
       if (EFI_ERROR (Status)) {
         continue;
       }
+
       if (CompareMem (
             PciDevicePath,
             TempDevicePath,
             GetDevicePathSize (PciDevicePath) - END_DEVICE_PATH_LENGTH
-            ) == 0) {
+            ) == 0)
+      {
         //
         // In current implementation, we only enable one of the child handles
         // as console device, i.e. sotre one of the child handle's device
@@ -790,6 +730,7 @@ GetGopDevicePath (
         BdsLibUpdateConsoleVariable (VarConsoleOutDev, TempDevicePath, NULL);
       }
     }
+
     gBS->FreePool (GopHandleBuffer);
   }
 
@@ -799,8 +740,9 @@ GetGopDevicePath (
 STATIC
 EFI_STATUS
 PreparePciVgaDevicePath (
-  IN EFI_HANDLE                DeviceHandle
+  IN EFI_HANDLE  DeviceHandle
   )
+
 /*++
 
 Routine Description:
@@ -824,11 +766,11 @@ Returns:
   EFI_DEVICE_PATH_PROTOCOL  *GopDevicePath;
 
   DevicePath = NULL;
-  Status = gBS->HandleProtocol (
-                  DeviceHandle,
-                  &gEfiDevicePathProtocolGuid,
-                  (VOID*)&DevicePath
-                  );
+  Status     = gBS->HandleProtocol (
+                      DeviceHandle,
+                      &gEfiDevicePathProtocolGuid,
+                      (VOID *)&DevicePath
+                      );
   if (EFI_ERROR (Status)) {
     return Status;
   }
@@ -844,8 +786,9 @@ Returns:
 STATIC
 EFI_STATUS
 DetectAndPreparePlatformPciDevicePath (
-  BOOLEAN DetectVgaOnly
+  BOOLEAN  DetectVgaOnly
   )
+
 /*++
 
 Routine Description:
@@ -863,31 +806,31 @@ Returns:
 
 --*/
 {
-  EFI_STATUS                Status;
-  UINTN                     HandleCount;
-  EFI_HANDLE                *HandleBuffer;
-  UINTN                     Index;
-  EFI_PCI_IO_PROTOCOL       *PciIo;
-  PCI_TYPE00                Pci;
+  EFI_STATUS           Status;
+  UINTN                HandleCount;
+  EFI_HANDLE           *HandleBuffer;
+  UINTN                Index;
+  EFI_PCI_IO_PROTOCOL  *PciIo;
+  PCI_TYPE00           Pci;
 
   //
   // Start to check all the PciIo to find all possible device
   //
-  HandleCount = 0;
+  HandleCount  = 0;
   HandleBuffer = NULL;
-  Status = gBS->LocateHandleBuffer (
-                  ByProtocol,
-                  &gEfiPciIoProtocolGuid,
-                  NULL,
-                  &HandleCount,
-                  &HandleBuffer
-                  );
+  Status       = gBS->LocateHandleBuffer (
+                        ByProtocol,
+                        &gEfiPciIoProtocolGuid,
+                        NULL,
+                        &HandleCount,
+                        &HandleBuffer
+                        );
   if (EFI_ERROR (Status)) {
     return Status;
   }
 
   for (Index = 0; Index < HandleCount; Index++) {
-    Status = gBS->HandleProtocol (HandleBuffer[Index], &gEfiPciIoProtocolGuid, (VOID*)&PciIo);
+    Status = gBS->HandleProtocol (HandleBuffer[Index], &gEfiPciIoProtocolGuid, (VOID *)&PciIo);
     if (EFI_ERROR (Status)) {
       continue;
     }
@@ -896,12 +839,12 @@ Returns:
     // Check for all PCI device
     //
     Status = PciIo->Pci.Read (
-                      PciIo,
-                      EfiPciIoWidthUint32,
-                      0,
-                      sizeof (Pci) / sizeof (UINT32),
-                      &Pci
-                      );
+                          PciIo,
+                          EfiPciIoWidthUint32,
+                          0,
+                          sizeof (Pci) / sizeof (UINT32),
+                          &Pci
+                          );
     if (EFI_ERROR (Status)) {
       continue;
     }
@@ -910,10 +853,11 @@ Returns:
       //
       // Here we decide whether it is LPC Bridge
       //
-      if ((IS_PCI_LPC (&Pci))
-        || ((IS_PCI_ISA_PDECODE (&Pci))
-          && (Pci.Hdr.VendorId == 0x8086)
-          && (Pci.Hdr.DeviceId == 0x7110))) {
+      if (  (IS_PCI_LPC (&Pci))
+         || (  (IS_PCI_ISA_PDECODE (&Pci))
+            && (Pci.Hdr.VendorId == 0x8086)
+            && (Pci.Hdr.DeviceId == 0x7110)))
+      {
         //
         // Add IsaKeyboard to ConIn,
         // add IsaSerial to ConOut, ConIn, ErrOut
@@ -945,6 +889,7 @@ EFIAPI
 PlatformBdsInit (
   VOID
   )
+
 /*++
 
 Routine Description:
@@ -969,15 +914,16 @@ Returns:
   //
   BdsLibUpdateConsoleVariable (
     VarConsoleInpDev,
-    (EFI_DEVICE_PATH_PROTOCOL *) &gUsbClassKeyboardDevicePath,
+    (EFI_DEVICE_PATH_PROTOCOL *)&gUsbClassKeyboardDevicePath,
     NULL
     );
 }
 
 EFI_STATUS
 BdsConnectConsole (
-  IN BDS_CONSOLE_CONNECT_ENTRY   *PlatformConsole
+  IN BDS_CONSOLE_CONNECT_ENTRY  *PlatformConsole
   )
+
 /*++
 
 Routine Description:
@@ -1000,11 +946,11 @@ Returns:
 
 --*/
 {
-  EFI_STATUS                         Status;
-  UINTN                              Index;
-  EFI_DEVICE_PATH_PROTOCOL           *VarConout;
-  EFI_DEVICE_PATH_PROTOCOL           *VarConin;
-  UINTN                              DevicePathSize;
+  EFI_STATUS                Status;
+  UINTN                     Index;
+  EFI_DEVICE_PATH_PROTOCOL  *VarConout;
+  EFI_DEVICE_PATH_PROTOCOL  *VarConin;
+  UINTN                     DevicePathSize;
 
   //
   // Connect RootBridge
@@ -1022,7 +968,7 @@ Returns:
                &DevicePathSize
                );
 
-  if (VarConout == NULL || VarConin == NULL) {
+  if ((VarConout == NULL) || (VarConin == NULL)) {
     //
     // Do platform specific PCI Device check and add them to ConOut, ConIn, ErrOut
     //
@@ -1040,9 +986,11 @@ Returns:
       if ((PlatformConsole[Index].ConnectType & CONSOLE_IN) == CONSOLE_IN) {
         BdsLibUpdateConsoleVariable (VarConsoleInp, PlatformConsole[Index].DevicePath, NULL);
       }
+
       if ((PlatformConsole[Index].ConnectType & CONSOLE_OUT) == CONSOLE_OUT) {
         BdsLibUpdateConsoleVariable (VarConsoleOut, PlatformConsole[Index].DevicePath, NULL);
       }
+
       if ((PlatformConsole[Index].ConnectType & STD_ERROR) == STD_ERROR) {
         BdsLibUpdateConsoleVariable (VarErrorOut, PlatformConsole[Index].DevicePath, NULL);
       }
@@ -1053,14 +1001,6 @@ Returns:
     //
     DetectAndPreparePlatformPciDevicePath (TRUE);
   }
-
-  //
-  // The ConIn devices connection will start the USB bus, should disable all
-  // Usb legacy support firstly.
-  // Caution: Must ensure the PCI bus driver has been started. Since the
-  // ConnectRootBridge() will create all the PciIo protocol, it's safe here now
-  //
-  DisableUsbLegacySupport ();
 
   //
   // Connect the all the default console with current console variable
@@ -1075,6 +1015,7 @@ EFIAPI
 PlatformBdsPolicyBehavior (
   VOID
   )
+
 /*++
 
 Routine Description:

@@ -19,6 +19,8 @@
 
 #include <Guid/FileInfo.h>
 
+#include <IndustryStandard/Mbr.h>
+
 #include <Protocol/SimpleFileSystem.h>
 #include <Protocol/DevicePath.h>
 #include <Protocol/BlockIo.h>
@@ -27,16 +29,16 @@
 /**
   Maximum safe volume label size.
 **/
-#define OC_MAX_VOLUME_LABEL_SIZE 64
+#define OC_MAX_VOLUME_LABEL_SIZE  64
 
 /**
   Maximum safe content flavour size.
 **/
-#define OC_MAX_CONTENT_FLAVOUR_SIZE 64
+#define OC_MAX_CONTENT_FLAVOUR_SIZE  64
 
 typedef struct {
-  UINT32  PreviousTime;
-  UINTN   PreviousIndex;
+  UINT32    PreviousTime;
+  UINTN     PreviousIndex;
 } DIRECTORY_SEARCH_CONTEXT;
 
 /**
@@ -48,9 +50,9 @@ typedef struct {
   @retval  simple file system protocol or NULL.
 **/
 EFI_SIMPLE_FILE_SYSTEM_PROTOCOL *
-LocateFileSystem (
-  IN  EFI_HANDLE                         DeviceHandle  OPTIONAL,
-  IN  EFI_DEVICE_PATH_PROTOCOL           *FilePath     OPTIONAL
+OcLocateFileSystem (
+  IN  EFI_HANDLE                DeviceHandle  OPTIONAL,
+  IN  EFI_DEVICE_PATH_PROTOCOL  *FilePath     OPTIONAL
   );
 
 /**
@@ -62,9 +64,9 @@ LocateFileSystem (
   @retval  opened file protocol or NULL.
 **/
 EFI_FILE_PROTOCOL *
-LocateRootVolume (
-  IN  EFI_HANDLE                         DeviceHandle  OPTIONAL,
-  IN  EFI_DEVICE_PATH_PROTOCOL           *FilePath     OPTIONAL
+OcLocateRootVolume (
+  IN  EFI_HANDLE                DeviceHandle  OPTIONAL,
+  IN  EFI_DEVICE_PATH_PROTOCOL  *FilePath     OPTIONAL
   );
 
 /**
@@ -75,7 +77,7 @@ LocateRootVolume (
   @retval  simple file system protocol or NULL.
 **/
 EFI_SIMPLE_FILE_SYSTEM_PROTOCOL *
-LocateFileSystemByGuid (
+OcLocateFileSystemByGuid (
   IN CONST GUID  *Guid
   );
 
@@ -87,7 +89,7 @@ LocateFileSystemByGuid (
   @retval A pointer to the NULL terminated unicode volume label.
 **/
 CHAR16 *
-GetVolumeLabel (
+OcGetVolumeLabel (
   IN     EFI_SIMPLE_FILE_SYSTEM_PROTOCOL  *FileSystem
   );
 
@@ -106,21 +108,51 @@ GetVolumeLabel (
     slash, however, their driver will modify passed string by removing
     the slash by \0.
 
-  @param  Protocol   File protocol instance.
+  @param  Directory  File protocol instance of parent directory.
   @param  NewHandle  Pointer for returned handle.
-  @param  FileName   Null-terminated file name.
+  @param  FileName   Null-terminated file name or relative path.
   @param  OpenMode   File open mode.
   @param  Attributes Attributes for the newly created file.
 
   @retval EFI_SUCCESS for successfully opened file.
-*/
+**/
 EFI_STATUS
-SafeFileOpen (
-  IN  EFI_FILE_PROTOCOL       *Protocol,
-  OUT EFI_FILE_PROTOCOL       **NewHandle,
-  IN  CONST CHAR16            *FileName,
-  IN  UINT64                  OpenMode,
-  IN  UINT64                  Attributes
+OcSafeFileOpen (
+  IN     CONST EFI_FILE_PROTOCOL  *Directory,
+  OUT       EFI_FILE_PROTOCOL     **NewHandle,
+  IN     CONST CHAR16             *FileName,
+  IN     CONST UINT64             OpenMode,
+  IN     CONST UINT64             Attributes
+  );
+
+/**
+  Report existence of file relative to source file's location.
+
+  @param  Directory  File protocol instance of parent directory.
+  @param  FileName   Null-terminated file name or relative path.
+
+  @retval TRUE when file exists.
+**/
+BOOLEAN
+OcFileExists (
+  IN    CONST EFI_FILE_PROTOCOL  *Directory,
+  IN    CONST CHAR16             *FileName
+  );
+
+/**
+  Delete child file relative to source file's location.
+
+  @param  Directory  File protocol instance of parent directory.
+  @param  FileName   Null-terminated file name or relative path.
+
+  @retval EFI_SUCCESS     File successfully deleted.
+  @retval EFI_NOT_FOUND   File was not present.
+  @retval other           Other error opening or deleting file.
+**/
+EFI_STATUS
+OcDeleteFile (
+  IN EFI_FILE_PROTOCOL  *Directory,
+  IN CONST CHAR16       *FileName
   );
 
 /**
@@ -136,11 +168,11 @@ SafeFileOpen (
   @retval A pointer to a buffer containing file read or NULL.
 **/
 VOID *
-ReadFile (
-  IN  EFI_SIMPLE_FILE_SYSTEM_PROTOCOL  *FileSystem,
-  IN  CONST CHAR16                     *FilePath,
-  OUT UINT32                           *FileSize OPTIONAL,
-  IN  UINT32                           MaxFileSize OPTIONAL
+OcReadFile (
+  IN     CONST EFI_SIMPLE_FILE_SYSTEM_PROTOCOL  *FileSystem,
+  IN     CONST CHAR16                           *FilePath,
+  OUT       UINT32                              *FileSize OPTIONAL,
+  IN     CONST UINT32                           MaxFileSize OPTIONAL
   );
 
 /**
@@ -148,19 +180,19 @@ ReadFile (
   Null termination does not affect the returned file size.
   Depending on the implementation 0 byte files may return null.
 
-  @param[in]  RootFile     A pointer to the file protocol of the directory.
-  @param[in]  FilePath     The full path to the file on the device.
-  @param[out] FileSize     The size of the file read (optional).
-  @param[in]  MaxFileSize  Upper file size bound (optional).
+  @param[in]  RootDirectory A pointer to the file protocol of the directory.
+  @param[in]  FilePath      The full path to the file on the device.
+  @param[out] FileSize      The size of the file read (optional).
+  @param[in]  MaxFileSize   Upper file size bound (optional).
 
   @retval A pointer to a buffer containing file read or NULL.
 **/
 VOID *
-ReadFileFromFile (
-  IN  EFI_FILE_PROTOCOL   *RootFile,
-  IN  CONST CHAR16        *FilePath,
-  OUT UINT32              *FileSize OPTIONAL,
-  IN  UINT32              MaxFileSize OPTIONAL
+OcReadFileFromDirectory (
+  IN      CONST EFI_FILE_PROTOCOL  *RootDirectory,
+  IN      CONST CHAR16             *FilePath,
+  OUT       UINT32                 *FileSize   OPTIONAL,
+  IN            UINT32             MaxFileSize OPTIONAL
   );
 
 /**
@@ -173,7 +205,7 @@ ReadFileFromFile (
   @retval EFI_SUCCESS on success.
 **/
 EFI_STATUS
-ReadFileSize (
+OcReadFileSize (
   IN  EFI_SIMPLE_FILE_SYSTEM_PROTOCOL  *FileSystem,
   IN  CONST CHAR16                     *FilePath,
   OUT UINT32                           *Size
@@ -190,7 +222,7 @@ ReadFileSize (
   @retval EFI_SUCCESS on success.
 **/
 EFI_STATUS
-GetFileData (
+OcGetFileData (
   IN  EFI_FILE_PROTOCOL  *File,
   IN  UINT32             Position,
   IN  UINT32             Size,
@@ -209,7 +241,7 @@ GetFileData (
   @retval EFI_SUCCESS on success.
 **/
 EFI_STATUS
-SetFileData (
+OcSetFileData (
   IN EFI_FILE_PROTOCOL  *WritableFs OPTIONAL,
   IN CONST CHAR16       *FileName,
   IN CONST VOID         *Buffer,
@@ -226,7 +258,7 @@ SetFileData (
   @retval EFI_SUCCESS on success.
 **/
 EFI_STATUS
-AllocateCopyFileData (
+OcAllocateCopyFileData (
   IN  EFI_FILE_PROTOCOL  *File,
   OUT UINT8              **Buffer,
   OUT UINT32             *BufferSize
@@ -238,8 +270,8 @@ AllocateCopyFileData (
   @param[in,out]  Context     A pointer to the DIRECTORY_SEARCH_CONTEXT.
 **/
 VOID
-DirectorySeachContextInit (
-  IN OUT DIRECTORY_SEARCH_CONTEXT *Context
+OcDirectorySeachContextInit (
+  IN OUT DIRECTORY_SEARCH_CONTEXT  *Context
   );
 
 /**
@@ -253,11 +285,73 @@ DirectorySeachContextInit (
   @retval EFI_SUCCESS on success.
 **/
 EFI_STATUS
-GetNewestFileFromDirectory (
-  IN OUT DIRECTORY_SEARCH_CONTEXT *Context,
-  IN     EFI_FILE_PROTOCOL        *Directory,
-  IN     CHAR16                   *FileNameStartsWith OPTIONAL,
-     OUT EFI_FILE_INFO            **FileInfo
+OcGetNewestFileFromDirectory (
+  IN OUT DIRECTORY_SEARCH_CONTEXT  *Context,
+  IN     EFI_FILE_PROTOCOL         *Directory,
+  IN     CHAR16                    *FileNameStartsWith OPTIONAL,
+  OUT EFI_FILE_INFO                **FileInfo
+  );
+
+/**
+  Ensure specified file is directory or file as specified by IsDirectory.
+
+  @param[in]      File                  The file to check.
+  @param[in]      IsDirectory           Require that file is directory.
+
+  @retval EFI_SUCCESS                   File is directory/file as specified.
+  @retval EFI_INVALID_PARAMETER         File is not directory/file as specified.
+**/
+EFI_STATUS
+OcEnsureDirectoryFile (
+  IN     EFI_FILE_PROTOCOL  *File,
+  IN     BOOLEAN            IsDirectory
+  );
+
+/**
+  Process directory item.
+
+  Note: Successful processing must return EFI_SUCCESS or EFI_NOT_FOUND, or further
+  processing will be aborted.
+
+  Return EFI_NOT_FOUND to continue processing but act if no file found.
+
+  @param[in]      Directory             Parent directory file handle.
+  @param[in]      FileInfo              EFI_FILE_INFO allocated from pool memory,
+                                        will be freed after this call,
+                                        data to preserve must be copied.
+  @param[in]      FileInfoSize          FileInfoSize.
+  @param[in,out]  Context               Optional application-specific context.
+
+  @retval EFI_SUCCESS                   File found and successfully processed.
+  @retval EFI_NOT_FOUND                 (Act as if) no matching file was found.
+  @retval other                         Error processing file (aborts directory scan).
+**/
+typedef
+EFI_STATUS
+(*OC_PROCESS_DIRECTORY_ENTRY) (
+  EFI_FILE_HANDLE  Directory,
+  EFI_FILE_INFO    *FileInfo,
+  UINTN            FileInfoSize,
+  VOID             *Context        OPTIONAL
+  );
+
+/**
+  Scan directory, calling specified procedure for each directory entry.
+
+  @param[in]      Directory             The directory to scan.
+  @param[in]      ProcessEntry          Process entry, called for each directory entry matching filter.
+  @param[in,out]  Context               Optional application-specific context.
+
+  @retval EFI_NOT_FOUND                 Successful processing, no entries matching filter were found.
+  @retval EFI_SUCCESS                   Successful processing, at least one entry matching filter was found.
+  @retval EFI_OUT_OF_RESOURCES          Out of memory.
+  @retval other                         Other error returned by file system or ProcessEntry during processing
+**/
+EFI_STATUS
+OcScanDirectory (
+  IN      EFI_FILE_HANDLE             Directory,
+  IN      OC_PROCESS_DIRECTORY_ENTRY  ProcessEntry,
+  IN OUT  VOID                        *Context            OPTIONAL
   );
 
 /**
@@ -271,7 +365,7 @@ GetNewestFileFromDirectory (
   @retval read file info or NULL.
 **/
 VOID *
-GetFileInfo (
+OcGetFileInfo (
   IN  EFI_FILE_PROTOCOL  *File,
   IN  EFI_GUID           *InformationType,
   IN  UINTN              MinFileInfoSize,
@@ -287,7 +381,7 @@ GetFileInfo (
   @retval EFI_SUCCESS on success.
 **/
 EFI_STATUS
-GetFileSize (
+OcGetFileSize (
   IN  EFI_FILE_PROTOCOL  *File,
   OUT UINT32             *Size
   );
@@ -301,11 +395,10 @@ GetFileSize (
   @retval EFI_SUCCESS on success.
 **/
 EFI_STATUS
-GetFileModificationTime (
+OcGetFileModificationTime (
   IN  EFI_FILE_PROTOCOL  *File,
   OUT EFI_TIME           *Time
   );
-
 
 /**
   Check if filesystem is writable.
@@ -315,7 +408,7 @@ GetFileModificationTime (
   @retval TRUE on success.
 **/
 BOOLEAN
-IsWritableFileSystem (
+OcIsWritableFileSystem (
   IN EFI_FILE_PROTOCOL  *Fs
   );
 
@@ -327,8 +420,20 @@ IsWritableFileSystem (
   @retval EFI_SUCCESS on success.
 **/
 EFI_STATUS
-FindWritableFileSystem (
+OcFindWritableFileSystem (
   IN OUT EFI_FILE_PROTOCOL  **WritableFs
+  );
+
+/**
+  Find writable filesystem from Bootstrap.
+
+  @param[out]  FileSystem   Pointer to first found writeable file system.
+
+  @retval EFI_SUCCESS on success.
+**/
+EFI_STATUS
+OcFindWritableOcFileSystem (
+  OUT EFI_FILE_PROTOCOL  **FileSystem
   );
 
 /**
@@ -380,6 +485,18 @@ OcOpenFileByDevicePath (
   );
 
 /**
+  Retrieve the disk's Device Path from a partition's Device Path.
+
+  @param[in] HdDevicePath  The Device Path of the partition.
+
+  @retval Device Path or NULL
+**/
+EFI_DEVICE_PATH_PROTOCOL *
+OcDiskGetDevicePath (
+  IN EFI_DEVICE_PATH_PROTOCOL  *HdDevicePath
+  );
+
+/**
   Retrieve the disk's device handle from a partition's Device Path.
 
   @param[in] HdDevicePath  The Device Path of the partition.
@@ -389,6 +506,45 @@ OcOpenFileByDevicePath (
 EFI_HANDLE
 OcPartitionGetDiskHandle (
   IN EFI_DEVICE_PATH_PROTOCOL  *HdDevicePath
+  );
+
+/**
+  Retrieve the partition's device handle from a partition's Device Path.
+
+  @param[in] HdDevicePath  The Device Path of the partition.
+
+**/
+EFI_HANDLE
+OcPartitionGetPartitionHandle (
+  IN EFI_DEVICE_PATH_PROTOCOL  *HdDevicePath
+  );
+
+/**
+  Check if disk is a CD-ROM device.
+
+  @param[in] DiskDevicePath  The Device Path of the disk.
+
+  @retval Device Path or NULL
+**/
+BOOLEAN
+OcIsDiskCdRom (
+  IN EFI_DEVICE_PATH_PROTOCOL  *DiskDevicePath
+  );
+
+/**
+  Read El-Torito boot sector from CD-ROM device.
+
+  @param[in]  DiskDevicePath  The Device Path of the disk.
+  @param[out] Buffer          Pointer to pool-allocated buffer containing the boot sector data.
+  @param[out] BufferSize      Size of Buffer.
+
+  @retval EFI_SUCCESS on success.
+**/
+EFI_STATUS
+OcDiskReadElTorito (
+  IN  EFI_DEVICE_PATH_PROTOCOL  *DiskDevicePath,
+  OUT UINT8                     **Buffer,
+  OUT UINTN                     *BufferSize
   );
 
 /**
@@ -411,10 +567,10 @@ OcDiskFindSystemPartitionPath (
   Disk I/O context.
 **/
 typedef struct {
-  EFI_BLOCK_IO_PROTOCOL      *BlockIo;
-  EFI_BLOCK_IO2_PROTOCOL     *BlockIo2;
-  UINT32                     MediaId;
-  UINT32                     BlockSize;
+  EFI_BLOCK_IO_PROTOCOL     *BlockIo;
+  EFI_BLOCK_IO2_PROTOCOL    *BlockIo2;
+  UINT32                    MediaId;
+  UINT32                    BlockSize;
 } OC_DISK_CONTEXT;
 
 /**
@@ -452,12 +608,30 @@ OcDiskRead (
   );
 
 /**
+  Write information to disk.
+
+  @param[in]  Context     Disk I/O context.
+  @param[in]  Lba         LBA number to write to.
+  @param[in]  BufferSize  Buffer size allocated in Buffer.
+  @param[out] Buffer      Buffer containing data to write.
+
+  @retval EFI_SUCCESS on success.
+**/
+EFI_STATUS
+OcDiskWrite (
+  IN OC_DISK_CONTEXT  *Context,
+  IN UINT64           Lba,
+  IN UINTN            BufferSize,
+  IN VOID             *Buffer
+  );
+
+/**
   OC partition list.
 **/
 typedef struct {
-  UINT32              NumPartitions;
-  UINT32              PartitionEntrySize;
-  EFI_PARTITION_ENTRY FirstEntry[];
+  UINT32                 NumPartitions;
+  UINT32                 PartitionEntrySize;
+  EFI_PARTITION_ENTRY    FirstEntry[];
 } OC_PARTITION_ENTRIES;
 
 /**
@@ -488,6 +662,64 @@ OcGetGptPartitionEntry (
   );
 
 /**
+  Retrieve the disk MBR table, if applicable.
+
+  @param[in]  DiskHandle      Disk device handle to retrive MBR partition table from.
+  @param[in]  CheckPartitions Check partition layout. This should be FALSE for a PBR.
+
+  @retval MBR partition table or NULL.
+**/
+MASTER_BOOT_RECORD *
+OcGetDiskMbrTable (
+  IN EFI_HANDLE  DiskHandle,
+  IN BOOLEAN     CheckPartitions
+  );
+
+/**
+  Retrieve the MBR partition index for the specified partition.
+
+  @param[in]  PartitionHandle   Partition device handle to retrieve MBR partition index for.
+  @param[out] PartitionIndex    Pointer to store partition index in.
+
+  @retval EFI_SUCCESS on success.
+**/
+EFI_STATUS
+OcDiskGetMbrPartitionIndex (
+  IN  EFI_HANDLE  PartitionHandle,
+  OUT UINT8       *PartitionIndex
+  );
+
+/**
+  Mark specified MBR partition as active.
+
+  @param[in]  DiskHandle        Disk device handle containing MBR partition table
+  @param[in]  PartitionIndex    MBR partition index.
+
+  @retval EFI_SUCCESS on success.
+**/
+EFI_STATUS
+OcDiskMarkMbrPartitionActive (
+  IN  EFI_HANDLE  DiskHandle,
+  IN  UINT8       PartitionIndex
+  );
+
+/**
+  Locate the disk's active MBR partition.
+
+  @param[in]  DiskDevicePath            The Device Path of the disk to scan.
+  @param[out] PartitionDevicePathSize   The size of the returned Device Path.
+  @param[out] PartitionDeviceHandle     Device handle of the returned partition.
+
+  @return The device path protocol from the discovered handle or NULL.
+**/
+EFI_DEVICE_PATH_PROTOCOL *
+OcDiskFindActiveMbrPartitionPath (
+  IN  EFI_DEVICE_PATH_PROTOCOL  *DiskDevicePath,
+  OUT UINTN                     *PartitionDevicePathSize,
+  OUT EFI_HANDLE                *PartitionDeviceHandle
+  );
+
+/**
   Creates a device path for a firmware file.
 
   @param[in]  FileGuid  Firmware file GUID.
@@ -496,7 +728,7 @@ OcGetGptPartitionEntry (
   @retval NULL on failure (e.g. when a file is not present).
 **/
 EFI_DEVICE_PATH_PROTOCOL *
-CreateFvFileDevicePath (
+OcCreateFvFileDevicePath (
   IN EFI_GUID  *FileGuid
   );
 
@@ -511,10 +743,10 @@ CreateFvFileDevicePath (
   @retval NULL on failure (e.g. when a file is not present).
 **/
 VOID *
-ReadFvFileSection (
-  IN  EFI_GUID          *FileGuid,
-  IN  UINT8             SectionType,
-  OUT UINT32            *FileSize
+OcReadFvFileSection (
+  IN  EFI_GUID  *FileGuid,
+  IN  UINT8     SectionType,
+  OUT UINT32    *FileSize
   );
 
 #endif // OC_FILE_LIB_H

@@ -20,9 +20,9 @@
 #include <Library/DebugLib.h>
 #include <Library/BaseLib.h>
 #include <Library/BaseMemoryLib.h>
+#include <Library/BaseOverflowLib.h>
 #include <Library/DevicePathLib.h>
 #include <Library/MemoryAllocationLib.h>
-#include <Library/OcGuardLib.h>
 #include <Library/OcStringLib.h>
 #include <Library/OcDevicePathLib.h>
 #include <Library/UefiBootServicesTableLib.h>
@@ -35,16 +35,16 @@ AppendFileNameDevicePath (
   IN CHAR16                    *FileName
   )
 {
-  EFI_DEVICE_PATH_PROTOCOL *AppendedDevicePath;
+  EFI_DEVICE_PATH_PROTOCOL  *AppendedDevicePath;
 
-  FILEPATH_DEVICE_PATH     *FilePathNode;
-  EFI_DEVICE_PATH_PROTOCOL *DevicePathEndNode;
-  UINTN                    FileNameSize;
-  UINTN                    FileDevicePathNodeSize;
+  FILEPATH_DEVICE_PATH      *FilePathNode;
+  EFI_DEVICE_PATH_PROTOCOL  *DevicePathEndNode;
+  UINTN                     FileNameSize;
+  UINTN                     FileDevicePathNodeSize;
 
   AppendedDevicePath = NULL;
 
-  if (DevicePath != NULL && FileName != NULL) {
+  if ((DevicePath != NULL) && (FileName != NULL)) {
     FileNameSize           = StrSize (FileName);
     FileDevicePathNodeSize = (FileNameSize + SIZE_OF_FILEPATH_DEVICE_PATH + END_DEVICE_PATH_LENGTH);
     FilePathNode           = AllocateZeroPool (FileDevicePathNodeSize);
@@ -71,19 +71,32 @@ AppendFileNameDevicePath (
 }
 
 EFI_DEVICE_PATH_PROTOCOL *
+FindDevicePathEndNode (
+  IN EFI_DEVICE_PATH_PROTOCOL  *DevicePath
+  )
+{
+  while (!IsDevicePathEnd (DevicePath)) {
+    DevicePath = NextDevicePathNode (DevicePath);
+  }
+
+  return DevicePath;
+}
+
+EFI_DEVICE_PATH_PROTOCOL *
 FindDevicePathNodeWithType (
   IN EFI_DEVICE_PATH_PROTOCOL  *DevicePath,
   IN UINT8                     Type,
   IN UINT8                     SubType OPTIONAL
   )
 {
-  EFI_DEVICE_PATH_PROTOCOL *DevicePathNode;
+  EFI_DEVICE_PATH_PROTOCOL  *DevicePathNode;
 
   DevicePathNode = NULL;
 
   while (!IsDevicePathEnd (DevicePath)) {
-    if (DevicePathType (DevicePath) == Type
-     && (SubType == 0 || DevicePathSubType (DevicePath) == SubType)) {
+    if (  (DevicePathType (DevicePath) == Type)
+       && ((SubType == 0) || (DevicePathSubType (DevicePath) == SubType)))
+    {
       DevicePathNode = DevicePath;
 
       break;
@@ -137,10 +150,11 @@ TrailedBooterDevicePath (
   DevicePathWalker = DevicePath;
 
   while (!IsDevicePathEnd (DevicePathWalker)) {
-    if ((DevicePathType (DevicePathWalker) == MEDIA_DEVICE_PATH)
-     && (DevicePathSubType (DevicePathWalker) == MEDIA_FILEPATH_DP)
-     && IsDevicePathEnd (NextDevicePathNode (DevicePathWalker))) {
-      FilePath = (FILEPATH_DEVICE_PATH *) DevicePathWalker;
+    if (  (DevicePathType (DevicePathWalker) == MEDIA_DEVICE_PATH)
+       && (DevicePathSubType (DevicePathWalker) == MEDIA_FILEPATH_DP)
+       && IsDevicePathEnd (NextDevicePathNode (DevicePathWalker)))
+    {
+      FilePath = (FILEPATH_DEVICE_PATH *)DevicePathWalker;
       Length   = OcFileDevicePathNameLen (FilePath);
       if (Length > 0) {
         if (FilePath->PathName[Length - 1] == L'\\') {
@@ -150,33 +164,35 @@ TrailedBooterDevicePath (
           return NULL;
         }
 
-        if (Length > 4 && (FilePath->PathName[Length - 4] != '.'
-          || (FilePath->PathName[Length - 3] != 'e' && FilePath->PathName[Length - 3] != 'E')
-          || (FilePath->PathName[Length - 2] != 'f' && FilePath->PathName[Length - 2] != 'F')
-          || (FilePath->PathName[Length - 1] != 'i' && FilePath->PathName[Length - 1] != 'I'))) {
+        if ((Length > 4) && (  (FilePath->PathName[Length - 4] != '.')
+                            || ((FilePath->PathName[Length - 3] != 'e') && (FilePath->PathName[Length - 3] != 'E'))
+                            || ((FilePath->PathName[Length - 2] != 'f') && (FilePath->PathName[Length - 2] != 'F'))
+                            || ((FilePath->PathName[Length - 1] != 'i') && (FilePath->PathName[Length - 1] != 'I'))))
+        {
           //
           // Found! We should have gotten something like:
           // PciRoot(0x0)/Pci(...)/Pci(...)/Sata(...)/HD(...)/\com.apple.recovery.boot
           //
 
           Size          = GetDevicePathSize (DevicePath);
-          NewDevicePath = (EFI_DEVICE_PATH_PROTOCOL *) AllocatePool (Size + sizeof (CHAR16));
+          NewDevicePath = (EFI_DEVICE_PATH_PROTOCOL *)AllocatePool (Size + sizeof (CHAR16));
           if (NewDevicePath == NULL) {
             //
             // Allocation failure, just ignore.
             //
             return NULL;
           }
+
           //
           // Strip the string termination and DP end node, which will get re-set
           //
           CopyMem (NewDevicePath, DevicePath, Size - sizeof (CHAR16) - END_DEVICE_PATH_LENGTH);
-          NewFilePath = (FILEPATH_DEVICE_PATH *) ((UINT8 *)DevicePathWalker - (UINT8 *)DevicePath + (UINT8 *)NewDevicePath);
+          NewFilePath = (FILEPATH_DEVICE_PATH *)((UINT8 *)DevicePathWalker - (UINT8 *)DevicePath + (UINT8 *)NewDevicePath);
           Size        = DevicePathNodeLength (DevicePathWalker) + sizeof (CHAR16);
           SetDevicePathNodeLength (NewFilePath, Size);
           NewFilePath->PathName[Length]   = L'\\';
           NewFilePath->PathName[Length+1] = L'\0';
-          SetDevicePathEndNode ((UINT8 *) NewFilePath + Size);
+          SetDevicePathEndNode ((UINT8 *)NewFilePath + Size);
           return NewDevicePath;
         }
       }
@@ -198,9 +214,9 @@ OcFixAppleBootDevicePathNodeRestore (
   IN     CONST APPLE_BOOT_DP_PATCH_CONTEXT  *RestoreContext
   )
 {
-  EFI_DEV_PATH_PTR Node;
-  UINT8            NodeType;
-  UINT8            NodeSubType;
+  EFI_DEV_PATH_PTR  Node;
+  UINT8             NodeType;
+  UINT8             NodeSubType;
 
   //
   // ATTENTION: This function must be carefully sync'd with changes to
@@ -216,10 +232,10 @@ OcFixAppleBootDevicePathNodeRestore (
     //
     // Restore the previously stored Device Path prior to patching.
     //
-    *DevicePathNode = (EFI_DEVICE_PATH_PROTOCOL *) (
-      (UINTN) RestoreContext->OldPath +
-        ((UINTN) *DevicePathNode - (UINTN) *DevicePath)
-      );
+    *DevicePathNode = (EFI_DEVICE_PATH_PROTOCOL *)(
+                                                   (UINTN)RestoreContext->OldPath +
+                                                   ((UINTN)*DevicePathNode - (UINTN)*DevicePath)
+                                                   );
     FreePool (*DevicePath);
     *DevicePath = RestoreContext->OldPath;
     return;
@@ -310,10 +326,10 @@ InternalExpandNewPath (
   IN OUT EFI_DEVICE_PATH_PROTOCOL  **DevicePathNode
   )
 {
-  EFI_DEVICE_PATH_PROTOCOL *HdNode;
-  UINTN                    PrefixSize;
-  EFI_DEVICE_PATH_PROTOCOL *ExpandedPath;
-  EFI_DEVICE_PATH_PROTOCOL *ExpandedNode;
+  EFI_DEVICE_PATH_PROTOCOL  *HdNode;
+  UINTN                     PrefixSize;
+  EFI_DEVICE_PATH_PROTOCOL  *ExpandedPath;
+  EFI_DEVICE_PATH_PROTOCOL  *ExpandedNode;
 
   DebugPrintDevicePath (DEBUG_VERBOSE, "Expanding new DP from", *DevicePath);
   DebugPrintDevicePath (DEBUG_VERBOSE, "at node", *DevicePathNode);
@@ -325,10 +341,10 @@ InternalExpandNewPath (
   // node.
   //
   HdNode = FindDevicePathNodeWithType (
-    *DevicePath,
-    MEDIA_DEVICE_PATH,
-    MEDIA_HARDDRIVE_DP
-    );
+             *DevicePath,
+             MEDIA_DEVICE_PATH,
+             MEDIA_HARDDRIVE_DP
+             );
   if (HdNode == NULL) {
     DEBUG ((DEBUG_VERBOSE, "Failed to find HD node\n"));
     //
@@ -337,33 +353,36 @@ InternalExpandNewPath (
     return -1;
   }
 
-  PrefixSize = (UINTN) *DevicePathNode - (UINTN) *DevicePath;
+  PrefixSize = (UINTN)*DevicePathNode - (UINTN)*DevicePath;
   //
   // Expand the Device Path based of the HD node and sanity-check it
   // likely describes the intended path.
   //
   for (
-    ExpandedPath = OcGetNextLoadOptionDevicePath (HdNode, NULL);
-    ExpandedPath != NULL;
-    ExpandedPath = OcGetNextLoadOptionDevicePath (HdNode, ExpandedPath)
-  ) {
+       ExpandedPath = OcGetNextLoadOptionDevicePath (HdNode, NULL);
+       ExpandedPath != NULL;
+       ExpandedPath = OcGetNextLoadOptionDevicePath (HdNode, ExpandedPath)
+       )
+  {
     DebugPrintDevicePath (DEBUG_VERBOSE, "DP candidate", ExpandedPath);
     //
     // Skip this expansion if the prefix does not match.
     //
-    if (GetDevicePathSize (ExpandedPath) < PrefixSize
-     || CompareMem (ExpandedPath, *DevicePath, PrefixSize) != 0) {
+    if (  (GetDevicePathSize (ExpandedPath) < PrefixSize)
+       || (CompareMem (ExpandedPath, *DevicePath, PrefixSize) != 0))
+    {
       DEBUG ((DEBUG_VERBOSE, "Prefix does not match\n"));
       continue;
     }
+
     //
     // The suffix is handled implicitly (by OcGetNextLoadOptionDevicePath).
     // Keep in mind that with this logic our broken node may expand to an
     // arbitrary number of nodes now.
     //
-    ExpandedNode = (EFI_DEVICE_PATH_PROTOCOL *) (
-      (UINTN) ExpandedPath + PrefixSize
-      );
+    ExpandedNode = (EFI_DEVICE_PATH_PROTOCOL *)(
+                                                (UINTN)ExpandedPath + PrefixSize
+                                                );
 
     DebugPrintDevicePath (DEBUG_VERBOSE, "accepted DP", ExpandedPath);
     DebugPrintDevicePath (DEBUG_VERBOSE, "fix starting at", ExpandedNode);
@@ -372,34 +391,215 @@ InternalExpandNewPath (
       EFI_DEVICE_PATH_PROTOCOL *RemDevPath = ExpandedPath;
       EFI_HANDLE Dev;
       EFI_STATUS Status = gBS->LocateDevicePath (&gEfiDevicePathProtocolGuid, &RemDevPath, &Dev);
-      if (EFI_ERROR (Status) || RemDevPath->Type != END_DEVICE_PATH_TYPE || RemDevPath->SubType != END_ENTIRE_DEVICE_PATH_SUBTYPE) {
-        DEBUG ((DEBUG_VERBOSE, "borked piece of crap\n"));
-      }
+      if (EFI_ERROR (Status) || (RemDevPath->Type != END_DEVICE_PATH_TYPE) || (RemDevPath->SubType != END_ENTIRE_DEVICE_PATH_SUBTYPE)) {
+      DEBUG ((DEBUG_VERBOSE, "borked piece of crap\n"));
+    }
+
       );
 
     *DevicePath     = ExpandedPath;
     *DevicePathNode = ExpandedNode;
     return 1;
   }
+
   //
   // No adequate expansion could be found.
   //
   return -1;
 }
 
+/**
+  Fix Apple Boot Device Path VirtIO node to be compatible with conventional UEFI
+  implementations. Currently only APFS file system is supported as VirtIO support
+  landed in macOS in 10.14, which was APFS-only.
+
+  @param[in,out] DevicePath      A pointer to the device path to fix a node of.
+                                 It must be a pool memory buffer.
+                                 On success, may be updated with a reallocated
+                                 pool memory buffer.
+  @param[in,out] DevicePathNode  A pointer to the device path node to fix. It
+                                 must be a node of *DevicePath.
+                                 On success, may be updated with the
+                                 corresponding node of *DevicePath.
+  @param[out]    RestoreContext  A pointer to a context that can be used to
+                                 restore DevicePathNode's original content in
+                                 the case of failure.
+                                 On success, data may need to be freed.
+
+  @retval 0   DevicePathNode was not modified and may be valid.
+  @retval 1   DevicePathNode was fixed and may be valid.
+
+**/
+STATIC
 INTN
-OcFixAppleBootDevicePathNode (
+InternalFixAppleBootDevicePathVirtioNode (
   IN OUT EFI_DEVICE_PATH_PROTOCOL     **DevicePath,
   IN OUT EFI_DEVICE_PATH_PROTOCOL     **DevicePathNode,
   OUT    APPLE_BOOT_DP_PATCH_CONTEXT  *RestoreContext OPTIONAL
   )
 {
-  INTN                     Result;
-  EFI_DEVICE_PATH_PROTOCOL *OldPath;
-  EFI_DEV_PATH_PTR         Node;
-  UINT8                    NodeType;
-  UINT8                    NodeSubType;
-  UINTN                    NodeSize;
+  EFI_STATUS                Status;
+  UINTN                     HandleCount;
+  EFI_HANDLE                Device;
+  EFI_HANDLE                *HandleBuffer;
+  UINTN                     Index;
+  UINTN                     DevicePathSize;
+  UINTN                     ValidPrefixSize;
+  EFI_DEVICE_PATH_PROTOCOL  *TestedDevicePath;
+  EFI_DEVICE_PATH_PROTOCOL  *TestedDeviceNode;
+  EFI_DEVICE_PATH_PROTOCOL  *NewDeviceNode;
+  EFI_DEVICE_PATH_PROTOCOL  *FixedDevicePath;
+  UINTN                     TestedSize;
+  UINT8                     TestedNodeType;
+  UINT8                     TestedNodeSubType;
+
+  //
+  // Apple may skip HD node for VirtIO-BLK devices giving APFS Vendor DP
+  // right away in their device paths. Try to locate and fix them up.
+  //
+
+  //
+  // 1. Get all Block Io protocol handles.
+  //
+  HandleCount = 0;
+  Status      = gBS->LocateHandleBuffer (
+                       ByProtocol,
+                       &gEfiBlockIoProtocolGuid,
+                       NULL,
+                       &HandleCount,
+                       &HandleBuffer
+                       );
+
+  if (EFI_ERROR (Status)) {
+    DEBUG ((DEBUG_VERBOSE, "Failed to locate any block i/o to fixup DP\n"));
+    return 0;
+  }
+
+  //
+  // 2. Calculate prefix size.
+  //
+  DevicePathSize  = GetDevicePathSize (*DevicePath);
+  ValidPrefixSize = DevicePathSize - GetDevicePathSize (*DevicePathNode);
+
+  for (Index = 0; Index < HandleCount; ++Index) {
+    //
+    // 2. Get Device Path protocol from each handle.
+    //
+    Status = gBS->HandleProtocol (
+                    HandleBuffer[Index],
+                    &gEfiDevicePathProtocolGuid,
+                    (VOID **)&TestedDevicePath
+                    );
+
+    if (EFI_ERROR (Status)) {
+      continue;
+    }
+
+    //
+    // 3. Calculate found device path size.
+    //
+    TestedSize = GetDevicePathSize (TestedDevicePath);
+
+    //
+    // 4.1 Skip tested device paths that do not match HD paths.
+    //
+    if (TestedSize != ValidPrefixSize + sizeof (HARDDRIVE_DEVICE_PATH) + END_DEVICE_PATH_LENGTH) {
+      continue;
+    }
+
+    //
+    // 4.2 Skip tested device paths that do not share a common prefix.
+    //
+    if (CompareMem (TestedDevicePath, *DevicePath, ValidPrefixSize) != 0) {
+      continue;
+    }
+
+    //
+    // 4.3 Skip tested device paths that are not adding HD nodes.
+    //
+    TestedDeviceNode  = (VOID *)((UINTN)TestedDevicePath + ValidPrefixSize);
+    TestedNodeType    = DevicePathType (TestedDeviceNode);
+    TestedNodeSubType = DevicePathSubType (TestedDeviceNode);
+    if (  (TestedNodeType != MEDIA_DEVICE_PATH)
+       || (TestedNodeSubType != MEDIA_HARDDRIVE_DP))
+    {
+      continue;
+    }
+
+    //
+    // 5. Initial checks matched. Build fixed device path.
+    //
+    FixedDevicePath = AllocatePool (DevicePathSize + sizeof (HARDDRIVE_DEVICE_PATH));
+    if (FixedDevicePath == NULL) {
+      FreePool (HandleBuffer);
+      return 0;
+    }
+
+    CopyMem (
+      FixedDevicePath,
+      TestedDevicePath,
+      ValidPrefixSize + sizeof (HARDDRIVE_DEVICE_PATH)
+      );
+
+    TestedDeviceNode = (VOID *)((UINTN)FixedDevicePath + ValidPrefixSize + sizeof (HARDDRIVE_DEVICE_PATH));
+
+    CopyMem (
+      TestedDeviceNode,
+      (VOID *)((UINTN)*DevicePath + ValidPrefixSize),
+      DevicePathSize - ValidPrefixSize
+      );
+
+    //
+    // 6. Check this is the right partition.
+    //
+    NewDeviceNode = FixedDevicePath;
+    Status        = gBS->LocateDevicePath (
+                           &gEfiDevicePathProtocolGuid,
+                           &NewDeviceNode,
+                           &Device
+                           );
+    if (EFI_ERROR (Status)) {
+      FreePool (FixedDevicePath);
+      continue;
+    }
+
+    //
+    // If the discovered device path is past the HD path, then it is ours.
+    // Otherwise we picked up wrong partition and need to retry.
+    //
+    if ((UINTN)NewDeviceNode > (UINTN)TestedDeviceNode) {
+      RestoreContext->OldPath = *DevicePath;
+      *DevicePath             = FixedDevicePath;
+      *DevicePathNode         = TestedDeviceNode;
+      FreePool (HandleBuffer);
+      return 1;
+    }
+
+    FreePool (FixedDevicePath);
+  }
+
+  FreePool (HandleBuffer);
+
+  //
+  // We found nothing.
+  //
+  return 0;
+}
+
+INTN
+OcFixAppleBootDevicePathNode (
+  IN OUT EFI_DEVICE_PATH_PROTOCOL     **DevicePath,
+  IN OUT EFI_DEVICE_PATH_PROTOCOL     **DevicePathNode,
+  OUT    APPLE_BOOT_DP_PATCH_CONTEXT  *RestoreContext OPTIONAL,
+  IN     EFI_HANDLE                   ValidDevice OPTIONAL
+  )
+{
+  INTN                      Result;
+  EFI_DEVICE_PATH_PROTOCOL  *OldPath;
+  EFI_DEV_PATH_PTR          Node;
+  UINT8                     NodeType;
+  UINT8                     NodeSubType;
+  UINTN                     NodeSize;
 
   ASSERT (DevicePathNode != NULL);
 
@@ -424,6 +624,7 @@ OcFixAppleBootDevicePathNode (
           if (RestoreContext != NULL) {
             RestoreContext->Types.Sata.PortMultiplierPortNumber = Node.Sata->PortMultiplierPortNumber;
           }
+
           //
           // Must be set to 0xFFFF if the device is directly connected to the
           // HBA. This rule has been established by UEFI 2.5 via an Erratum
@@ -434,6 +635,7 @@ OcFixAppleBootDevicePathNode (
           Node.Sata->PortMultiplierPortNumber = 0xFFFF;
           return 1;
         }
+
         //
         // Some vendors use proprietary node types over standardised ones. Find
         // a new, valid DevicePath that matches in prefix and suffix to the
@@ -443,9 +645,9 @@ OcFixAppleBootDevicePathNode (
         //
         OldPath = *DevicePath;
         Result  = InternalExpandNewPath (
-          DevicePath,
-          DevicePathNode
-          );
+                    DevicePath,
+                    DevicePathNode
+                    );
         if (Result > 0) {
           //
           // On success, handle restoring and resources.
@@ -548,16 +750,17 @@ OcFixAppleBootDevicePathNode (
             default:
               break;
           }
+
           //
           // Apple uses PciRoot (EISA 0x0A03) nodes while some types of firmware might use
           // PcieRoot (EISA 0x0A08).
           //
           Node.Acpi->HID = BitFieldWrite32 (
-            Node.Acpi->HID,
-            16,
-            31,
-            0x0A08
-            );
+                             Node.Acpi->HID,
+                             16,
+                             31,
+                             0x0A08
+                             );
           return 1;
         }
 
@@ -568,28 +771,30 @@ OcFixAppleBootDevicePathNode (
           RestoreContext->Types.ExtendedAcpi.HID = Node.ExtendedAcpi->HID;
           RestoreContext->Types.ExtendedAcpi.CID = Node.ExtendedAcpi->CID;
         }
+
         //
         // Apple uses PciRoot (EISA 0x0A03) nodes while some types of firmware might use
         // PcieRoot (EISA 0x0A08).
         //
         if (EISA_ID_TO_NUM (Node.ExtendedAcpi->HID) == 0x0A03) {
           Node.ExtendedAcpi->HID = BitFieldWrite32 (
-            Node.ExtendedAcpi->HID,
-            16,
-            31,
-            0x0A08
-            );
+                                     Node.ExtendedAcpi->HID,
+                                     16,
+                                     31,
+                                     0x0A08
+                                     );
           return 1;
         }
 
-        if (EISA_ID_TO_NUM (Node.ExtendedAcpi->CID) == 0x0A03
-         && EISA_ID_TO_NUM (Node.ExtendedAcpi->HID) != 0x0A08) {
+        if (  (EISA_ID_TO_NUM (Node.ExtendedAcpi->CID) == 0x0A03)
+           && (EISA_ID_TO_NUM (Node.ExtendedAcpi->HID) != 0x0A08))
+        {
           Node.ExtendedAcpi->CID = BitFieldWrite32 (
-            Node.ExtendedAcpi->CID,
-            16,
-            31,
-            0x0A08
-            );
+                                     Node.ExtendedAcpi->CID,
+                                     16,
+                                     31,
+                                     0x0A08
+                                     );
           return 1;
         }
 
@@ -598,6 +803,16 @@ OcFixAppleBootDevicePathNode (
       default:
         break;
     }
+  } else if ((NodeType == MEDIA_DEVICE_PATH) && (NodeSubType == MEDIA_VENDOR_DP)) {
+    if (ValidDevice == NULL) {
+      return 0;
+    }
+
+    return InternalFixAppleBootDevicePathVirtioNode (
+             DevicePath,
+             DevicePathNode,
+             RestoreContext
+             );
   }
 
   return 0;
@@ -609,14 +824,14 @@ OcFixAppleBootDevicePath (
   OUT    EFI_DEVICE_PATH_PROTOCOL  **RemainingDevicePath
   )
 {
-  INTN                        Result;
-  INTN                        NodePatched;
-  UINTN                       DevicePathSize;
+  INTN   Result;
+  INTN   NodePatched;
+  UINTN  DevicePathSize;
 
-  APPLE_BOOT_DP_PATCH_CONTEXT FirstNodeRestoreContext;
-  APPLE_BOOT_DP_PATCH_CONTEXT *RestoreContextPtr;
+  APPLE_BOOT_DP_PATCH_CONTEXT  FirstNodeRestoreContext;
+  APPLE_BOOT_DP_PATCH_CONTEXT  *RestoreContextPtr;
 
-  EFI_HANDLE                  Device;
+  EFI_HANDLE  Device;
 
   ASSERT (DevicePath != NULL);
   ASSERT (*DevicePath != NULL);
@@ -643,7 +858,8 @@ OcFixAppleBootDevicePath (
     Result = OcFixAppleBootDevicePathNode (
                DevicePath,
                RemainingDevicePath,
-               RestoreContextPtr
+               RestoreContextPtr,
+               Device
                );
     //
     // Save a restore context only for the first processing of the first node.
@@ -693,8 +909,8 @@ OcFixAppleBootDevicePath (
   //
   DEBUG_CODE_BEGIN ();
   DevicePathSize = GetDevicePathSize (*DevicePath);
-  ASSERT ((UINTN) *RemainingDevicePath >= (UINTN) *DevicePath);
-  ASSERT ((UINTN) *RemainingDevicePath < ((UINTN) *DevicePath) + DevicePathSize);
+  ASSERT ((UINTN)*RemainingDevicePath >= (UINTN)*DevicePath);
+  ASSERT ((UINTN)*RemainingDevicePath < ((UINTN)*DevicePath) + DevicePathSize);
   DEBUG_CODE_END ();
 
   return NodePatched;
@@ -708,7 +924,7 @@ InternalFileDevicePathsEqualClipBottom (
   IN OUT UINTN                       *ClipIndex
   )
 {
-  UINTN Index;
+  UINTN  Index;
 
   ASSERT (FilePathLength != NULL);
   ASSERT (*FilePathLength != 0);
@@ -732,11 +948,11 @@ InternalFileDevicePathsEqualClipNode (
   OUT UINTN                 *ClipIndex
   )
 {
-  EFI_DEV_PATH_PTR         DevPath;
-  UINTN                    Index;
+  EFI_DEV_PATH_PTR  DevPath;
+  UINTN             Index;
 
-  UINTN                    Length;
-  EFI_DEVICE_PATH_PROTOCOL *NextNode;
+  UINTN                     Length;
+  EFI_DEVICE_PATH_PROTOCOL  *NextNode;
 
   ASSERT (FilePath != NULL);
   ASSERT (ClipIndex != NULL);
@@ -744,14 +960,16 @@ InternalFileDevicePathsEqualClipNode (
   // It is unlikely to be encountered, but empty nodes are not forbidden.
   //
   for (
-    Length = 0, NextNode = &(*FilePath)->Header;
-    Length == 0;
-    NextNode = NextDevicePathNode (DevPath.DevPath)
-    ) {
+       Length = 0, NextNode = &(*FilePath)->Header;
+       Length == 0;
+       NextNode = NextDevicePathNode (DevPath.DevPath)
+       )
+  {
     DevPath.DevPath = NextNode;
 
-    if ((DevicePathType (DevPath.DevPath) != MEDIA_DEVICE_PATH)
-     || (DevicePathSubType (DevPath.DevPath) != MEDIA_FILEPATH_DP)) {
+    if (  (DevicePathType (DevPath.DevPath) != MEDIA_DEVICE_PATH)
+       || (DevicePathSubType (DevPath.DevPath) != MEDIA_FILEPATH_DP))
+    {
       Length = 0;
       break;
     }
@@ -760,8 +978,9 @@ InternalFileDevicePathsEqualClipNode (
     if (Length > 0) {
       Index = 0;
       InternalFileDevicePathsEqualClipBottom (DevPath.FilePath, &Length, &Index);
-      if ((Length > 0)
-       && DevPath.FilePath->PathName[Index + Length - 1] == L'\\') {
+      if (  (Length > 0)
+         && (DevPath.FilePath->PathName[Index + Length - 1] == L'\\'))
+      {
         --Length;
       }
 
@@ -793,15 +1012,15 @@ InternalFileDevicePathsEqualWorker (
   IN FILEPATH_DEVICE_PATH  **FilePath2
   )
 {
-  UINTN   Clip1Index;
-  UINTN   Clip2Index;
-  UINTN   Len1;
-  UINTN   Len2;
-  UINTN   CurrentLen;
-  UINTN   Index;
-  CHAR16  Char1;
-  CHAR16  Char2;
-  BOOLEAN Result;
+  UINTN    Clip1Index;
+  UINTN    Clip2Index;
+  UINTN    Len1;
+  UINTN    Len2;
+  UINTN    CurrentLen;
+  UINTN    Index;
+  CHAR16   Char1;
+  CHAR16   Char2;
+  BOOLEAN  Result;
 
   ASSERT (FilePath1 != NULL);
   ASSERT (*FilePath1 != NULL);
@@ -823,6 +1042,7 @@ InternalFileDevicePathsEqualWorker (
     if (CurrentLen == 0) {
       return FALSE;
     }
+
     //
     // FIXME: Discuss case sensitivity.  For UEFI FAT, case insensitivity is
     //        guaranteed.
@@ -903,15 +1123,15 @@ InternalDevicePathCmpWorker (
   IN BOOLEAN                   CheckChild
   )
 {
-  BOOLEAN          Result;
-  INTN             CmpResult;
+  BOOLEAN  Result;
+  INTN     CmpResult;
 
-  EFI_DEV_PATH_PTR ChildPathPtr;
-  EFI_DEV_PATH_PTR ParentPathPtr;
+  EFI_DEV_PATH_PTR  ChildPathPtr;
+  EFI_DEV_PATH_PTR  ParentPathPtr;
 
-  UINT8            NodeType;
-  UINT8            NodeSubType;
-  UINTN            NodeSize;
+  UINT8  NodeType;
+  UINT8  NodeSubType;
+  UINTN  NodeSize;
 
   ASSERT (ParentPath != NULL);
   ASSERT (IsDevicePathValid (ParentPath, 0));
@@ -930,17 +1150,19 @@ InternalDevicePathCmpWorker (
       // We only support single-instance Device Paths.
       //
       ASSERT (NodeSubType == END_ENTIRE_DEVICE_PATH_SUBTYPE);
-      return (CheckChild
-          || (DevicePathType (ParentPathPtr.DevPath) == END_DEVICE_PATH_TYPE));
+      return (  CheckChild
+             || (DevicePathType (ParentPathPtr.DevPath) == END_DEVICE_PATH_TYPE));
     }
 
-    if ((DevicePathType (ParentPathPtr.DevPath) != NodeType)
-     || (DevicePathSubType (ParentPathPtr.DevPath) != NodeSubType)) {
+    if (  (DevicePathType (ParentPathPtr.DevPath) != NodeType)
+       || (DevicePathSubType (ParentPathPtr.DevPath) != NodeSubType))
+    {
       return FALSE;
     }
 
-    if ((NodeType == MEDIA_DEVICE_PATH)
-     && (NodeSubType == MEDIA_FILEPATH_DP)) {
+    if (  (NodeType == MEDIA_DEVICE_PATH)
+       && (NodeSubType == MEDIA_FILEPATH_DP))
+    {
       //
       // File Paths need special consideration for prepended and appended
       // terminators, as well as multiple nodes.
@@ -952,6 +1174,7 @@ InternalDevicePathCmpWorker (
       if (!Result) {
         return FALSE;
       }
+
       //
       // InternalFileDevicePathsEqualWorker advances the nodes.
       //
@@ -984,8 +1207,8 @@ InternalDevicePathCmpWorker (
 BOOLEAN
 EFIAPI
 IsDevicePathEqual (
-  IN  EFI_DEVICE_PATH_PROTOCOL      *DevicePath1,
-  IN  EFI_DEVICE_PATH_PROTOCOL      *DevicePath2
+  IN  EFI_DEVICE_PATH_PROTOCOL  *DevicePath1,
+  IN  EFI_DEVICE_PATH_PROTOCOL  *DevicePath2
   )
 {
   return InternalDevicePathCmpWorker (DevicePath1, DevicePath2, FALSE);
@@ -994,8 +1217,8 @@ IsDevicePathEqual (
 BOOLEAN
 EFIAPI
 IsDevicePathChild (
-  IN  EFI_DEVICE_PATH_PROTOCOL      *ParentPath,
-  IN  EFI_DEVICE_PATH_PROTOCOL      *ChildPath
+  IN  EFI_DEVICE_PATH_PROTOCOL  *ParentPath,
+  IN  EFI_DEVICE_PATH_PROTOCOL  *ChildPath
   )
 {
   return InternalDevicePathCmpWorker (ParentPath, ChildPath, TRUE);
@@ -1016,8 +1239,8 @@ OcFileDevicePathNameLen (
   IN CONST FILEPATH_DEVICE_PATH  *FilePath
   )
 {
-  UINTN Size;
-  UINTN Len;
+  UINTN  Size;
+  UINTN  Len;
 
   ASSERT (FilePath != NULL);
   ASSERT (IsDevicePathValid (&FilePath->Header, 0));
@@ -1049,8 +1272,8 @@ OcFileDevicePathFullNameLen (
   IN CONST EFI_DEVICE_PATH_PROTOCOL  *DevicePath
   )
 {
-  UINTN                      PathLength;
-  CONST FILEPATH_DEVICE_PATH *FilePath;
+  UINTN                       PathLength;
+  CONST FILEPATH_DEVICE_PATH  *FilePath;
 
   ASSERT (DevicePath != NULL);
   ASSERT (IsDevicePathValid (DevicePath, 0));
@@ -1061,12 +1284,13 @@ OcFileDevicePathFullNameLen (
     // On the first iteration, this ensures the path is not immediately
     // terminated.
     //
-    if (DevicePath->Type    != MEDIA_DEVICE_PATH
-     || DevicePath->SubType != MEDIA_FILEPATH_DP) {
+    if (  (DevicePath->Type    != MEDIA_DEVICE_PATH)
+       || (DevicePath->SubType != MEDIA_FILEPATH_DP))
+    {
       return 0;
     }
 
-    FilePath    = (FILEPATH_DEVICE_PATH *)DevicePath;
+    FilePath = (FILEPATH_DEVICE_PATH *)DevicePath;
     //
     // Each node requires separator or CHAR_NULL
     //
@@ -1093,7 +1317,7 @@ OcFileDevicePathFullNameSize (
   IN CONST EFI_DEVICE_PATH_PROTOCOL  *DevicePath
   )
 {
-  UINTN        Len;
+  UINTN  Len;
 
   Len = OcFileDevicePathFullNameLen (DevicePath);
 
@@ -1111,8 +1335,8 @@ OcFileDevicePathFullNameSize (
 
   @param[out] PathName      On output, the full file path of FilePath.
   @param[in]  FilePath      The File Device Path to inspect.
-  @param[in]  PathNameSize  The size, in bytes, of PathnName.  Must equal the
-                            actual fill file path size.
+  @param[in]  PathNameSize  The size, in bytes, of PathName.  Must equal the
+                            actual full file path size.
 
 **/
 VOID
@@ -1122,7 +1346,7 @@ OcFileDevicePathFullName (
   IN  UINTN                       PathNameSize
   )
 {
-  UINTN                          PathLen;
+  UINTN  PathLen;
 
   ASSERT (PathName != NULL);
   ASSERT (FilePath != NULL);
@@ -1142,23 +1366,24 @@ OcFileDevicePathFullName (
       FilePath->PathName,
       PathLen * sizeof (*FilePath->PathName)
       );
-    PathName += PathLen;
+    PathName   += PathLen;
     *PathName++ = L'\\';
 
     FilePath = (CONST FILEPATH_DEVICE_PATH *)NextDevicePathNode (FilePath);
   } while (!IsDevicePathEnd (FilePath));
+
   *(PathName - 1) = CHAR_NULL;
 }
 
 CHAR16 *
 OcCopyDevicePathFullName (
-  IN   EFI_DEVICE_PATH_PROTOCOL        *DevicePath,
-  OUT  EFI_DEVICE_PATH_PROTOCOL        **FileDevicePath  OPTIONAL
+  IN   EFI_DEVICE_PATH_PROTOCOL  *DevicePath,
+  OUT  EFI_DEVICE_PATH_PROTOCOL  **FileDevicePath  OPTIONAL
   )
 {
-  CHAR16                      *Path;
-  EFI_DEVICE_PATH_PROTOCOL    *CurrNode;
-  UINTN                       PathSize;
+  CHAR16                    *Path;
+  EFI_DEVICE_PATH_PROTOCOL  *CurrNode;
+  UINTN                     PathSize;
 
   Path = NULL;
 
@@ -1167,8 +1392,9 @@ OcCopyDevicePathFullName (
   }
 
   for (CurrNode = DevicePath; !IsDevicePathEnd (CurrNode); CurrNode = NextDevicePathNode (CurrNode)) {
-    if ((DevicePathType (CurrNode) == MEDIA_DEVICE_PATH)
-     && (DevicePathSubType (CurrNode) == MEDIA_FILEPATH_DP)) {
+    if (  (DevicePathType (CurrNode) == MEDIA_DEVICE_PATH)
+       && (DevicePathSubType (CurrNode) == MEDIA_FILEPATH_DP))
+    {
       if (FileDevicePath != NULL) {
         *FileDevicePath = CurrNode;
       }
@@ -1186,7 +1412,7 @@ OcCopyDevicePathFullName (
         return NULL;
       }
 
-      OcFileDevicePathFullName (Path, (FILEPATH_DEVICE_PATH *) CurrNode, PathSize);
+      OcFileDevicePathFullName (Path, (FILEPATH_DEVICE_PATH *)CurrNode, PathSize);
       break;
     }
   }
@@ -1200,25 +1426,25 @@ OcAppendDevicePathInstanceDedupe (
   IN CONST EFI_DEVICE_PATH_PROTOCOL  *DevicePathInstance
   )
 {
-  INTN                           CmpResult;
+  INTN  CmpResult;
 
-  EFI_DEVICE_PATH_PROTOCOL       *DevPathWalker;
-  EFI_DEVICE_PATH_PROTOCOL       *CurrentInstance;
+  EFI_DEVICE_PATH_PROTOCOL  *DevPathWalker;
+  EFI_DEVICE_PATH_PROTOCOL  *CurrentInstance;
 
-  UINTN                          AppendInstanceSize;
-  UINTN                          CurrentInstanceSize;
+  UINTN  AppendInstanceSize;
+  UINTN  CurrentInstanceSize;
 
   ASSERT (DevicePathInstance != NULL);
 
   if (DevicePath != NULL) {
     AppendInstanceSize = GetDevicePathSize (DevicePathInstance);
-    DevPathWalker = DevicePath;
+    DevPathWalker      = DevicePath;
 
     while (TRUE) {
       CurrentInstance = GetNextDevicePathInstance (
-        &DevPathWalker,
-        &CurrentInstanceSize
-        );
+                          &DevPathWalker,
+                          &CurrentInstanceSize
+                          );
       if (CurrentInstance == NULL) {
         break;
       }
@@ -1229,10 +1455,10 @@ OcAppendDevicePathInstanceDedupe (
       }
 
       CmpResult = CompareMem (
-        CurrentInstance,
-        DevicePathInstance,
-        CurrentInstanceSize
-        );
+                    CurrentInstance,
+                    DevicePathInstance,
+                    CurrentInstanceSize
+                    );
 
       FreePool (CurrentInstance);
 
@@ -1250,7 +1476,7 @@ OcGetNumDevicePathInstances (
   IN CONST EFI_DEVICE_PATH_PROTOCOL  *DevicePath
   )
 {
-  UINTN NumInstances;
+  UINTN  NumInstances;
 
   NumInstances = 1;
 
@@ -1272,21 +1498,22 @@ OcDevicePathHasFilePathSuffix (
   IN UINTN                     SuffixLen
   )
 {
-  FILEPATH_DEVICE_PATH *FilePath;
-  UINTN                PathNameLen;
-  UINTN                PathNameSize;
-  CHAR16               *PathName;
-  INTN                 Result;
+  FILEPATH_DEVICE_PATH  *FilePath;
+  UINTN                 PathNameLen;
+  UINTN                 PathNameSize;
+  CHAR16                *PathName;
+  INTN                  Result;
+
   //
   // OcStrinCmp will be needed in case of a mismatch.
   //
   ASSERT (SuffixLen == StrLen (Suffix));
 
-  FilePath = (FILEPATH_DEVICE_PATH *) FindDevicePathNodeWithType (
-    DevicePath,
-    MEDIA_DEVICE_PATH,
-    MEDIA_FILEPATH_DP
-    );
+  FilePath = (FILEPATH_DEVICE_PATH *)FindDevicePathNodeWithType (
+                                       DevicePath,
+                                       MEDIA_DEVICE_PATH,
+                                       MEDIA_FILEPATH_DP
+                                       );
   if (FilePath == NULL) {
     return FALSE;
   }
@@ -1306,9 +1533,9 @@ OcDevicePathHasFilePathSuffix (
   OcFileDevicePathFullName (PathName, FilePath, PathNameSize);
 
   Result = OcStriCmp (
-    &PathName[PathNameLen - SuffixLen],
-    Suffix
-    );
+             &PathName[PathNameLen - SuffixLen],
+             Suffix
+             );
 
   FreePool (PathName);
 

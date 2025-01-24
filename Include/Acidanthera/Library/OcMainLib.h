@@ -14,13 +14,12 @@
 #ifndef OC_MAIN_LIB
 #define OC_MAIN_LIB
 
-
+#include <Library/BaseOverflowLib.h>
 #include <Library/OcAppleKernelLib.h>
 #include <Library/OcBootManagementLib.h>
 #include <Library/OcConfigurationLib.h>
 #include <Library/OcCpuLib.h>
 #include <Library/OcCryptoLib.h>
-#include <Library/OcGuardLib.h>
 #include <Library/OcMiscLib.h>
 #include <Library/OcStringLib.h>
 #include <Library/OcStorageLib.h>
@@ -31,44 +30,36 @@
   OpenCore version reported to log and NVRAM.
   OPEN_CORE_VERSION must follow X.Y.Z format, where X.Y.Z are single digits.
 **/
-#define OPEN_CORE_VERSION          "0.7.1"
+#define OPEN_CORE_VERSION  "1.0.4"
 
 /**
   OpenCore build type reported to log and NVRAM.
 **/
 #if defined (OC_TARGET_RELEASE)
-#define OPEN_CORE_TARGET           "REL" ///< Release.
+#define OPEN_CORE_TARGET  "REL"          ///< Release.
 #elif defined (OC_TARGET_DEBUG)
-#define OPEN_CORE_TARGET           "DBG" ///< Debug with compiler optimisations.
+#define OPEN_CORE_TARGET  "DBG"          ///< Debug with compiler optimisations.
 #elif defined (OC_TARGET_NOOPT)
-#define OPEN_CORE_TARGET           "NPT" ///< Debug with no compiler optimisations.
+#define OPEN_CORE_TARGET  "NPT"          ///< Debug with no compiler optimisations.
 #else
-#error "Unknown target definition"
+  #error "Unknown target definition"
 #endif
 
-#define OPEN_CORE_ROOT_PATH        L"EFI\\OC"
+#define OPEN_CORE_ROOT_PATH  L"EFI\\OC"
 
-#define OPEN_CORE_APP_PATH         L"OpenCore.efi"
+#define OPEN_CORE_APP_PATH  L"OpenCore.efi"
 
-#define OPEN_CORE_CONFIG_PATH      L"config.plist"
+#define OPEN_CORE_CONFIG_PATH  L"config.plist"
 
 #define OPEN_CORE_LOG_PREFIX_PATH  L"opencore"
 
-#define OPEN_CORE_NVRAM_PATH       L"nvram.plist"
+#define OPEN_CORE_ACPI_PATH  L"ACPI\\"
 
-#define OPEN_CORE_ACPI_PATH        L"ACPI\\"
+#define OPEN_CORE_UEFI_DRIVER_PATH  L"Drivers\\"
 
-#define OPEN_CORE_UEFI_DRIVER_PATH L"Drivers\\"
+#define OPEN_CORE_KEXT_PATH  L"Kexts\\"
 
-#define OPEN_CORE_KEXT_PATH        L"Kexts\\"
-
-#define OPEN_CORE_TOOL_PATH        L"Tools\\"
-
-#define OPEN_CORE_NVRAM_ATTR       (EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_RUNTIME_ACCESS)
-
-#define OPEN_CORE_NVRAM_NV_ATTR    (EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_RUNTIME_ACCESS | EFI_VARIABLE_NON_VOLATILE)
-
-#define OPEN_CORE_INT_NVRAM_ATTR   EFI_VARIABLE_BOOTSERVICE_ACCESS
+#define OPEN_CORE_TOOL_PATH  L"Tools\\"
 
 /**
   Obtain cryptographic key if it was installed.
@@ -101,7 +92,23 @@ OcLoadAcpiSupport (
 **/
 VOID
 OcLoadDevPropsSupport (
-  IN OC_GLOBAL_CONFIG    *Config
+  IN OC_GLOBAL_CONFIG  *Config
+  );
+
+/**
+  Load drivers.
+
+  @param[in]  Storage             OpenCore storage.
+  @param[in]  Config              OpenCore configuration.
+  @param[in]  DriversToConnect    Drivers which require later connection.
+  @param[in]  LoadEarly           If TRUE load any early phase drivers, otherwise load normal phase.
+**/
+VOID
+OcLoadDrivers (
+  IN  OC_STORAGE_CONTEXT  *Storage,
+  IN  OC_GLOBAL_CONFIG    *Config,
+  OUT EFI_HANDLE          **DriversToConnect  OPTIONAL,
+  IN  BOOLEAN             LoadEarly
   );
 
 /**
@@ -131,18 +138,32 @@ OcKernelApplyQuirk (
   );
 
 /**
+  Inject kexts.
+**/
+VOID
+OcKernelInjectKexts (
+  IN OC_GLOBAL_CONFIG   *Config,
+  IN KERNEL_CACHE_TYPE  CacheType,
+  IN VOID               *Context,
+  IN UINT32             DarwinVersion,
+  IN BOOLEAN            Is32Bit,
+  IN UINT32             LinkedExpansion,
+  IN UINT32             ReservedExeSize
+  );
+
+/**
   Apply kernel patch.
 **/
 VOID
 OcKernelApplyPatches (
-  IN     OC_GLOBAL_CONFIG  *Config,
-  IN     OC_CPU_INFO       *CpuInfo,
-  IN     UINT32            DarwinVersion,
-  IN     BOOLEAN           Is32Bit,
-  IN     KERNEL_CACHE_TYPE CacheType,
-  IN     VOID              *Context,
-  IN OUT UINT8             *Kernel,
-  IN     UINT32            Size
+  IN     OC_GLOBAL_CONFIG   *Config,
+  IN     OC_CPU_INFO        *CpuInfo,
+  IN     UINT32             DarwinVersion,
+  IN     BOOLEAN            Is32Bit,
+  IN     KERNEL_CACHE_TYPE  CacheType,
+  IN     VOID               *Context,
+  IN OUT UINT8              *Kernel,
+  IN     UINT32             Size
   );
 
 /**
@@ -150,11 +171,26 @@ OcKernelApplyPatches (
 **/
 VOID
 OcKernelBlockKexts (
+  IN     OC_GLOBAL_CONFIG   *Config,
+  IN     UINT32             DarwinVersion,
+  IN     BOOLEAN            Is32Bit,
+  IN     KERNEL_CACHE_TYPE  CacheType,
+  IN     VOID               *Context
+  );
+
+/**
+  Process prelinked.
+**/
+EFI_STATUS
+OcKernelProcessPrelinked (
   IN     OC_GLOBAL_CONFIG  *Config,
   IN     UINT32            DarwinVersion,
   IN     BOOLEAN           Is32Bit,
-  IN     KERNEL_CACHE_TYPE CacheType,
-  IN     VOID              *Context
+  IN OUT UINT8             *Kernel,
+  IN     UINT32            *KernelSize,
+  IN     UINT32            AllocatedSize,
+  IN     UINT32            LinkedExpansion,
+  IN     UINT32            ReservedExeSize
   );
 
 /**
@@ -178,6 +214,31 @@ OcLoadNvramSupport (
   );
 
 /**
+  Obtain Legacy Secure Boot ECID (system-id).
+
+  @param[in]  Config   Configuration.
+  @param[out] ApECID   Legacy Secure Boot ECID.
+**/
+VOID
+OcGetLegacySecureBootECID (
+  IN  OC_GLOBAL_CONFIG  *Config,
+  OUT UINT64            *ApECID
+  );
+
+/**
+  Obtain default Secure Boot hardware model.
+
+  @param[in]  Config   Configuration.
+  @param[in]  CpuInfo  CPU information.
+  @return Apple Secure Boot model.
+**/
+CONST CHAR8 *
+OcGetDefaultSecureBootModel (
+  IN  OC_GLOBAL_CONFIG  *Config,
+  IN  OC_CPU_INFO       *CpuInfo
+  );
+
+/**
   Load platform compatibility support like DataHub or SMBIOS.
 
   @param[in]  Config    OpenCore configuration.
@@ -185,8 +246,8 @@ OcLoadNvramSupport (
 **/
 VOID
 OcLoadPlatformSupport (
-  IN OC_GLOBAL_CONFIG    *Config,
-  IN OC_CPU_INFO         *CpuInfo
+  IN OC_GLOBAL_CONFIG  *Config,
+  IN OC_CPU_INFO       *CpuInfo
   );
 
 /**
@@ -218,11 +279,13 @@ OcLoadUefiInputSupport (
 /**
   Load UEFI output compatibility support.
 
+  @param[in]  Storage   OpenCore storage.
   @param[out] Config    OpenCore configuration.
 **/
 VOID
 OcLoadUefiOutputSupport (
-  IN OC_GLOBAL_CONFIG  *Config
+  IN OC_STORAGE_CONTEXT  *Storage,
+  IN OC_GLOBAL_CONFIG    *Config
   );
 
 /**
@@ -245,8 +308,8 @@ OcLoadUefiAudioSupport (
 **/
 VOID
 OcScheduleExitBootServices (
-  IN EFI_EVENT_NOTIFY   Handler,
-  IN VOID               *Context
+  IN EFI_EVENT_NOTIFY  Handler,
+  IN VOID              *Context
   );
 
 /**
@@ -270,9 +333,9 @@ OcMiscGetVersionString (
 **/
 EFI_STATUS
 OcMiscEarlyInit (
-  IN  OC_STORAGE_CONTEXT *Storage,
-  OUT OC_GLOBAL_CONFIG   *Config,
-  IN  OC_RSA_PUBLIC_KEY  *VaultKey  OPTIONAL
+  IN  OC_STORAGE_CONTEXT  *Storage,
+  OUT OC_GLOBAL_CONFIG    *Config,
+  IN  OC_RSA_PUBLIC_KEY   *VaultKey  OPTIONAL
   );
 
 /**
@@ -307,8 +370,8 @@ OcMiscMiddleInit (
 **/
 EFI_STATUS
 OcMiscLateInit (
-  IN  OC_STORAGE_CONTEXT        *Storage,
-  IN  OC_GLOBAL_CONFIG          *Config
+  IN  OC_STORAGE_CONTEXT  *Storage,
+  IN  OC_GLOBAL_CONFIG    *Config
   );
 
 /**
@@ -320,8 +383,8 @@ OcMiscLateInit (
 **/
 VOID
 OcMiscLoadSystemReport (
-  IN  OC_GLOBAL_CONFIG          *Config,
-  IN  EFI_HANDLE                LoadHandle OPTIONAL
+  IN  OC_GLOBAL_CONFIG  *Config,
+  IN  EFI_HANDLE        LoadHandle OPTIONAL
   );
 
 /**
@@ -336,12 +399,12 @@ OcMiscLoadSystemReport (
 **/
 VOID
 OcMiscBoot (
-  IN  OC_STORAGE_CONTEXT        *Storage,
-  IN  OC_GLOBAL_CONFIG          *Config,
-  IN  OC_PRIVILEGE_CONTEXT      *Privilege OPTIONAL,
-  IN  OC_IMAGE_START            StartImage,
-  IN  BOOLEAN                   CustomBootGuid,
-  IN  EFI_HANDLE                LoadHandle
+  IN  OC_STORAGE_CONTEXT    *Storage,
+  IN  OC_GLOBAL_CONFIG      *Config,
+  IN  OC_PRIVILEGE_CONTEXT  *Privilege OPTIONAL,
+  IN  OC_IMAGE_START        StartImage,
+  IN  BOOLEAN               CustomBootGuid,
+  IN  EFI_HANDLE            LoadHandle
   );
 
 /**
@@ -351,7 +414,7 @@ OcMiscBoot (
 **/
 VOID
 OcMiscUefiQuirksLoaded (
-  IN OC_GLOBAL_CONFIG   *Config
+  IN OC_GLOBAL_CONFIG  *Config
   );
 
 /**
@@ -362,7 +425,29 @@ OcMiscUefiQuirksLoaded (
 **/
 BOOLEAN
 OcPlatformIs64BitSupported (
-  IN UINT32     KernelVersion
+  IN UINT32  KernelVersion
+  );
+
+/**
+  Unload loaded images by name.
+
+  @param[in]  Config     OpenCore configuration.
+**/
+VOID
+OcUnloadDrivers (
+  IN  OC_GLOBAL_CONFIG  *Config
+  );
+
+/**
+  Dump loaded image driver info to the specified directory.
+
+  @param[in]  Root     Directory to write CPU data.
+
+  @retval EFI_SUCCESS on success.
+**/
+EFI_STATUS
+OcDriverInfoDump (
+  IN EFI_FILE_PROTOCOL  *Root
   );
 
 #endif // OC_MAIN_LIB

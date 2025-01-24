@@ -36,17 +36,17 @@ InternalGetFirstDeviceBootFilePath (
   IN UINTN                           DmgDevicePathSize
   )
 {
-  EFI_DEVICE_PATH_PROTOCOL       *BootDevicePath;
+  EFI_DEVICE_PATH_PROTOCOL  *BootDevicePath;
 
-  EFI_STATUS                     Status;
-  INTN                           CmpResult;
+  EFI_STATUS  Status;
+  INTN        CmpResult;
 
-  CONST EFI_DEVICE_PATH_PROTOCOL *FsDevicePath;
-  UINTN                          FsDevicePathSize;
+  CONST EFI_DEVICE_PATH_PROTOCOL  *FsDevicePath;
+  UINTN                           FsDevicePathSize;
 
-  UINTN                          NumHandles;
-  EFI_HANDLE                     *HandleBuffer;
-  UINTN                          Index;
+  UINTN       NumHandles;
+  EFI_HANDLE  *HandleBuffer;
+  UINTN       Index;
 
   ASSERT (DmgDevicePath != NULL);
   ASSERT (DmgDevicePathSize >= END_DEVICE_PATH_LENGTH);
@@ -90,11 +90,11 @@ InternalGetFirstDeviceBootFilePath (
     }
 
     Status = OcBootPolicyGetBootFileEx (
-                           HandleBuffer[Index],
-                           gAppleBootPolicyPredefinedPaths,
-                           gAppleBootPolicyNumPredefinedPaths,
-                           &BootDevicePath
-                           );
+               HandleBuffer[Index],
+               gAppleBootPolicyPredefinedPaths,
+               gAppleBootPolicyNumPredefinedPaths,
+               &BootDevicePath
+               );
     if (!EFI_ERROR (Status)) {
       break;
     }
@@ -110,20 +110,20 @@ InternalGetFirstDeviceBootFilePath (
 STATIC
 EFI_DEVICE_PATH_PROTOCOL *
 InternalGetDiskImageBootFile (
-  OUT INTERNAL_DMG_LOAD_CONTEXT   *Context,
-  IN  OC_DMG_LOADING_SUPPORT      DmgLoading,
-  IN  UINTN                       DmgFileSize,
-  IN  VOID                        *ChunklistBuffer OPTIONAL,
-  IN  UINT32                      ChunklistBufferSize OPTIONAL
+  OUT INTERNAL_DMG_LOAD_CONTEXT  *Context,
+  IN  OC_DMG_LOADING_SUPPORT     DmgLoading,
+  IN  UINTN                      DmgFileSize,
+  IN  VOID                       *ChunklistBuffer OPTIONAL,
+  IN  UINT32                     ChunklistBufferSize OPTIONAL
   )
 {
-  EFI_DEVICE_PATH_PROTOCOL       *DevPath;
+  EFI_DEVICE_PATH_PROTOCOL  *DevPath;
 
-  BOOLEAN                        Result;
-  OC_APPLE_CHUNKLIST_CONTEXT     ChunklistContext;
+  BOOLEAN                     Result;
+  OC_APPLE_CHUNKLIST_CONTEXT  ChunklistContext;
 
-  CONST EFI_DEVICE_PATH_PROTOCOL *DmgDevicePath;
-  UINTN                          DmgDevicePathSize;
+  CONST EFI_DEVICE_PATH_PROTOCOL  *DmgDevicePath;
+  UINTN                           DmgDevicePathSize;
 
   ASSERT (Context != NULL);
   ASSERT (DmgFileSize > 0);
@@ -137,10 +137,10 @@ InternalGetDiskImageBootFile (
     ASSERT (ChunklistBufferSize > 0);
 
     Result = OcAppleChunklistInitializeContext (
-      &ChunklistContext,
-      ChunklistBuffer,
-      ChunklistBufferSize
-      );
+               &ChunklistContext,
+               ChunklistBuffer,
+               ChunklistBufferSize
+               );
     if (!Result) {
       DEBUG ((
         DEBUG_INFO,
@@ -153,15 +153,15 @@ InternalGetDiskImageBootFile (
     // FIXME: Properly abstract OcAppleKeysLib.
     //
     Result = OcAppleChunklistVerifySignature (
-      &ChunklistContext,
-      PkDataBase[0].PublicKey
-      );
+               &ChunklistContext,
+               PkDataBase[0].PublicKey
+               );
 
     if (!Result) {
       Result = OcAppleChunklistVerifySignature (
-        &ChunklistContext,
-        PkDataBase[1].PublicKey
-        );
+                 &ChunklistContext,
+                 PkDataBase[1].PublicKey
+                 );
     }
 
     if (!Result) {
@@ -214,20 +214,21 @@ InternalFindFirstDmgFileName (
   OUT UINTN              *FileNameLen
   )
 {
-  EFI_STATUS    Status;
-  EFI_FILE_INFO *FileInfo;
-  BOOLEAN       NoFile;
-  UINTN         ExtOffset;
-  UINTN         Length;
-  INTN          Result;
+  EFI_STATUS     Status;
+  EFI_FILE_INFO  *FileInfo;
+  BOOLEAN        NoFile;
+  UINTN          ExtOffset;
+  UINTN          Length;
+  INTN           Result;
 
   ASSERT (Directory != NULL);
 
   for (
-    Status = FileHandleFindFirstFile (Directory, &FileInfo), NoFile = FALSE;
-    (!EFI_ERROR (Status) && !NoFile);
-    Status = FileHandleFindNextFile (Directory, FileInfo, &NoFile)
-    ) {
+       Status = FileHandleFindFirstFile (Directory, &FileInfo), NoFile = FALSE;
+       (!EFI_ERROR (Status) && !NoFile);
+       Status = FileHandleFindNextFile (Directory, FileInfo, &NoFile)
+       )
+  {
     if ((FileInfo->Attribute & EFI_FILE_DIRECTORY) != 0) {
       continue;
     }
@@ -262,20 +263,21 @@ InternalFindDmgChunklist (
   IN UINTN              DmgFileNameLen
   )
 {
-  EFI_STATUS    Status;
-  EFI_FILE_INFO *FileInfo;
-  BOOLEAN       NoFile;
-  UINTN         NameLen;
-  INTN          Result;
-  UINTN         ChunklistFileNameLen;
+  EFI_STATUS     Status;
+  EFI_FILE_INFO  *FileInfo;
+  BOOLEAN        NoFile;
+  UINTN          NameLen;
+  INTN           Result;
+  UINTN          ChunklistFileNameLen;
 
   ChunklistFileNameLen = (DmgFileNameLen + L_STR_LEN (".chunklist"));
 
   for (
-    Status = FileHandleFindFirstFile (Directory, &FileInfo), NoFile = FALSE;
-    (!EFI_ERROR (Status) && !NoFile);
-    Status = FileHandleFindNextFile (Directory, FileInfo, &NoFile)
-    ) {
+       Status = FileHandleFindFirstFile (Directory, &FileInfo), NoFile = FALSE;
+       (!EFI_ERROR (Status) && !NoFile);
+       Status = FileHandleFindNextFile (Directory, FileInfo, &NoFile)
+       )
+  {
     if ((FileInfo->Attribute & EFI_FILE_DIRECTORY) != 0) {
       continue;
     }
@@ -315,155 +317,180 @@ InternalFindDmgChunklist (
 
 EFI_DEVICE_PATH_PROTOCOL *
 InternalLoadDmg (
-  IN OUT INTERNAL_DMG_LOAD_CONTEXT   *Context,
-  IN     OC_DMG_LOADING_SUPPORT      DmgLoading
+  IN OUT INTERNAL_DMG_LOAD_CONTEXT            *Context,
+  IN     OC_DMG_LOADING_SUPPORT               DmgLoading,
+  IN     OC_APPLE_DISK_IMAGE_PRELOAD_CONTEXT  *DmgPreloadContext
   )
 {
-  EFI_DEVICE_PATH_PROTOCOL *DevPath;
+  EFI_DEVICE_PATH_PROTOCOL  *DevPath;
 
-  EFI_STATUS               Status;
-  BOOLEAN                  Result;
+  EFI_STATUS  Status;
+  BOOLEAN     Result;
 
-  EFI_FILE_PROTOCOL        *DmgDir;
+  EFI_FILE_PROTOCOL  *DmgDir;
 
-  UINTN                    DmgFileNameLen;
-  EFI_FILE_INFO            *DmgFileInfo;
-  EFI_FILE_PROTOCOL        *DmgFile;
-  UINT32                   DmgFileSize;
+  UINTN              DmgFileNameLen;
+  EFI_FILE_INFO      *DmgFileInfo;
+  EFI_FILE_PROTOCOL  *DmgFile;
+  UINT32             DmgFileSize;
 
-  EFI_FILE_INFO            *ChunklistFileInfo;
-  EFI_FILE_PROTOCOL        *ChunklistFile;
-  UINT32                   ChunklistFileSize;
-  VOID                     *ChunklistBuffer;
+  EFI_FILE_INFO      *ChunklistFileInfo;
+  EFI_FILE_PROTOCOL  *ChunklistFile;
+  UINT32             ChunklistFileSize;
+  VOID               *ChunklistBuffer;
 
-  CHAR16 *DevPathText;
+  CHAR16  *DevPathText;
 
   ASSERT (Context != NULL);
 
-  DevPath = Context->DevicePath;
-  Status = OcOpenFileByDevicePath (
-             &DevPath,
-             &DmgDir,
-             EFI_FILE_MODE_READ,
-             EFI_FILE_DIRECTORY
-             );
-  if (EFI_ERROR (Status)) {
-    DevPathText = ConvertDevicePathToText (Context->DevicePath, FALSE, FALSE);
-    DEBUG ((DEBUG_INFO, "OCB: Failed to open DMG directory %s\n", DevPathText));
-    if (DevPathText != NULL) {
-      FreePool (DevPathText);
+  if (DmgPreloadContext->DmgContext != NULL) {
+    Context->DmgContext = DmgPreloadContext->DmgContext;
+    DmgFileSize         = DmgPreloadContext->DmgFileSize;
+  } else {
+    if (DmgPreloadContext->DmgFile != NULL) {
+      DmgFile     = DmgPreloadContext->DmgFile;
+      DmgFileSize = DmgPreloadContext->DmgFileSize;
+    } else {
+      DevPath = Context->DevicePath;
+      Status  = OcOpenFileByDevicePath (
+                  &DevPath,
+                  &DmgDir,
+                  EFI_FILE_MODE_READ,
+                  EFI_FILE_DIRECTORY
+                  );
+      if (EFI_ERROR (Status)) {
+        DevPathText = ConvertDevicePathToText (Context->DevicePath, FALSE, FALSE);
+        DEBUG ((DEBUG_INFO, "OCB: Failed to open DMG directory %s\n", DevPathText));
+        if (DevPathText != NULL) {
+          FreePool (DevPathText);
+        }
+
+        return NULL;
+      }
+
+      DmgFileInfo = InternalFindFirstDmgFileName (DmgDir, &DmgFileNameLen);
+      if (DmgFileInfo == NULL) {
+        DevPathText = ConvertDevicePathToText (Context->DevicePath, FALSE, FALSE);
+        DEBUG ((DEBUG_INFO, "OCB: Unable to find any DMG at %s\n"));
+        if (DevPathText != NULL) {
+          FreePool (DevPathText);
+        }
+
+        DmgDir->Close (DmgDir);
+        return NULL;
+      }
+
+      Status = OcSafeFileOpen (
+                 DmgDir,
+                 &DmgFile,
+                 DmgFileInfo->FileName,
+                 EFI_FILE_MODE_READ,
+                 0
+                 );
+      if (EFI_ERROR (Status)) {
+        DEBUG ((
+          DEBUG_INFO,
+          "OCB: Failed to open DMG file %s - %r\n",
+          DmgFileInfo->FileName,
+          Status
+          ));
+
+        FreePool (DmgFileInfo);
+        DmgDir->Close (DmgDir);
+        return NULL;
+      }
+
+      Status = OcGetFileSize (DmgFile, &DmgFileSize);
+      if (EFI_ERROR (Status)) {
+        DEBUG ((
+          DEBUG_INFO,
+          "OCB: Failed to retrieve DMG file size - %r\n",
+          Status
+          ));
+
+        FreePool (DmgFileInfo);
+        DmgDir->Close (DmgDir);
+        DmgFile->Close (DmgFile);
+        return NULL;
+      }
     }
 
-    return NULL;
-  }
-
-  DmgFileInfo = InternalFindFirstDmgFileName (DmgDir, &DmgFileNameLen);
-  if (DmgFileInfo == NULL) {
-    DevPathText = ConvertDevicePathToText (Context->DevicePath, FALSE, FALSE);
-    DEBUG ((DEBUG_INFO, "OCB: Unable to find any DMG at %s\n"));
-    if (DevPathText != NULL) {
-      FreePool (DevPathText);
+    Context->DmgContext = AllocatePool (sizeof (*Context->DmgContext));
+    if (Context->DmgContext == NULL) {
+      DEBUG ((DEBUG_INFO, "OCB: Failed to allocate DMG context\n"));
+      return NULL;
     }
 
-    DmgDir->Close (DmgDir);
-    return NULL;
-  }
+    Result = OcAppleDiskImageInitializeFromFile (Context->DmgContext, DmgFile);
 
-  Status = SafeFileOpen (
-    DmgDir,
-    &DmgFile,
-    DmgFileInfo->FileName,
-    EFI_FILE_MODE_READ,
-    0
-    );
-  if (EFI_ERROR (Status)) {
-    DEBUG ((
-      DEBUG_INFO,
-      "OCB: Failed to open DMG file %s - %r\n",
-      DmgFileInfo->FileName,
-      Status
-      ));
-
-    FreePool (DmgFileInfo);
-    DmgDir->Close (DmgDir);
-    return NULL;
-  }
-
-  Status = GetFileSize (DmgFile, &DmgFileSize);
-  if (EFI_ERROR (Status)) {
-    DEBUG ((
-      DEBUG_INFO,
-      "OCB: Failed to retrieve DMG file size - %r\n",
-      Status
-      ));
-
-    FreePool (DmgFileInfo);
-    DmgDir->Close (DmgDir);
     DmgFile->Close (DmgFile);
-    return NULL;
-  }
 
-  Context->DmgContext = AllocatePool (sizeof (*Context->DmgContext));
-  if (Context->DmgContext == NULL) {
-    DEBUG ((DEBUG_INFO, "OCB: Failed to allocate DMG context\n"));
-    return NULL;
-  }
+    if (!Result) {
+      DEBUG ((DEBUG_INFO, "OCB: Failed to initialise DMG from file\n"));
 
-  Result = OcAppleDiskImageInitializeFromFile (Context->DmgContext, DmgFile);
+      if (DmgPreloadContext->DmgFile == NULL) {
+        FreePool (DmgFileInfo);
+        DmgDir->Close (DmgDir);
+      }
 
-  DmgFile->Close (DmgFile);
-
-  if (!Result) {
-    DEBUG ((DEBUG_INFO, "OCB: Failed to initialise DMG from file\n"));
-
-    FreePool (DmgFileInfo);
-    FreePool (Context->DmgContext);
-    DmgDir->Close (DmgDir);
-    return NULL;
+      FreePool (Context->DmgContext);
+      return NULL;
+    }
   }
 
   ChunklistBuffer   = NULL;
   ChunklistFileSize = 0;
+  if (  (DmgPreloadContext->DmgFile != NULL)
+     || (DmgPreloadContext->DmgContext != NULL))
+  {
+    if (DmgPreloadContext->ChunklistBuffer != NULL) {
+      ChunklistBuffer   = DmgPreloadContext->ChunklistBuffer;
+      ChunklistFileSize = DmgPreloadContext->ChunklistFileSize;
+    }
+  } else {
+    ChunklistFileInfo = InternalFindDmgChunklist (
+                          DmgDir,
+                          DmgFileInfo->FileName,
+                          DmgFileNameLen
+                          );
+    if (ChunklistFileInfo != NULL) {
+      Status = OcSafeFileOpen (
+                 DmgDir,
+                 &ChunklistFile,
+                 ChunklistFileInfo->FileName,
+                 EFI_FILE_MODE_READ,
+                 0
+                 );
+      if (!EFI_ERROR (Status)) {
+        Status = OcGetFileSize (ChunklistFile, &ChunklistFileSize);
+        if (Status == EFI_SUCCESS) {
+          ChunklistBuffer = AllocatePool (ChunklistFileSize);
 
-  ChunklistFileInfo = InternalFindDmgChunklist (
-                        DmgDir,
-                        DmgFileInfo->FileName,
-                        DmgFileNameLen
-                        );
-  if (ChunklistFileInfo != NULL) {
-    Status = SafeFileOpen (
-      DmgDir,
-      &ChunklistFile,
-      ChunklistFileInfo->FileName,
-      EFI_FILE_MODE_READ,
-      0
-      );
-    if (!EFI_ERROR (Status)) {
-      Status = GetFileSize (ChunklistFile, &ChunklistFileSize);
-      if (Status == EFI_SUCCESS) {
-        ChunklistBuffer = AllocatePool (ChunklistFileSize);
-
-        if (ChunklistBuffer == NULL) {
-          ChunklistFileSize = 0;
-        } else {
-          Status = GetFileData (ChunklistFile, 0, ChunklistFileSize, ChunklistBuffer);
-          if (EFI_ERROR (Status)) {
-            FreePool (ChunklistBuffer);
-            ChunklistBuffer   = NULL;
+          if (ChunklistBuffer == NULL) {
             ChunklistFileSize = 0;
+          } else {
+            Status = OcGetFileData (ChunklistFile, 0, ChunklistFileSize, ChunklistBuffer);
+            if (EFI_ERROR (Status)) {
+              FreePool (ChunklistBuffer);
+              ChunklistBuffer   = NULL;
+              ChunklistFileSize = 0;
+            }
           }
         }
+
+        ChunklistFile->Close (ChunklistFile);
       }
 
-      ChunklistFile->Close (ChunklistFile);
+      FreePool (ChunklistFileInfo);
     }
-
-    FreePool (ChunklistFileInfo);
   }
 
-  FreePool (DmgFileInfo);
-
-  DmgDir->Close (DmgDir);
+  if (  (DmgPreloadContext->DmgFile == NULL)
+     && (DmgPreloadContext->DmgContext == NULL))
+  {
+    FreePool (DmgFileInfo);
+    DmgDir->Close (DmgDir);
+  }
 
   DevPath = InternalGetDiskImageBootFile (
               Context,

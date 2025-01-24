@@ -47,80 +47,80 @@ WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 #include <Library/OcMiscLib.h>
 #include <Library/OcStringLib.h>
 
-//
-// Minimal extra allocation size during export.
-//
-#define XML_EXPORT_MIN_ALLOCATION_SIZE 4096
+/**
+  Minimal extra allocation size during export.
+**/
+#define XML_EXPORT_MIN_ALLOCATION_SIZE  4096
 
 #define XML_PLIST_HEADER  "<?xml version=\"1.0\" encoding=\"UTF-8\"?><!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">"
 
 struct XML_NODE_LIST_;
 struct XML_PARSER_;
 
-typedef struct XML_NODE_LIST_ XML_NODE_LIST;
-typedef struct XML_PARSER_ XML_PARSER;
+typedef struct XML_NODE_LIST_  XML_NODE_LIST;
+typedef struct XML_PARSER_     XML_PARSER;
 
-//
-// An XML_NODE will always contain a tag name and possibly a list of
-// children or text content.
-//
+/**
+  An XML_NODE will always contain a tag name and possibly a list of
+  children or text content.
+**/
 struct XML_NODE_ {
-  CONST CHAR8    *Name;
-  CONST CHAR8    *Attributes;
-  CONST CHAR8    *Content;
-  XML_NODE       *Real;
-  XML_NODE_LIST  *Children;
+  CONST CHAR8      *Name;
+  CONST CHAR8      *Attributes;
+  CONST CHAR8      *Content;
+  XML_NODE         *Real;
+  XML_NODE_LIST    *Children;
 };
 
 struct XML_NODE_LIST_ {
-  UINT32    NodeCount;
-  UINT32    AllocCount;
-  XML_NODE  *NodeList[];
+  UINT32      NodeCount;
+  UINT32      AllocCount;
+  XML_NODE    *NodeList[];
 };
 
 typedef struct {
-  UINT32        RefCount;
-  UINT32        RefAllocCount;
-  XML_NODE      **RefList;
+  UINT32      RefCount;
+  UINT32      RefAllocCount;
+  XML_NODE    **RefList;
 } XML_REFLIST;
 
-//
-// An XML_DOCUMENT simply contains the root node and the underlying buffer.
-//
+/**
+  An XML_DOCUMENT simply contains the root node and the underlying buffer.
+**/
 struct XML_DOCUMENT_ {
   struct {
-    CHAR8       *Buffer;
-    UINT32      Length;
+    CHAR8     *Buffer;
+    UINT32    Length;
   } Buffer;
 
-  XML_NODE      *Root;
-  XML_REFLIST   References;
+  XML_NODE       *Root;
+  XML_REFLIST    References;
 };
 
-//
-// Parser context.
-//
+/**
+  Parser context.
+**/
 struct XML_PARSER_ {
-  CHAR8  *Buffer;
-  UINT32 Position;
-  UINT32 Length;
-  UINT32 Level;
+  CHAR8     *Buffer;
+  UINT32    Position;
+  UINT32    Length;
+  UINT32    Level;
 };
 
-//
-// Character offsets.
-//
+/**
+  Character offsets.
+**/
 typedef enum XML_PARSER_OFFSET_ {
-  NO_CHARACTER        = -1,
-  CURRENT_CHARACTER   = 0,
-  NEXT_CHARACTER      = 1,
+  NO_CHARACTER      = -1,
+  CURRENT_CHARACTER = 0,
+  NEXT_CHARACTER    = 1,
 } XML_PARSER_OFFSET;
 
-//
-// Plist node types.
-//
+/**
+  Plist node types.
+**/
 CONST CHAR8 *
-PlistNodeTypes[PLIST_NODE_TYPE_MAX] = {
+  PlistNodeTypes[PLIST_NODE_TYPE_MAX] = {
   NULL,
   "array",
   "dict",
@@ -134,20 +134,33 @@ PlistNodeTypes[PLIST_NODE_TYPE_MAX] = {
   "integer"
 };
 
+/**
+  Parse the attribute number.
 
+  @param[in]   Attributes      XML attributes.
+  @param[in]   Argument        Name of the XML argument.
+  @param[in]   ArgumentLength  Length of the XML argument.
+  @param[out]  ArgumentValue   The parsed XML argument value.
+
+  @retval  TRUE on successful parsing.
+**/
 STATIC
 BOOLEAN
 XmlParseAttributeNumber (
-  CONST CHAR8  *Attributes,
-  CONST CHAR8  *Argument,
-  UINT32       ArgumentLength,
-  UINT32       *ArgumentValue
+  IN  CONST CHAR8  *Attributes,
+  IN  CONST CHAR8  *Argument,
+  IN  UINT32       ArgumentLength,
+  OUT UINT32       *ArgumentValue
   )
 {
   CONST CHAR8  *ArgumentStart;
   CONST CHAR8  *ArgumentEnd;
   UINTN        Number;
   CHAR8        NumberStr[16];
+
+  ASSERT (Attributes    != NULL);
+  ASSERT (Argument      != NULL);
+  ASSERT (ArgumentValue != NULL);
 
   //
   // FIXME: This may give false positives.
@@ -159,34 +172,44 @@ XmlParseAttributeNumber (
   }
 
   ArgumentStart += ArgumentLength;
-  ArgumentEnd   = AsciiStrStr (ArgumentStart, "\"");
-  Number        = ArgumentEnd - ArgumentStart;
+  ArgumentEnd    = AsciiStrStr (ArgumentStart, "\"");
+  Number         = ArgumentEnd - ArgumentStart;
 
-  if (ArgumentEnd == NULL || Number > sizeof (NumberStr) - 1) {
+  if ((ArgumentEnd == NULL) || (Number > sizeof (NumberStr) - 1)) {
     return FALSE;
   }
 
   CopyMem (&NumberStr, ArgumentStart, Number);
   NumberStr[Number] = '\0';
-  *ArgumentValue = (UINT32) AsciiStrDecimalToUint64 (NumberStr);
+  *ArgumentValue    = (UINT32)AsciiStrDecimalToUint64 (NumberStr);
 
   return TRUE;
 }
 
-//
-// Allocates the node with contents.
-//
+/**
+  Create a new XML node.
+
+  @param[in]  Name        Name of the new node.
+  @param[in]  Attributes  Attributes of the new node. Optional.
+  @param[in]  Content     Content of the new node. Optional.
+  @param[in]  Real        Pointer to the acual content when a reference exists. Optional.
+  @param[in]  Children    Pointer to the children of the node. Optional.
+
+  @return  The created XML node.
+**/
 STATIC
 XML_NODE *
 XmlNodeCreate (
-  CONST CHAR8    *Name,
-  CONST CHAR8    *Attributes,
-  CONST CHAR8    *Content,
-  XML_NODE       *Real,
-  XML_NODE_LIST  *Children
+  IN  CONST CHAR8    *Name,
+  IN  CONST CHAR8    *Attributes  OPTIONAL,
+  IN  CONST CHAR8    *Content     OPTIONAL,
+  IN  XML_NODE       *Real        OPTIONAL,
+  IN  XML_NODE_LIST  *Children    OPTIONAL
   )
 {
   XML_NODE  *Node;
+
+  ASSERT (Name != NULL);
 
   Node = AllocatePool (sizeof (XML_NODE));
 
@@ -201,33 +224,41 @@ XmlNodeCreate (
   return Node;
 }
 
-//
-// Adds child nodes to node.
-//
+/**
+  Add a child node to the node given.
+
+  @param[in,out]  Node   Pointer to the XML node to which the child will be added.
+  @param[in]      Child  Pointer to the child XML node.
+
+  @retval  TRUE on successful adding.
+**/
 STATIC
 BOOLEAN
 XmlNodeChildPush (
-  XML_NODE  *Node,
-  XML_NODE  *Child
+  IN OUT  XML_NODE  *Node,
+  IN      XML_NODE  *Child
   )
 {
   UINT32         NodeCount;
   UINT32         AllocCount;
   XML_NODE_LIST  *NewList;
 
-  NodeCount = 0;
+  ASSERT (Node  != NULL);
+  ASSERT (Child != NULL);
+
+  NodeCount  = 0;
   AllocCount = 1;
 
   //
   // Push new node if there is enough room.
   //
   if (Node->Children != NULL) {
-    NodeCount = Node->Children->NodeCount;
+    NodeCount  = Node->Children->NodeCount;
     AllocCount = Node->Children->AllocCount;
 
-    if (NodeCount < XML_PARSER_NODE_COUNT && AllocCount > NodeCount) {
+    if ((NodeCount < XML_PARSER_NODE_COUNT) && (AllocCount > NodeCount)) {
       Node->Children->NodeList[NodeCount] = Child;
-      Node->Children->NodeCount++;
+      ++Node->Children->NodeCount;
       return TRUE;
     }
   }
@@ -245,9 +276,9 @@ XmlNodeChildPush (
   //
   AllocCount *= 3;
 
-  NewList = (XML_NODE_LIST *) AllocatePool (
-    sizeof (XML_NODE_LIST) + sizeof (NewList->NodeList[0]) * AllocCount
-    );
+  NewList = (XML_NODE_LIST *)AllocatePool (
+                               sizeof (XML_NODE_LIST) + sizeof (NewList->NodeList[0]) * AllocCount
+                               );
 
   if (NewList == NULL) {
     return FALSE;
@@ -267,28 +298,40 @@ XmlNodeChildPush (
   }
 
   NewList->NodeList[NodeCount] = Child;
-  Node->Children = NewList;
+  Node->Children               = NewList;
 
   return TRUE;
 }
 
+/**
+  Store XML reference.
+
+  @param[in,out]  References       A pointer to the list of XML references.
+  @param[in]      Node             A pointer to the XML node.
+  @param[in]      ReferenceNumber  Number of reference.
+
+  @retval  TRUE if the XML reference was successfully pushed.
+**/
 STATIC
 BOOLEAN
 XmlPushReference (
-  XML_REFLIST  *References,
-  XML_NODE     *Node,
-  UINT32       ReferenceNumber
+  IN OUT  XML_REFLIST  *References,
+  IN      XML_NODE     *Node,
+  IN      UINT32       ReferenceNumber
   )
 {
-  XML_NODE   **NewReferences;
-  UINT32     NewRefAllocCount;
+  XML_NODE  **NewReferences;
+  UINT32    NewRefAllocCount;
+
+  ASSERT (References != NULL);
+  ASSERT (Node       != NULL);
 
   if (ReferenceNumber >= XML_PARSER_MAX_REFERENCE_COUNT) {
     return FALSE;
   }
 
   if (ReferenceNumber >= References->RefAllocCount) {
-    if (OcOverflowAddMulU32 (ReferenceNumber, 1, 2, &NewRefAllocCount)) {
+    if (BaseOverflowAddMulU32 (ReferenceNumber, 1, 2, &NewRefAllocCount)) {
       return FALSE;
     }
 
@@ -318,169 +361,220 @@ XmlPushReference (
   return TRUE;
 }
 
+/**
+  Get real value from a node referencing another.
+
+  @param[in]  References  A pointer to the XML references. Optional.
+  @param[in]  Attributes  XML attributes. Optional.
+
+  @return  The real XML node from the one referencing it.
+**/
 STATIC
 XML_NODE *
 XmlNodeReal (
-  XML_REFLIST  *References,
-  CONST CHAR8  *Attributes
+  IN  CONST XML_REFLIST  *References  OPTIONAL,
+  IN  CONST CHAR8        *Attributes  OPTIONAL
   )
 {
-  BOOLEAN      HasArgument;
-  UINT32       Number;
+  BOOLEAN  HasArgument;
+  UINT32   Number;
 
-  if (References == NULL || Attributes == NULL) {
+  if ((References == NULL) || (Attributes == NULL)) {
     return NULL;
   }
 
   HasArgument = XmlParseAttributeNumber (
-    Attributes,
-    "IDREF=\"",
-    L_STR_LEN ("IDREF=\""),
-    &Number
-    );
+                  Attributes,
+                  "IDREF=\"",
+                  L_STR_LEN ("IDREF=\""),
+                  &Number
+                  );
 
-  if (!HasArgument || Number >= References->RefCount) {
+  if (!HasArgument || (Number >= References->RefCount)) {
     return NULL;
   }
 
   return References->RefList[Number];
 }
 
-//
-// Frees the resources allocated by the node.
-//
+/**
+  Free the resources allocated by the node.
+
+  @param[in,out]  Node  A pointer to the XML node to be freed.
+**/
 STATIC
 VOID
 XmlNodeFree (
-  XML_NODE  *Node
+  IN OUT  XML_NODE  *Node
   )
 {
   UINT32  Index;
+
+  ASSERT (Node != NULL);
 
   if (Node->Children != NULL) {
     for (Index = 0; Index < Node->Children->NodeCount; ++Index) {
       XmlNodeFree (Node->Children->NodeList[Index]);
     }
+
     FreePool (Node->Children);
   }
 
   FreePool (Node);
 }
 
+/**
+  Free the XML references.
+
+  @param[in,out]  References  A pointer to the XML references to be freed.
+**/
 STATIC
 VOID
 XmlFreeRefs (
-  XML_REFLIST  *References
+  IN OUT  XML_REFLIST  *References
   )
 {
+  ASSERT (References != NULL);
+
   if (References->RefList != NULL) {
     FreePool (References->RefList);
     References->RefList = NULL;
   }
 }
 
-//
-// Echos the parsers call stack for debugging purposes.
-//
+/**
+  Echo the parsers call stack for debugging purposes.
+**/
 #ifdef XML_PARSER_VERBOSE
 #define XML_PARSER_INFO(Parser, Message) \
   DEBUG ((DEBUG_VERBOSE, "OCXML: XML_PARSER_INFO %a\n", Message));
 #define XML_PARSER_TAG(Parser, Tag) \
   DEBUG ((DEBUG_VERBOSE, "OCXML: XML_PARSER_TAG %a\n", Tag));
 #else
-#define XML_PARSER_INFO(Parser, Message) do {} while (0)
-#define XML_PARSER_TAG(Parser, Tag) do {} while (0)
+#define XML_PARSER_INFO(Parser, Message)  do {} while (0)
+#define XML_PARSER_TAG(Parser, Tag)       do {} while (0)
 #endif
 
-//
-// Echos an error regarding the parser's source to the console.
-//
+/**
+  Echo an error regarding the parser's source to the console.
+
+  @param[in]  Parser   A pointer to the XML parser.
+  @param[in]  Offset   Offset of the XML parser.
+  @param[in]  Message  Message to be displayed
+**/
 VOID
 XmlParserError (
-  XML_PARSER         *Parser,
-  XML_PARSER_OFFSET  Offset,
-  CONST CHAR8        *Message
+  IN  CONST XML_PARSER   *Parser,
+  IN  XML_PARSER_OFFSET  Offset,
+  IN  CONST CHAR8        *Message
   )
 {
-  UINT32  Character = 0;
+  UINT32  Character;
   UINT32  Position;
-  UINT32  Row = 0;
-  UINT32  Column = 0;
+  UINT32  Row;
+  UINT32  Column;
 
-  if (Parser->Length > 0 && (Parser->Position > 0 || NO_CHARACTER != Offset)) {
+  ASSERT (Parser  != NULL);
+  ASSERT (Message != NULL);
+
+  Character = 0;
+  Row       = 0;
+  Column    = 0;
+
+  if ((Parser->Length > 0) && ((Parser->Position > 0) || (NO_CHARACTER != Offset))) {
     Character = Parser->Position + Offset;
     if (Character > Parser->Length-1) {
       Character = Parser->Length-1;
     }
 
     for (Position = 0; Position <= Character; ++Position) {
-      Column++;
+      ++Column;
 
       if ('\n' == Parser->Buffer[Position]) {
-        Row++;
+        ++Row;
         Column = 0;
       }
     }
   }
 
   if (NO_CHARACTER != Offset) {
-    DEBUG ((DEBUG_INFO, "OCXML: XmlParserError at %u:%u (is %c): %a\n",
-      Row + 1, Column, Parser->Buffer[Character], Message
+    DEBUG ((
+      DEBUG_INFO,
+      "OCXML: XmlParserError at %u:%u (is %c): %a\n",
+      Row + 1,
+      Column,
+      Parser->Buffer[Character],
+      Message
       ));
   } else {
-    DEBUG ((DEBUG_INFO, "OCXML: XmlParserError at %u:%u: %a\n",
-      Row + 1, Column, Message
+    DEBUG ((
+      DEBUG_INFO,
+      "OCXML: XmlParserError at %u:%u: %a\n",
+      Row + 1,
+      Column,
+      Message
       ));
   }
 }
 
-//
-// Conditionally enable error printing.
-//
+/**
+  Conditionally enable error printing.
+**/
 #ifdef XML_PRINT_ERRORS
 #define XML_PARSER_ERROR(Parser, Offset, Message) \
   XmlParserError (Parser, Offset, Message)
 #define XML_USAGE_ERROR(Message) \
   DEBUG ((DEBUG_VERBOSE, "OCXML: %a\n", Message));
 #else
-#define XML_PARSER_ERROR(Parser, Offset, Message) do {} while (0)
-#define XML_USAGE_ERROR(X) do {} while (0)
+#define XML_PARSER_ERROR(Parser, Offset, Message)  do {} while (0)
+#define XML_USAGE_ERROR(X)                         do {} while (0)
 #endif
 
-//
-// Returns the n-th not-whitespace byte in parser and 0 if such a byte does not
-// exist.
-//
+/**
+  Return the N-th not-whitespace byte in parser or 0 if such a byte does not exist.
+
+  @param[in]  Parser  A pointer to the XML parser.
+  @param[in]  N       The N-th index.
+
+  @return The N-th not-whitespace byte or 0.
+**/
 STATIC
 CHAR8
 XmlParserPeek (
-  XML_PARSER  *Parser,
-  UINT32      N
+  IN  CONST XML_PARSER  *Parser,
+  IN  UINT32            N
   )
 {
   UINT32  Position;
 
-  if (!OcOverflowAddU32 (Parser->Position, N, &Position)
-    && Position < Parser->Length) {
+  ASSERT (Parser != NULL);
+
+  if (  !BaseOverflowAddU32 (Parser->Position, N, &Position)
+     && (Position < Parser->Length))
+  {
     return Parser->Buffer[Position];
   }
 
   return 0;
 }
 
+/**
+  Move the parser's position n bytes. If the new position would be out of
+  bounds, it will be converted to the bounds itself.
 
-//
-// Moves the parser's position n bytes. If the new position would be out of
-// bounds, it will be converted to the bounds itself.
-//
+  @param[in,out]  Parser  A pointer to the XML parser.
+  @param[in]      N       The N-th index.
+**/
 STATIC
 VOID
 XmlParserConsume (
-  XML_PARSER  *Parser,
-  UINT32      N
+  IN OUT  XML_PARSER  *Parser,
+  IN      UINT32      N
   )
 {
-#ifdef XML_PARSER_VERBOSE
+  ASSERT (Parser != NULL);
+
+ #ifdef XML_PARSER_VERBOSE
   CHAR8   *Consumed;
   CHAR8   *MessageBuffer;
   UINT32  Left;
@@ -489,9 +583,9 @@ XmlParserConsume (
   // Debug information.
   //
 
-  Consumed = AllocatePool ((N + 1) * sizeof (CHAR8));
+  Consumed      = AllocatePool ((N + 1) * sizeof (CHAR8));
   MessageBuffer = AllocatePool (512 * sizeof (CHAR8));
-  if (Consumed != NULL && MessageBuffer != NULL) {
+  if ((Consumed != NULL) && (MessageBuffer != NULL)) {
     Left = N;
     if (Left > Parser->Length - Parser->Position) {
       Left = Parser->Length - Parser->Position;
@@ -511,59 +605,74 @@ XmlParserConsume (
   if (MessageBuffer != NULL) {
     FreePool (MessageBuffer);
   }
-#endif
+
+ #endif
 
   //
   // Move the position forward.
   //
-  if (OcOverflowAddU32 (Parser->Position, N, &Parser->Position)
-    || Parser->Position > Parser->Length) {
+  if (  BaseOverflowAddU32 (Parser->Position, N, &Parser->Position)
+     || (Parser->Position > Parser->Length))
+  {
     Parser->Position = Parser->Length;
   }
 }
 
-//
-// Skips to the next non-whitespace character.
-//
+/**
+  Skip to the next non-whitespace character.
+
+  @param[in,out]  Parser  A pointer to the XML parser.
+**/
 STATIC
 VOID
 XmlSkipWhitespace (
-  XML_PARSER  *Parser
+  IN OUT  XML_PARSER  *Parser
   )
 {
+  ASSERT (Parser != NULL);
+
   XML_PARSER_INFO (Parser, "whitespace");
 
-  while (Parser->Position < Parser->Length
-    && IsAsciiSpace (Parser->Buffer[Parser->Position])) {
-    Parser->Position++;
+  while (  Parser->Position < Parser->Length
+        && IsAsciiSpace (Parser->Buffer[Parser->Position]))
+  {
+    ++Parser->Position;
   }
 }
 
-//
-// Parses the name out of the an XML tag's ending.
-//
-// ---( Example )---
-// tag_name>
-// ---
-//
+/**
+  Parse the name out of the an XML tag's ending.
+
+  ---( Example )---
+  tag_name>
+  ---
+
+  @param[in,out]  Parser       A pointer to the XML parser.
+  @param[out]     SelfClosing  TRUE to indicate self-closing. Optional.
+  @param[out]     Attributes   Exported XML attributes. Optional.
+
+  @return The XML tag in the end.
+**/
 STATIC
 CONST CHAR8 *
 XmlParseTagEnd (
-  XML_PARSER   *Parser,
-  BOOLEAN      *SelfClosing,
-  CONST CHAR8  **Attributes
+  IN OUT  XML_PARSER  *Parser,
+  OUT  BOOLEAN        *SelfClosing  OPTIONAL,
+  OUT  CONST CHAR8    **Attributes  OPTIONAL
   )
 {
   CHAR8   Current;
   UINT32  Start;
   UINT32  AttributeStart;
-  UINT32  Length = 0;
+  UINT32  Length     = 0;
   UINT32  NameLength = 0;
+
+  ASSERT (Parser != NULL);
 
   XML_PARSER_INFO (Parser, "tag_end");
 
   Current = XmlParserPeek (Parser, CURRENT_CHARACTER);
-  Start = Parser->Position;
+  Start   = Parser->Position;
 
   //
   // Parse until `>' or a whitespace is reached.
@@ -573,7 +682,7 @@ XmlParseTagEnd (
       break;
     }
 
-    if (NameLength == 0 && IsAsciiSpace (Current)) {
+    if ((NameLength == 0) && IsAsciiSpace (Current)) {
       NameLength = Length;
 
       if (NameLength == 0) {
@@ -583,7 +692,7 @@ XmlParseTagEnd (
     }
 
     XmlParserConsume (Parser, 1);
-    Length++;
+    ++Length;
 
     Current = XmlParserPeek (Parser, CURRENT_CHARACTER);
   }
@@ -592,13 +701,14 @@ XmlParseTagEnd (
   // Handle attributes.
   //
   if (NameLength != 0) {
-    if (Attributes != NULL && (Current == '/' || Current == '>')) {
-      *Attributes = &Parser->Buffer[Start + NameLength];
+    if ((Attributes != NULL) && ((Current == '/') || (Current == '>'))) {
+      *Attributes    = &Parser->Buffer[Start + NameLength];
       AttributeStart = NameLength;
       while (AttributeStart < Length && IsAsciiSpace (**Attributes)) {
-        (*Attributes)++;
-        AttributeStart++;
+        ++(*Attributes);
+        ++AttributeStart;
       }
+
       Parser->Buffer[Start + Length] = '\0';
     }
   } else {
@@ -626,6 +736,7 @@ XmlParseTagEnd (
     XML_PARSER_ERROR (Parser, CURRENT_CHARACTER, "XmlParseTagEnd::expected tag end");
     return NULL;
   }
+
   XmlParserConsume (Parser, 1);
 
   //
@@ -636,24 +747,33 @@ XmlParseTagEnd (
   return &Parser->Buffer[Start];
 }
 
-//
-// Parses an opening XML tag without attributes.
-//
-// ---( Example )---
-// <tag_name>
-// ---
-//
+/**
+  Parse an opening XML tag without attributes.
+
+  ---( Example )---
+  <tag_name>
+  ---
+
+  @param[in,out]  Parser       A pointer to the XML parser.
+  @param[out]     SelfClosing  TRUE to indicate self-closing. Optional.
+  @param[out]     Attributes   Exported XML attributes. Optional.
+
+  @return The parsed opening XML tag.
+**/
 STATIC
 CONST CHAR8 *
 XmlParseTagOpen (
-  XML_PARSER  *Parser,
-  BOOLEAN     *SelfClosing,
-  CONST CHAR8 **Attributes
+  IN OUT  XML_PARSER  *Parser,
+  OUT  BOOLEAN        *SelfClosing  OPTIONAL,
+  OUT  CONST CHAR8    **Attributes
   )
 {
-  CHAR8   Current;
-  CHAR8   Next;
-  BOOLEAN IsComment;
+  CHAR8    Current;
+  CHAR8    Next;
+  BOOLEAN  IsComment;
+
+  ASSERT (Parser     != NULL);
+  ASSERT (Attributes != NULL);
 
   XML_PARSER_INFO (Parser, "tag_open");
 
@@ -667,6 +787,7 @@ XmlParseTagOpen (
       XML_PARSER_ERROR (Parser, CURRENT_CHARACTER, "XmlParseTagOpen::expected opening tag");
       return NULL;
     }
+
     XmlParserConsume (Parser, 1);
 
     Current = XmlParserPeek (Parser, CURRENT_CHARACTER);
@@ -681,7 +802,7 @@ XmlParseTagOpen (
     //
     // This is not a control sequence, e.g. `<!DOCTYPE...>', continue parsing tag.
     //
-    if (Current != '?' && Current != '!') {
+    if ((Current != '?') && (Current != '!')) {
       break;
     }
 
@@ -695,13 +816,13 @@ XmlParseTagOpen (
     IsComment = FALSE;
     if (Current == '!') {
       //
-      // Consume one more byte to check the two '-'.
-      // Now "<!--" is guaranteed.
+      // Consume one more byte to check the two `-'.
+      // Now `<!--' is guaranteed.
       //
       XmlParserConsume (Parser, 1);
-      Current   = XmlParserPeek (Parser, CURRENT_CHARACTER);
-      Next      = XmlParserPeek (Parser, NEXT_CHARACTER);
-      if (Current == '-' && Next == '-') {
+      Current = XmlParserPeek (Parser, CURRENT_CHARACTER);
+      Next    = XmlParserPeek (Parser, NEXT_CHARACTER);
+      if ((Current == '-') && (Next == '-')) {
         //
         // Now consume Current and Next which take up 2 bytes.
         //
@@ -717,13 +838,14 @@ XmlParseTagOpen (
     while (Parser->Position < Parser->Length) {
       if (IsComment) {
         //
-        // Scan "-->" for comments and break if matched.
+        // Scan `-->' for comments and break if matched.
         //
-        if (XmlParserPeek (Parser, CURRENT_CHARACTER) == '-'
-            && XmlParserPeek (Parser, NEXT_CHARACTER) == '-'
-            && XmlParserPeek (Parser, 2) == '>') {
+        if (  (XmlParserPeek (Parser, CURRENT_CHARACTER) == '-')
+           && (XmlParserPeek (Parser, NEXT_CHARACTER) == '-')
+           && (XmlParserPeek (Parser, 2) == '>'))
+        {
           //
-          // "-->" should all be consumed, which takes 3 bytes.
+          // `-->' should all be consumed, which takes 3 bytes.
           //
           XmlParserConsume (Parser, 3);
           break;
@@ -751,20 +873,27 @@ XmlParseTagOpen (
   return XmlParseTagEnd (Parser, SelfClosing, Attributes);
 }
 
-//
-// Parses an closing XML tag without attributes.
-//
-// ---( Example )---
-// </tag_name>
-// ---
-//
+/**
+  Parse an closing XML tag without attributes.
+
+  ---( Example )---
+  </tag_name>
+  ---
+
+  @param[in,out]  Parser      A pointer to the XML parser.
+  @param[in]      Unprefixed  TRUE to parse without the starting `<'.
+
+  @return The parsed closing XML tag.
+**/
 STATIC
 CONST CHAR8 *
 XmlParseTagClose (
-  XML_PARSER  *Parser,
-  BOOLEAN     Unprefixed
+  IN OUT  XML_PARSER  *Parser,
+  IN      BOOLEAN     Unprefixed
   )
 {
+  ASSERT (Parser != NULL);
+
   XML_PARSER_INFO (Parser, "tag_close");
   XmlSkipWhitespace (Parser);
 
@@ -798,38 +927,44 @@ XmlParseTagClose (
   //
   // Consume tag name.
   //
-  return XmlParseTagEnd(Parser, NULL, NULL);
+  return XmlParseTagEnd (Parser, NULL, NULL);
 }
 
-//
-// Parses a tag's content.
-//
-// ---( Example )---
-//     this is
-//   a
-//       tag {} content
-// ---
-//
-// @warning CDATA etc. is _not_ and will never be supported
-//
+/**
+  Parse a tag's content.
+
+  ---( Example )---
+      this is
+    a
+        tag {} content
+  ---
+
+  @warning CDATA etc. is _not_ and will never be supported
+
+  @param[in,out]  Parser  A pointer to the XML parser.
+
+  @return The parsed content of the tag.
+**/
 STATIC
 CONST CHAR8 *
 XmlParseContent (
-  XML_PARSER  *Parser
+  IN OUT  XML_PARSER  *Parser
   )
 {
   UINTN  Start;
   UINTN  Length;
   CHAR8  Current;
 
-  XML_PARSER_INFO(Parser, "content");
+  ASSERT (Parser != NULL);
+
+  XML_PARSER_INFO (Parser, "content");
 
   //
   // Whitespace will be ignored.
   //
   XmlSkipWhitespace (Parser);
 
-  Start = Parser->Position;
+  Start  = Parser->Position;
   Length = 0;
 
   //
@@ -842,7 +977,7 @@ XmlParseContent (
       break;
     } else {
       XmlParserConsume (Parser, 1);
-      Length++;
+      ++Length;
     }
   }
 
@@ -858,7 +993,7 @@ XmlParseContent (
   // Ignore tailing whitespace.
   //
   while ((Length > 0) && IsAsciiSpace (Parser->Buffer[Start + Length - 1])) {
-    Length--;
+    --Length;
   }
 
   //
@@ -869,21 +1004,32 @@ XmlParseContent (
   return &Parser->Buffer[Start];
 }
 
-//
-// Prints to growing buffer always preserving one byte extra.
-//
+/**
+  Print to growing buffer always preserving one byte extra.
+
+  @param[in,out]  Buffer       A pointer to the buffer holding contents.
+  @param[in,out]  AllocSize    Size of Buffer to be allocated.
+  @param[in,out]  CurrentSize  Current size of Buffer before appending.
+  @param[in]      Data         Data to be appended.
+  @param[in]      DataLength   Length of Data.
+**/
 STATIC
 VOID
 XmlBufferAppend (
-  CHAR8        **Buffer,
-  UINT32       *AllocSize,
-  UINT32       *CurrentSize,
-  CONST CHAR8  *Data,
-  UINT32       DataLength
+  IN OUT  CHAR8        **Buffer,
+  IN OUT  UINT32       *AllocSize,
+  IN OUT  UINT32       *CurrentSize,
+  IN      CONST CHAR8  *Data,
+  IN      UINT32       DataLength
   )
 {
   CHAR8   *NewBuffer;
   UINT32  NewSize;
+
+  ASSERT (Buffer      != NULL);
+  ASSERT (AllocSize   != NULL);
+  ASSERT (CurrentSize != NULL);
+  ASSERT (Data        != NULL);
 
   NewSize = *AllocSize;
 
@@ -896,7 +1042,7 @@ XmlBufferAppend (
 
     NewBuffer = AllocatePool (NewSize);
     if (NewBuffer == NULL) {
-      XML_USAGE_ERROR("XmlBufferAppend::failed to allocate");
+      XML_USAGE_ERROR ("XmlBufferAppend::failed to allocate");
       return;
     }
 
@@ -910,21 +1056,32 @@ XmlBufferAppend (
   *CurrentSize += DataLength;
 }
 
-//
-// Prints node to growing buffer always preserving one byte extra.
-//
+/**
+  Print node to growing buffer always preserving one byte extra.
+
+  @param[in]      Node         A pointer to the XML node.
+  @param[in,out]  Buffer       A pointer to the buffer holding contents exported.
+  @param[in,out]  AllocSize    Size of Buffer to be allocated.
+  @param[in,out]  CurrentSize  Current size of Buffer.
+  @param[in]      Skip         Levels of XML contents to be skipped.
+**/
 STATIC
 VOID
 XmlNodeExportRecursive (
-  XML_NODE  *Node,
-  CHAR8     **Buffer,
-  UINT32    *AllocSize,
-  UINT32    *CurrentSize,
-  UINT32    Skip
+  IN      CONST XML_NODE  *Node,
+  IN OUT  CHAR8           **Buffer,
+  IN OUT  UINT32          *AllocSize,
+  IN OUT  UINT32          *CurrentSize,
+  IN      UINT32          Skip
   )
 {
   UINT32  Index;
   UINT32  NameLength;
+
+  ASSERT (Node        != NULL);
+  ASSERT (Buffer      != NULL);
+  ASSERT (AllocSize   != NULL);
+  ASSERT (CurrentSize != NULL);
 
   if (Skip != 0) {
     if (Node->Children != NULL) {
@@ -946,7 +1103,7 @@ XmlNodeExportRecursive (
     XmlBufferAppend (Buffer, AllocSize, CurrentSize, Node->Attributes, (UINT32)AsciiStrLen (Node->Attributes));
   }
 
-  if (Node->Children != NULL || Node->Content != NULL) {
+  if ((Node->Children != NULL) || (Node->Content != NULL)) {
     XmlBufferAppend (Buffer, AllocSize, CurrentSize, ">", L_STR_LEN (">"));
 
     if (Node->Children != NULL) {
@@ -965,26 +1122,31 @@ XmlNodeExportRecursive (
   }
 }
 
-//
-// Parses an XML fragment node.
-//
-// ---( Example without children )---
-// <Node>Text</Node>
-// ---
-//
-// ---( Example with children )---
-// <Parent>
-//     <Child>Text</Child>
-//     <Child>Text</Child>
-//     <Test>Content</Test>
-// </Parent>
-// ---
-//
+/**
+  Parse an XML fragment node.
+
+  ---( Example without children )---
+  <Node>Text</Node>
+  ---
+
+  ---( Example with children )---
+  <Parent>
+      <Child>Text</Child>
+      <Child>Text</Child>
+      <Test>Content</Test>
+  </Parent>
+  ---
+
+  @param[in,out]  Parser      A pointer to the XML parser.
+  @param[in,out]  References  A pointer to the XML references. Optional.
+
+  @return  The parsed XML node.
+**/
 STATIC
 XML_NODE *
 XmlParseNode (
-  XML_PARSER  *Parser,
-  XML_REFLIST *References
+  IN OUT  XML_PARSER   *Parser,
+  IN OUT  XML_REFLIST  *References  OPTIONAL
   )
 {
   CONST CHAR8  *TagOpen;
@@ -998,12 +1160,15 @@ XmlParseNode (
   BOOLEAN      Unprefixed;
   BOOLEAN      HasChildren;
 
+  ASSERT (Parser != NULL);
+
   XML_PARSER_INFO (Parser, "node");
 
-  Attributes  = NULL;
-  SelfClosing = FALSE;
-  Unprefixed  = FALSE;
-  IsReference = FALSE;
+  Attributes      = NULL;
+  SelfClosing     = FALSE;
+  Unprefixed      = FALSE;
+  IsReference     = FALSE;
+  ReferenceNumber = 0;
 
   //
   // Parse open tag.
@@ -1013,6 +1178,7 @@ XmlParseNode (
     if ('/' != XmlParserPeek (Parser, CURRENT_CHARACTER)) {
       XML_PARSER_ERROR (Parser, NO_CHARACTER, "XmlParseNode::tag_open");
     }
+
     return NULL;
   }
 
@@ -1046,22 +1212,22 @@ XmlParseNode (
     //
     // All references must be defined sequentially.
     //
-    if (References != NULL && Node->Attributes != NULL) {
+    if ((References != NULL) && (Node->Attributes != NULL)) {
       IsReference = XmlParseAttributeNumber (
-        Node->Attributes,
-        "ID=\"",
-        L_STR_LEN ("ID=\""),
-        &ReferenceNumber
-        );
+                      Node->Attributes,
+                      "ID=\"",
+                      L_STR_LEN ("ID=\""),
+                      &ReferenceNumber
+                      );
     }
 
     Unprefixed = TRUE;
 
-  //
-  // Otherwise children are to be expected.
-  //
+    //
+    // Otherwise children are to be expected.
+    //
   } else {
-    Parser->Level++;
+    ++Parser->Level;
 
     if (Parser->Level > XML_PARSER_NEST_LEVEL) {
       XML_PARSER_ERROR (Parser, NO_CHARACTER, "XmlParseNode::level overflow");
@@ -1072,7 +1238,6 @@ XmlParseNode (
     HasChildren = FALSE;
 
     while ('/' != XmlParserPeek (Parser, NEXT_CHARACTER)) {
-
       //
       // Parse child node.
       //
@@ -1099,15 +1264,15 @@ XmlParseNode (
       HasChildren = TRUE;
     }
 
-    Parser->Level--;
+    --Parser->Level;
 
-    if (!HasChildren && References != NULL && Attributes != NULL) {
+    if (!HasChildren && (References != NULL) && (Attributes != NULL)) {
       IsReference = XmlParseAttributeNumber (
-        Node->Attributes,
-        "ID=\"",
-        L_STR_LEN ("ID=\""),
-        &ReferenceNumber
-        );
+                      Node->Attributes,
+                      "ID=\"",
+                      L_STR_LEN ("ID=\""),
+                      &ReferenceNumber
+                      );
     }
   }
 
@@ -1141,19 +1306,21 @@ XmlParseNode (
 
 XML_DOCUMENT *
 XmlDocumentParse (
-  CHAR8    *Buffer,
-  UINT32   Length,
-  BOOLEAN  WithRefs
+  IN OUT  CHAR8    *Buffer,
+  IN      UINT32   Length,
+  IN      BOOLEAN  WithRefs
   )
 {
   XML_NODE      *Root;
   XML_DOCUMENT  *Document;
   XML_REFLIST   References;
+  XML_PARSER    Parser;
+
+  ASSERT (Buffer != NULL);
 
   //
   // Initialize parser.
   //
-  XML_PARSER Parser;
   ZeroMem (&Parser, sizeof (Parser));
   Parser.Buffer = Buffer;
   Parser.Length = Length;
@@ -1162,7 +1329,7 @@ XmlDocumentParse (
   //
   // An empty buffer can never contain a valid document.
   //
-  if (Length == 0 || Length > XML_PARSER_MAX_SIZE) {
+  if ((Length == 0) || (Length > XML_PARSER_MAX_SIZE)) {
     XML_PARSER_ERROR (&Parser, NO_CHARACTER, "XmlDocumentParse::length is too small or too large");
     return NULL;
   }
@@ -1179,7 +1346,7 @@ XmlDocumentParse (
   //
   // Return parsed document.
   //
-  Document = AllocatePool (sizeof(XML_DOCUMENT));
+  Document = AllocatePool (sizeof (XML_DOCUMENT));
 
   if (Document == NULL) {
     XML_PARSER_ERROR (&Parser, NO_CHARACTER, "XmlDocumentParse::document allocation failed");
@@ -1190,7 +1357,7 @@ XmlDocumentParse (
 
   Document->Buffer.Buffer = Buffer;
   Document->Buffer.Length = Length;
-  Document->Root = Root;
+  Document->Root          = Root;
   CopyMem (&Document->References, &References, sizeof (References));
 
   return Document;
@@ -1198,10 +1365,10 @@ XmlDocumentParse (
 
 CHAR8 *
 XmlDocumentExport (
-  XML_DOCUMENT  *Document,
-  UINT32        *Length,
-  UINT32        Skip,
-  BOOLEAN       PrependPlistInfo
+  IN   CONST XML_DOCUMENT  *Document,
+  OUT  UINT32              *Length  OPTIONAL,
+  IN   UINT32              Skip,
+  IN   BOOLEAN             PrependPlistInfo
   )
 {
   CHAR8   *Buffer;
@@ -1210,8 +1377,10 @@ XmlDocumentExport (
   UINT32  CurrentSize;
   UINT32  NewSize;
 
+  ASSERT (Document != NULL);
+
   AllocSize = Document->Buffer.Length + 1;
-  Buffer = AllocatePool (AllocSize);
+  Buffer    = AllocatePool (AllocSize);
   if (Buffer == NULL) {
     XML_USAGE_ERROR ("XmlDocumentExport::failed to allocate");
     return NULL;
@@ -1226,7 +1395,7 @@ XmlDocumentExport (
     // but the allocated buffer does. During this reallocation, we count the null terminator
     // of the plist header instead to ensure allocated buffer is the proper size.
     //
-    if (OcOverflowAddU32 (CurrentSize, L_STR_SIZE (XML_PLIST_HEADER), &NewSize)) {
+    if (BaseOverflowAddU32 (CurrentSize, L_STR_SIZE (XML_PLIST_HEADER), &NewSize)) {
       FreePool (Buffer);
       return NULL;
     }
@@ -1237,6 +1406,7 @@ XmlDocumentExport (
       XML_USAGE_ERROR ("XmlDocumentExport::failed to allocate");
       return NULL;
     }
+
     CopyMem (NewBuffer, XML_PLIST_HEADER, L_STR_SIZE_NT (XML_PLIST_HEADER));
     CopyMem (&NewBuffer[L_STR_LEN (XML_PLIST_HEADER)], Buffer, CurrentSize);
     FreePool (Buffer);
@@ -1263,9 +1433,11 @@ XmlDocumentExport (
 
 VOID
 XmlDocumentFree (
-  XML_DOCUMENT  *Document
+  IN OUT  XML_DOCUMENT  *Document
   )
 {
+  ASSERT (Document != NULL);
+
   XmlNodeFree (Document->Root);
   XmlFreeRefs (&Document->References);
   FreePool (Document);
@@ -1273,68 +1445,86 @@ XmlDocumentFree (
 
 XML_NODE *
 XmlDocumentRoot (
-  XML_DOCUMENT  *Document
+  IN  CONST XML_DOCUMENT  *Document
   )
 {
+  ASSERT (Document != NULL);
+
   return Document->Root;
 }
 
 CONST CHAR8 *
 XmlNodeName (
-  XML_NODE  *Node
+  IN  CONST XML_NODE  *Node
   )
 {
+  ASSERT (Node != NULL);
+
   return Node->Name;
 }
 
 CONST CHAR8 *
 XmlNodeContent (
-  XML_NODE  *Node
+  IN  CONST XML_NODE  *Node
   )
 {
+  ASSERT (Node != NULL);
+
   return Node->Real != NULL ? Node->Real->Content : Node->Content;
 }
 
 VOID
 XmlNodeChangeContent (
-  XML_NODE     *Node,
-  CONST CHAR8  *Content
+  IN OUT  XML_NODE     *Node,
+  IN      CONST CHAR8  *Content
   )
 {
+  ASSERT (Node    != NULL);
+  ASSERT (Content != NULL);
+
   if (Node->Real != NULL) {
     Node->Real->Content = Content;
   }
+
   Node->Content = Content;
 }
 
 UINT32
 XmlNodeChildren (
-  XML_NODE  *Node
+  IN  CONST XML_NODE  *Node
   )
 {
+  ASSERT (Node != NULL);
+
   return Node->Children ? Node->Children->NodeCount : 0;
 }
 
-XML_NODE  *
+XML_NODE *
 XmlNodeChild (
-  XML_NODE  *Node,
-  UINT32    Child
+  IN  CONST XML_NODE  *Node,
+  IN  UINT32          Child
   )
 {
+  ASSERT (Node != NULL);
+
   return Node->Children->NodeList[Child];
 }
 
 XML_NODE *
 EFIAPI
 XmlEasyChild (
-  XML_NODE     *Node,
-  CONST CHAR8  *ChildName,
-  ...)
+  IN OUT  XML_NODE     *Node,
+  IN      CONST CHAR8  *ChildName,
+  ...
+  )
 {
   VA_LIST   Arguments;
   XML_NODE  *Next;
   XML_NODE  *Child;
   UINT32    Index;
+
+  ASSERT (Node      != NULL);
+  ASSERT (ChildName != NULL);
 
   VA_START (Arguments, ChildName);
 
@@ -1376,8 +1566,9 @@ XmlEasyChild (
     //
     // Find name of next child.
     //
-    ChildName = VA_ARG (Arguments, CONST CHAR8*);
+    ChildName = VA_ARG (Arguments, CONST CHAR8 *);
   }
+
   VA_END (Arguments);
 
   //
@@ -1388,13 +1579,16 @@ XmlEasyChild (
 
 XML_NODE *
 XmlNodeAppend (
-  XML_NODE     *Node,
-  CONST CHAR8  *Name,
-  CONST CHAR8  *Attributes,
-  CONST CHAR8  *Content
+  IN OUT  XML_NODE     *Node,
+  IN      CONST CHAR8  *Name,
+  IN      CONST CHAR8  *Attributes  OPTIONAL,
+  IN      CONST CHAR8  *Content     OPTIONAL
   )
 {
   XML_NODE  *NewNode;
+
+  ASSERT (Node != NULL);
+  ASSERT (Name != NULL);
 
   NewNode = XmlNodeCreate (Name, Attributes, Content, NULL, NULL);
   if (NewNode == NULL) {
@@ -1411,13 +1605,18 @@ XmlNodeAppend (
 
 XML_NODE *
 XmlNodePrepend (
-  XML_NODE     *Node,
-  CONST CHAR8  *Name,
-  CONST CHAR8  *Attributes,
-  CONST CHAR8  *Content
+  IN OUT  XML_NODE     *Node,
+  IN      CONST CHAR8  *Name,
+  IN      CONST CHAR8  *Attributes,
+  IN      CONST CHAR8  *Content
   )
 {
   XML_NODE  *NewNode;
+
+  ASSERT (Node       != NULL);
+  ASSERT (Name       != NULL);
+  ASSERT (Attributes != NULL);
+  ASSERT (Content    != NULL);
 
   NewNode = XmlNodeAppend (Node, Name, Attributes, Content);
   if (NewNode == NULL) {
@@ -1430,12 +1629,117 @@ XmlNodePrepend (
   return NewNode;
 }
 
+VOID
+XmlNodeRemoveByIndex (
+  IN OUT  XML_NODE  *Node,
+  IN      UINT32    Index
+  )
+{
+  ASSERT (Node != NULL);
+  ASSERT (Node->Children != NULL);
+  ASSERT (Index < Node->Children->NodeCount);
+
+  //
+  // Free the Index-th XML node.
+  //
+  XmlNodeFree (Node->Children->NodeList[Index]);
+
+  //
+  // Overwrite the Index-th node with remaining nodes.
+  //
+  CopyMem (
+    &Node->Children->NodeList[Index],
+    &Node->Children->NodeList[Index+1],
+    (Node->Children->NodeCount - 1 - Index) * sizeof (*Node->Children->NodeList)
+    );
+
+  //
+  // Drop the last entry as the node above has been removed.
+  //
+  ZeroMem (&Node->Children->NodeList[Node->Children->NodeCount-1], sizeof (*Node->Children->NodeList));
+  --Node->Children->NodeCount;
+}
+
+VOID
+XmlNodeRemove (
+  IN OUT  XML_NODE  *Node,
+  IN      XML_NODE  *ChildNode
+  )
+{
+  UINT32  Index;
+
+  ASSERT (Node != NULL);
+  ASSERT (Node->Children != NULL);
+  ASSERT (ChildNode != NULL);
+
+  for (Index = 0; CompareMem (Node->Children->NodeList[Index], ChildNode, sizeof (XML_NODE)) != 0; ++Index) {
+    //
+    // Locate ChildNode inside Node.
+    //
+  }
+
+  ASSERT (Index < Node->Children->NodeCount);
+
+  XmlNodeRemoveByIndex (Node, Index);
+}
+
+CONST CHAR8 *
+XmlUnescapeString (
+  IN      CONST CHAR8  *String
+  )
+{
+  UINTN  StringSize;
+  CHAR8  *Buffer;
+  CHAR8  *Pointer;
+
+  ASSERT (String != NULL);
+
+  StringSize = AsciiStrSize (String);
+  Pointer    = (CHAR8 *)AllocatePool (StringSize);
+  if (Pointer == NULL) {
+    return NULL;
+  }
+
+  Buffer = Pointer;
+
+  while (*String != '\0') {
+    if (*String == '&') {
+      if (AsciiStrnCmp (String + 1, "apos;", L_STR_LEN ("apos;")) == 0) {
+        *Pointer++ = '\'';
+        String    += L_STR_LEN ("&apos;");
+      } else if (AsciiStrnCmp (String + 1, "quot;", L_STR_LEN ("quot;")) == 0) {
+        *Pointer++ = '\"';
+        String    += L_STR_LEN ("&quot;");
+      } else if (AsciiStrnCmp (String + 1, "amp;", L_STR_LEN ("amp;")) == 0) {
+        *Pointer++ = '&';
+        String    += L_STR_LEN ("&amp;");
+      } else if (AsciiStrnCmp (String + 1, "lt;", L_STR_LEN ("lt;")) == 0) {
+        *Pointer++ = '<';
+        String    += L_STR_LEN ("&lt;");
+      } else if (AsciiStrnCmp (String + 1, "gt;", L_STR_LEN ("gt;")) == 0) {
+        *Pointer++ = '>';
+        String    += L_STR_LEN ("&gt;");
+      } else {
+        *Pointer++ = *String++;
+      }
+    } else {
+      *Pointer++ = *String++;
+    }
+  }
+
+  *Pointer = '\0';
+
+  return (CONST CHAR8 *)Buffer;
+}
+
 XML_NODE *
 PlistDocumentRoot (
-  XML_DOCUMENT  *Document
+  IN  CONST XML_DOCUMENT  *Document
   )
 {
   XML_NODE  *Node;
+
+  ASSERT (Document != NULL);
 
   Node = Document->Root;
 
@@ -1449,18 +1753,18 @@ PlistDocumentRoot (
     return NULL;
   }
 
-  return XmlNodeChild(Node, 0);
+  return XmlNodeChild (Node, 0);
 }
 
 XML_NODE *
 PlistNodeCast (
-  XML_NODE         *Node,
-  PLIST_NODE_TYPE  Type
+  IN  XML_NODE         *Node  OPTIONAL,
+  IN  PLIST_NODE_TYPE  Type
   )
 {
   UINT32  ChildrenNum;
 
-  if (Node == NULL || Type == PLIST_NODE_TYPE_ANY) {
+  if ((Node == NULL) || (Type == PLIST_NODE_TYPE_ANY)) {
     return Node;
   }
 
@@ -1477,6 +1781,7 @@ PlistNodeCast (
         XML_USAGE_ERROR ("PlistNodeType::dict has odd children");
         return NULL;
       }
+
       break;
     case PLIST_NODE_TYPE_ARRAY:
       break;
@@ -1487,7 +1792,8 @@ PlistNodeCast (
         XML_USAGE_ERROR ("PlistNodeType::key or int have no content");
         return NULL;
       }
-      // Fallthrough
+
+    // Fallthrough
     default:
       //
       // Only dictionaries and arrays are allowed to have child nodes.
@@ -1496,27 +1802,32 @@ PlistNodeCast (
         XML_USAGE_ERROR ("PlistNodeType::non dict array has children");
         return NULL;
       }
+
       break;
   }
 
-  return Node;
+  return (XML_NODE *)Node;
 }
 
 UINT32
 PlistDictChildren (
-  XML_NODE     *Node
+  IN  CONST XML_NODE  *Node
   )
 {
+  ASSERT (Node != NULL);
+
   return XmlNodeChildren (Node) / 2;
 }
 
 XML_NODE *
 PlistDictChild (
-  XML_NODE     *Node,
-  UINT32       Child,
-  XML_NODE     **Value OPTIONAL
+  IN   CONST XML_NODE  *Node,
+  IN   UINT32          Child,
+  OUT  XML_NODE        **Value OPTIONAL
   )
 {
+  ASSERT (Node != NULL);
+
   Child *= 2;
 
   if (Value != NULL) {
@@ -1528,10 +1839,10 @@ PlistDictChild (
 
 CONST CHAR8 *
 PlistKeyValue (
-  XML_NODE  *Node
+  IN  XML_NODE  *Node  OPTIONAL
   )
 {
- if (PlistNodeCast (Node, PLIST_NODE_TYPE_KEY) == NULL) {
+  if (PlistNodeCast (Node, PLIST_NODE_TYPE_KEY) == NULL) {
     return NULL;
   }
 
@@ -1540,13 +1851,16 @@ PlistKeyValue (
 
 BOOLEAN
 PlistStringValue (
-  XML_NODE  *Node,
-  CHAR8     *Value,
-  UINT32    *Size
+  IN      XML_NODE  *Node   OPTIONAL,
+  OUT  CHAR8        *Value,
+  IN OUT  UINT32    *Size
   )
 {
   CONST CHAR8  *Content;
   UINTN        Length;
+
+  ASSERT (Value != NULL);
+  ASSERT (Size  != NULL);
 
   if (PlistNodeCast (Node, PLIST_NODE_TYPE_STRING) == NULL) {
     return FALSE;
@@ -1555,13 +1869,13 @@ PlistStringValue (
   Content = XmlNodeContent (Node);
   if (Content == NULL) {
     Value[0] = '\0';
-    *Size = 1;
+    *Size    = 1;
     return TRUE;
   }
 
   Length = AsciiStrLen (Content);
   if (Length < *Size) {
-    *Size = (UINT32) (Length + 1);
+    *Size = (UINT32)(Length + 1);
   }
 
   AsciiStrnCpyS (Value, *Size, Content, Length);
@@ -1570,14 +1884,17 @@ PlistStringValue (
 
 BOOLEAN
 PlistDataValue (
-  XML_NODE  *Node,
-  UINT8     *Buffer,
-  UINT32    *Size
+  IN      XML_NODE  *Node    OPTIONAL,
+  OUT     UINT8     *Buffer,
+  IN OUT  UINT32    *Size
   )
 {
-  CONST CHAR8    *Content;
-  UINTN          Length;
-  EFI_STATUS     Result;
+  CONST CHAR8  *Content;
+  UINTN        Length;
+  EFI_STATUS   Status;
+
+  ASSERT (Buffer != NULL);
+  ASSERT (Size   != NULL);
 
   if (PlistNodeCast (Node, PLIST_NODE_TYPE_DATA) == NULL) {
     return FALSE;
@@ -1590,10 +1907,10 @@ PlistDataValue (
   }
 
   Length = *Size;
-  Result = Base64Decode (Content, AsciiStrLen (Content), Buffer, &Length);
+  Status = Base64Decode (Content, AsciiStrLen (Content), Buffer, &Length);
 
-  if (!EFI_ERROR (Result) && (UINT32) Length == Length) {
-    *Size = (UINT32) Length;
+  if (!EFI_ERROR (Status) && ((UINT32)Length == Length)) {
+    *Size = (UINT32)Length;
     return TRUE;
   }
 
@@ -1603,10 +1920,12 @@ PlistDataValue (
 
 BOOLEAN
 PlistBooleanValue (
-  XML_NODE  *Node,
-  BOOLEAN   *Value
+  IN   XML_NODE  *Node   OPTIONAL,
+  OUT  BOOLEAN   *Value
   )
 {
+  ASSERT (Value != NULL);
+
   if (PlistNodeCast (Node, PLIST_NODE_TYPE_TRUE) != NULL) {
     *Value = TRUE;
     return TRUE;
@@ -1622,15 +1941,17 @@ PlistBooleanValue (
 
 BOOLEAN
 PlistIntegerValue (
-  XML_NODE  *Node,
-  VOID      *Value,
-  UINT32    Size,
-  BOOLEAN   Hex
+  IN   XML_NODE  *Node   OPTIONAL,
+  OUT  VOID      *Value,
+  IN   UINT32    Size,
+  IN   BOOLEAN   Hex
   )
 {
   UINT64       Temp;
   CONST CHAR8  *TempStr;
   BOOLEAN      Negate;
+
+  ASSERT (Value != NULL);
 
   if (PlistNodeCast (Node, PLIST_NODE_TYPE_INTEGER) == NULL) {
     return FALSE;
@@ -1648,7 +1969,7 @@ PlistIntegerValue (
     ++TempStr;
   }
 
-  if (Hex && TempStr[0] != '0' && TempStr[1] != 'x') {
+  if (Hex && (TempStr[0] != '0') && (TempStr[1] != 'x')) {
     Hex = FALSE;
   }
 
@@ -1667,16 +1988,16 @@ PlistIntegerValue (
 
   switch (Size) {
     case sizeof (UINT64):
-      *(UINT64 *) Value = Temp;
+      *(UINT64 *)Value = Temp;
       return TRUE;
     case sizeof (UINT32):
-      *(UINT32 *) Value = (UINT32) Temp;
+      *(UINT32 *)Value = (UINT32)Temp;
       return TRUE;
     case sizeof (UINT16):
-      *(UINT16 *) Value = (UINT16) Temp;
+      *(UINT16 *)Value = (UINT16)Temp;
       return TRUE;
     case sizeof (UINT8):
-      *(UINT8 *) Value = (UINT8) Temp;
+      *(UINT8 *)Value = (UINT8)Temp;
       return TRUE;
     default:
       return FALSE;
@@ -1685,30 +2006,33 @@ PlistIntegerValue (
 
 BOOLEAN
 PlistMultiDataValue (
-  XML_NODE  *Node,
-  VOID      *Buffer,
-  UINT32    *Size
+  IN      XML_NODE  *Node    OPTIONAL,
+  OUT  VOID         *Buffer,
+  IN OUT  UINT32    *Size
   )
 {
-  CONST CHAR8    *Content;
-  UINTN          Length;
-  EFI_STATUS     Result;
+  CONST CHAR8  *Content;
+  UINTN        Length;
+  EFI_STATUS   Status;
+
+  ASSERT (Buffer != NULL);
+  ASSERT (Size   != NULL);
 
   if (PlistNodeCast (Node, PLIST_NODE_TYPE_DATA) != NULL) {
     Content = XmlNodeContent (Node);
     if (Content != NULL) {
-
       Length = *Size;
-      Result = Base64Decode (Content, AsciiStrLen (Content), Buffer, &Length);
+      Status = Base64Decode (Content, AsciiStrLen (Content), Buffer, &Length);
 
-      if (!EFI_ERROR (Result) && (UINT32) Length == Length) {
-        *Size = (UINT32) Length;
+      if (!EFI_ERROR (Status) && ((UINT32)Length == Length)) {
+        *Size = (UINT32)Length;
       } else {
         return FALSE;
       }
     } else {
       *Size = 0;
     }
+
     return TRUE;
   }
 
@@ -1717,32 +2041,33 @@ PlistMultiDataValue (
     if (Content != NULL) {
       Length = AsciiStrLen (Content);
       if (Length < *Size) {
-        *Size = (UINT32) (Length + 1);
+        *Size = (UINT32)(Length + 1);
       }
 
       AsciiStrnCpyS (Buffer, *Size, Content, Length);
     } else {
-      *(CHAR8 *) Buffer = '\0';
-      *Size = 1;
+      *(CHAR8 *)Buffer = '\0';
+      *Size            = 1;
     }
+
     return TRUE;
   }
 
   if (PlistNodeCast (Node, PLIST_NODE_TYPE_INTEGER) != NULL) {
-    *(UINT32 *) Buffer = (UINT32) AsciiStrDecimalToUint64 (XmlNodeContent (Node));
-    *Size = sizeof (UINT32);
+    *(UINT32 *)Buffer = (UINT32)AsciiStrDecimalToUint64 (XmlNodeContent (Node));
+    *Size             = sizeof (UINT32);
     return TRUE;
   }
 
   if (PlistNodeCast (Node, PLIST_NODE_TYPE_TRUE) != NULL) {
-    *(UINT8 *) Buffer = 1;
-    *Size = sizeof (UINT8);
+    *(UINT8 *)Buffer = 1;
+    *Size            = sizeof (UINT8);
     return TRUE;
   }
 
   if (PlistNodeCast (Node, PLIST_NODE_TYPE_FALSE) != NULL) {
-    *(UINT8 *) Buffer = 0;
-    *Size = sizeof (UINT8);
+    *(UINT8 *)Buffer = 0;
+    *Size            = sizeof (UINT8);
     return TRUE;
   }
 
@@ -1751,11 +2076,13 @@ PlistMultiDataValue (
 
 BOOLEAN
 PlistStringSize (
-  XML_NODE  *Node,
-  UINT32    *Size
+  IN   XML_NODE  *Node  OPTIONAL,
+  OUT  UINT32    *Size
   )
 {
   CONST CHAR8  *Content;
+
+  ASSERT (Size != NULL);
 
   if (PlistNodeCast (Node, PLIST_NODE_TYPE_STRING) == NULL) {
     return FALSE;
@@ -1763,7 +2090,7 @@ PlistStringSize (
 
   Content = XmlNodeContent (Node);
   if (Content != NULL) {
-    *Size = (UINT32) AsciiStrLen (Content) + 1;
+    *Size = (UINT32)AsciiStrSize (Content);
     return TRUE;
   }
 
@@ -1773,11 +2100,13 @@ PlistStringSize (
 
 BOOLEAN
 PlistDataSize (
-  XML_NODE  *Node,
-  UINT32    *Size
+  IN   XML_NODE  *Node  OPTIONAL,
+  OUT  UINT32    *Size
   )
 {
   CONST CHAR8  *Content;
+
+  ASSERT (Size != NULL);
 
   if (PlistNodeCast (Node, PLIST_NODE_TYPE_DATA) == NULL) {
     return FALSE;
@@ -1785,7 +2114,7 @@ PlistDataSize (
 
   Content = XmlNodeContent (Node);
   if (Content != NULL) {
-    *Size = (UINT32) AsciiStrLen (Content);
+    *Size = (UINT32)AsciiStrLen (Content);
   } else {
     *Size = 0;
   }
@@ -1795,29 +2124,33 @@ PlistDataSize (
 
 BOOLEAN
 PlistMultiDataSize (
-  XML_NODE  *Node,
-  UINT32    *Size
+  IN   XML_NODE  *Node  OPTIONAL,
+  OUT  UINT32    *Size
   )
 {
   CONST CHAR8  *Content;
 
+  ASSERT (Size != NULL);
+
   if (PlistNodeCast (Node, PLIST_NODE_TYPE_DATA) != NULL) {
     Content = XmlNodeContent (Node);
     if (Content != NULL) {
-      *Size = (UINT32) AsciiStrLen (Content);
+      *Size = (UINT32)AsciiStrLen (Content);
     } else {
       *Size = 0;
     }
+
     return TRUE;
   }
 
   if (PlistNodeCast (Node, PLIST_NODE_TYPE_STRING) != NULL) {
     Content = XmlNodeContent (Node);
     if (Content != NULL) {
-      *Size = (UINT32) (AsciiStrLen (Content) + 1);
+      *Size = (UINT32)(AsciiStrLen (Content) + 1);
     } else {
       *Size = 0;
     }
+
     return TRUE;
   }
 
@@ -1826,8 +2159,9 @@ PlistMultiDataSize (
     return TRUE;
   }
 
-  if (PlistNodeCast (Node, PLIST_NODE_TYPE_TRUE) != NULL
-    || PlistNodeCast (Node, PLIST_NODE_TYPE_FALSE) != NULL) {
+  if (  (PlistNodeCast (Node, PLIST_NODE_TYPE_TRUE) != NULL)
+     || (PlistNodeCast (Node, PLIST_NODE_TYPE_FALSE) != NULL))
+  {
     *Size = sizeof (UINT8);
     return TRUE;
   }

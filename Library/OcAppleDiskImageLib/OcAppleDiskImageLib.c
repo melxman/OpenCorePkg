@@ -16,13 +16,13 @@
 
 #include <Library/BaseLib.h>
 #include <Library/BaseMemoryLib.h>
+#include <Library/BaseOverflowLib.h>
 #include <Library/DebugLib.h>
 #include <Library/MemoryAllocationLib.h>
 #include <Library/OcAppleChunklistLib.h>
 #include <Library/OcAppleDiskImageLib.h>
 #include <Library/OcCompressionLib.h>
 #include <Library/OcFileLib.h>
-#include <Library/OcGuardLib.h>
 
 #include "OcAppleDiskImageLibInternal.h"
 
@@ -33,24 +33,24 @@ OcAppleDiskImageInitializeContext (
   IN  UINTN                              FileSize
   )
 {
-  BOOLEAN                     Result;
-  UINTN                       TrailerOffset;
-  APPLE_DISK_IMAGE_TRAILER    Trailer;
-  UINT32                      DmgBlockCount;
-  APPLE_DISK_IMAGE_BLOCK_DATA **DmgBlocks;
-  UINT32                      SwappedSig;
-  UINT64                      OffsetTop;
+  BOOLEAN                      Result;
+  UINTN                        TrailerOffset;
+  APPLE_DISK_IMAGE_TRAILER     Trailer;
+  UINT32                       DmgBlockCount;
+  APPLE_DISK_IMAGE_BLOCK_DATA  **DmgBlocks;
+  UINT32                       SwappedSig;
+  UINT64                       OffsetTop;
 
-  UINT32                      HeaderSize;
-  UINT64                      DataForkOffset;
-  UINT64                      DataForkLength;
-  UINT32                      SegmentCount;
-  APPLE_DISK_IMAGE_CHECKSUM   DataForkChecksum;
-  UINT64                      XmlOffset;
-  UINT64                      XmlLength;
-  UINT64                      SectorCount;
+  UINT32                     HeaderSize;
+  UINT64                     DataForkOffset;
+  UINT64                     DataForkLength;
+  UINT32                     SegmentCount;
+  APPLE_DISK_IMAGE_CHECKSUM  DataForkChecksum;
+  UINT64                     XmlOffset;
+  UINT64                     XmlLength;
+  UINT64                     SectorCount;
 
-  CHAR8                       *PlistData;
+  CHAR8  *PlistData;
 
   ASSERT (Context != NULL);
   ASSERT (ExtentTable != NULL);
@@ -61,7 +61,7 @@ OcAppleDiskImageInitializeContext (
       DEBUG_INFO,
       "OCDI: DMG file size error: %u/%u\n",
       FileSize,
-      (UINT32) sizeof (Trailer)
+      (UINT32)sizeof (Trailer)
       ));
     return FALSE;
   }
@@ -81,8 +81,8 @@ OcAppleDiskImageInitializeContext (
       DEBUG_INFO,
       "OCDI: DMG trailer error: %d - %Lx/%Lx - %X/%X\n",
       Result,
-      (UINT64) TrailerOffset,
-      (UINT64) FileSize,
+      (UINT64)TrailerOffset,
+      (UINT64)FileSize,
       SwappedSig,
       Trailer.Signature
       ));
@@ -98,11 +98,12 @@ OcAppleDiskImageInitializeContext (
   SectorCount           = SwapBytes64 (Trailer.SectorCount);
   DataForkChecksum.Size = SwapBytes32 (Trailer.DataForkChecksum.Size);
 
-  if ((HeaderSize != sizeof (Trailer))
-   || (XmlLength == 0)
-   || (XmlLength > MAX_UINT32)
-   || (DataForkChecksum.Size > (sizeof (DataForkChecksum.Data) * 8))
-   || (SectorCount == 0)) {
+  if (  (HeaderSize != sizeof (Trailer))
+     || (XmlLength == 0)
+     || (XmlLength > MAX_UINT32)
+     || (DataForkChecksum.Size > (sizeof (DataForkChecksum.Data) * 8))
+     || (SectorCount == 0))
+  {
     DEBUG ((
       DEBUG_INFO,
       "OCDI: DMG context error: %u/%Lu/%Lu/%u/%u\n",
@@ -119,7 +120,7 @@ OcAppleDiskImageInitializeContext (
     return FALSE;
   }
 
-  Result = OcOverflowMulU64 (
+  Result = BaseOverflowMulU64 (
              SectorCount,
              APPLE_DISK_IMAGE_SECTOR_SIZE,
              &OffsetTop
@@ -129,7 +130,7 @@ OcAppleDiskImageInitializeContext (
     return FALSE;
   }
 
-  Result = OcOverflowAddU64 (
+  Result = BaseOverflowAddU64 (
              XmlOffset,
              XmlLength,
              &OffsetTop
@@ -139,7 +140,7 @@ OcAppleDiskImageInitializeContext (
     return FALSE;
   }
 
-  Result = OcOverflowAddU64 (
+  Result = BaseOverflowAddU64 (
              DataForkOffset,
              DataForkLength,
              &OffsetTop
@@ -198,16 +199,16 @@ OcAppleDiskImageInitializeFromFile (
   IN  EFI_FILE_PROTOCOL            *File
   )
 {
-  EFI_STATUS                        Status;
-  BOOLEAN                           Result;
+  EFI_STATUS  Status;
+  BOOLEAN     Result;
 
-  UINT32                            FileSize;
-  CONST APPLE_RAM_DISK_EXTENT_TABLE *ExtentTable;
+  UINT32                             FileSize;
+  CONST APPLE_RAM_DISK_EXTENT_TABLE  *ExtentTable;
 
   ASSERT (Context != NULL);
   ASSERT (File != NULL);
 
-  Status = GetFileSize (File, &FileSize);
+  Status = OcGetFileSize (File, &FileSize);
   if (EFI_ERROR (Status)) {
     DEBUG ((DEBUG_INFO, "OCDI: Failed to retrieve DMG file size\n"));
     return FALSE;
@@ -258,7 +259,7 @@ OcAppleDiskImageFreeContext (
   IN OC_APPLE_DISK_IMAGE_CONTEXT  *Context
   )
 {
-  UINT32 Index;
+  UINT32  Index;
 
   ASSERT (Context != NULL);
 
@@ -286,24 +287,24 @@ OcAppleDiskImageRead (
   OUT VOID                         *Buffer
   )
 {
-  BOOLEAN                     Result;
+  BOOLEAN  Result;
 
-  APPLE_DISK_IMAGE_BLOCK_DATA *BlockData;
-  APPLE_DISK_IMAGE_CHUNK      *Chunk;
-  UINT64                      ChunkTotalLength;
-  UINT64                      ChunkLength;
-  UINT64                      ChunkOffset;
-  UINT8                       *ChunkData;
-  UINT8                       *ChunkDataCompressed;
+  APPLE_DISK_IMAGE_BLOCK_DATA  *BlockData;
+  APPLE_DISK_IMAGE_CHUNK       *Chunk;
+  UINT64                       ChunkTotalLength;
+  UINT64                       ChunkLength;
+  UINT64                       ChunkOffset;
+  UINT8                        *ChunkData;
+  UINT8                        *ChunkDataCompressed;
 
-  UINTN                       LbaCurrent;
-  UINTN                       LbaOffset;
-  UINTN                       LbaLength;
-  UINTN                       RemainingBufferSize;
-  UINTN                       BufferChunkSize;
-  UINT8                       *BufferCurrent;
+  UINTN  LbaCurrent;
+  UINTN  LbaOffset;
+  UINTN  LbaLength;
+  UINTN  RemainingBufferSize;
+  UINTN  BufferChunkSize;
+  UINT8  *BufferCurrent;
 
-  UINTN                       OutSize;
+  UINTN  OutSize;
 
   ASSERT (Context != NULL);
   ASSERT (Buffer != NULL);
@@ -322,7 +323,7 @@ OcAppleDiskImageRead (
     LbaOffset = (LbaCurrent - (UINTN)DMG_SECTOR_START_ABS (BlockData, Chunk));
     LbaLength = ((UINTN)Chunk->SectorCount - LbaOffset);
 
-    Result = OcOverflowMulU64 (
+    Result = BaseOverflowMulU64 (
                LbaOffset,
                APPLE_DISK_IMAGE_SECTOR_SIZE,
                &ChunkOffset
@@ -331,7 +332,7 @@ OcAppleDiskImageRead (
       return FALSE;
     }
 
-    Result = OcOverflowMulU64 (
+    Result = BaseOverflowMulU64 (
                Chunk->SectorCount,
                APPLE_DISK_IMAGE_SECTOR_SIZE,
                &ChunkTotalLength
@@ -375,12 +376,12 @@ OcAppleDiskImageRead (
         }
 
         ChunkDataCompressed = (ChunkData + (UINTN)ChunkTotalLength);
-        Result = OcAppleRamDiskRead (
-                   Context->ExtentTable,
-                   (UINTN)Chunk->CompressedOffset,
-                   (UINTN)Chunk->CompressedLength,
-                   ChunkDataCompressed
-                   );
+        Result              = OcAppleRamDiskRead (
+                                Context->ExtentTable,
+                                (UINTN)Chunk->CompressedOffset,
+                                (UINTN)Chunk->CompressedLength,
+                                ChunkDataCompressed
+                                );
         if (!Result) {
           FreePool (ChunkData);
           return FALSE;

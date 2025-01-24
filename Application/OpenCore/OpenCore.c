@@ -12,7 +12,6 @@ WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 
 **/
 
-#include <Library/OcMainLib.h>
 #include <Uefi.h>
 
 #include <Guid/OcVariable.h>
@@ -22,6 +21,8 @@ WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 #include <Protocol/OcBootstrap.h>
 #include <Protocol/SimpleFileSystem.h>
 #include <Protocol/VMwareDebug.h>
+
+#include <Library/OcMainLib.h>
 
 #include <Library/DebugLib.h>
 #include <Library/OcDebugLogLib.h>
@@ -34,6 +35,7 @@ WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 #include <Library/OcCpuLib.h>
 #include <Library/OcDevicePathLib.h>
 #include <Library/OcStorageLib.h>
+#include <Library/OcVariableLib.h>
 #include <Library/PrintLib.h>
 #include <Library/UefiBootServicesTableLib.h>
 #include <Library/UefiRuntimeServicesTableLib.h>
@@ -42,63 +44,63 @@ WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 
 STATIC
 OC_GLOBAL_CONFIG
-mOpenCoreConfiguration;
+  mOpenCoreConfiguration;
 
 STATIC
 OC_STORAGE_CONTEXT
-mOpenCoreStorage;
+  mOpenCoreStorage;
 
 STATIC
 OC_CPU_INFO
-mOpenCoreCpuInfo;
+  mOpenCoreCpuInfo;
 
 STATIC
 UINT8
-mOpenCoreBooterHash[SHA1_DIGEST_SIZE];
+  mOpenCoreBooterHash[SHA1_DIGEST_SIZE];
 
 STATIC
 OC_RSA_PUBLIC_KEY *
-mOpenCoreVaultKey;
+  mOpenCoreVaultKey;
 
 STATIC
 OC_PRIVILEGE_CONTEXT
-mOpenCorePrivilege;
+  mOpenCorePrivilege;
 
 STATIC
 EFI_HANDLE
-mStorageHandle;
+  mStorageHandle;
 
 STATIC
 EFI_DEVICE_PATH_PROTOCOL *
-mStoragePath;
+  mStoragePath;
 
 STATIC
 CHAR16 *
-mStorageRoot;
+  mStorageRoot;
 
 STATIC
 EFI_STATUS
 EFIAPI
 OcStartImage (
-  IN  OC_BOOT_ENTRY               *Chosen,
-  IN  EFI_HANDLE                  ImageHandle,
-  OUT UINTN                       *ExitDataSize,
-  OUT CHAR16                      **ExitData    OPTIONAL,
-  IN  BOOLEAN                     LaunchInText
+  IN  OC_BOOT_ENTRY  *Chosen,
+  IN  EFI_HANDLE     ImageHandle,
+  OUT UINTN          *ExitDataSize,
+  OUT CHAR16         **ExitData    OPTIONAL,
+  IN  BOOLEAN        LaunchInText
   )
 {
   EFI_STATUS                       Status;
   EFI_CONSOLE_CONTROL_SCREEN_MODE  OldMode;
 
   OldMode = OcConsoleControlSetMode (
-    LaunchInText ? EfiConsoleControlScreenText : EfiConsoleControlScreenGraphics
-    );
+              LaunchInText ? EfiConsoleControlScreenText : EfiConsoleControlScreenGraphics
+              );
 
   Status = gBS->StartImage (
-    ImageHandle,
-    ExitDataSize,
-    ExitData
-    );
+                  ImageHandle,
+                  ExitDataSize,
+                  ExitData
+                  );
 
   if (EFI_ERROR (Status)) {
     DEBUG ((DEBUG_WARN, "OC: Boot failed - %r\n", Status));
@@ -116,15 +118,15 @@ OcMain (
   IN EFI_DEVICE_PATH_PROTOCOL  *LoadPath
   )
 {
-  EFI_STATUS                Status;
-  OC_PRIVILEGE_CONTEXT      *Privilege;
+  EFI_STATUS            Status;
+  OC_PRIVILEGE_CONTEXT  *Privilege;
 
   DEBUG ((DEBUG_INFO, "OC: OcMiscEarlyInit...\n"));
   Status = OcMiscEarlyInit (
-    Storage,
-    &mOpenCoreConfiguration,
-    mOpenCoreVaultKey
-    );
+             Storage,
+             &mOpenCoreConfiguration,
+             mOpenCoreVaultKey
+             );
 
   if (EFI_ERROR (Status)) {
     return;
@@ -196,13 +198,13 @@ OcBootstrap (
   UINTN                     StoragePathSize;
 
   mOpenCoreVaultKey = OcGetVaultKey ();
-  mStorageHandle = DeviceHandle;
+  mStorageHandle    = DeviceHandle;
 
   //
   // Calculate root path (never freed).
   //
   RemainingPath = NULL;
-  mStorageRoot = OcCopyDevicePathFullName (LoadPath, &RemainingPath);
+  mStorageRoot  = OcCopyDevicePathFullName (LoadPath, &RemainingPath);
   //
   // Skipping this or later failing to call UnicodeGetParentDirectory means
   // we got valid path to the root of the partition. This happens when
@@ -213,6 +215,7 @@ OcBootstrap (
     DEBUG ((DEBUG_ERROR, "OC: Failed to get launcher path\n"));
     return EFI_UNSUPPORTED;
   }
+
   DEBUG ((DEBUG_INFO, "OC: Storage root %s\n", mStorageRoot));
 
   ASSERT (RemainingPath != NULL);
@@ -223,24 +226,24 @@ OcBootstrap (
     return EFI_UNSUPPORTED;
   }
 
-  StoragePathSize = (UINTN) RemainingPath - (UINTN) LoadPath;
-  mStoragePath = AllocatePool (StoragePathSize + END_DEVICE_PATH_LENGTH);
+  StoragePathSize = (UINTN)RemainingPath - (UINTN)LoadPath;
+  mStoragePath    = AllocatePool (StoragePathSize + END_DEVICE_PATH_LENGTH);
   if (mStoragePath == NULL) {
     FreePool (mStorageRoot);
     return EFI_OUT_OF_RESOURCES;
   }
 
   CopyMem (mStoragePath, LoadPath, StoragePathSize);
-  SetDevicePathEndNode ((UINT8 *) mStoragePath + StoragePathSize);
+  SetDevicePathEndNode ((UINT8 *)mStoragePath + StoragePathSize);
 
   Status = OcStorageInitFromFs (
-    &mOpenCoreStorage,
-    FileSystem,
-    mStorageHandle,
-    mStoragePath,
-    mStorageRoot,
-    mOpenCoreVaultKey
-    );
+             &mOpenCoreStorage,
+             FileSystem,
+             mStorageHandle,
+             mStoragePath,
+             mStorageRoot,
+             mOpenCoreVaultKey
+             );
 
   if (!EFI_ERROR (Status)) {
     OcMain (&mOpenCoreStorage, LoadPath);
@@ -259,7 +262,7 @@ STATIC
 EFI_HANDLE
 EFIAPI
 OcGetLoadHandle (
-  IN OC_BOOTSTRAP_PROTOCOL            *This
+  IN OC_BOOTSTRAP_PROTOCOL  *This
   )
 {
   return mStorageHandle;
@@ -267,7 +270,7 @@ OcGetLoadHandle (
 
 STATIC
 OC_BOOTSTRAP_PROTOCOL
-mOpenCoreBootStrap = {
+  mOpenCoreBootStrap = {
   .Revision      = OC_BOOTSTRAP_PROTOCOL_REVISION,
   .GetLoadHandle = OcGetLoadHandle,
 };
@@ -279,12 +282,12 @@ UefiMain (
   IN EFI_SYSTEM_TABLE  *SystemTable
   )
 {
-  EFI_STATUS                        Status;
-  EFI_LOADED_IMAGE_PROTOCOL         *LoadedImage;
-  EFI_SIMPLE_FILE_SYSTEM_PROTOCOL   *FileSystem;
-  EFI_HANDLE                        BootstrapHandle;
-  OC_BOOTSTRAP_PROTOCOL             *Bootstrap;
-  EFI_DEVICE_PATH_PROTOCOL          *AbsPath;
+  EFI_STATUS                       Status;
+  EFI_LOADED_IMAGE_PROTOCOL        *LoadedImage;
+  EFI_SIMPLE_FILE_SYSTEM_PROTOCOL  *FileSystem;
+  EFI_HANDLE                       BootstrapHandle;
+  OC_BOOTSTRAP_PROTOCOL            *Bootstrap;
+  EFI_DEVICE_PATH_PROTOCOL         *AbsPath;
 
   DEBUG ((DEBUG_INFO, "OC: Starting OpenCore...\n"));
 
@@ -295,11 +298,11 @@ UefiMain (
   //
 
   Bootstrap = NULL;
-  Status = gBS->LocateProtocol (
-    &gOcBootstrapProtocolGuid,
-    NULL,
-    (VOID **) &Bootstrap
-    );
+  Status    = gBS->LocateProtocol (
+                     &gOcBootstrapProtocolGuid,
+                     NULL,
+                     (VOID **)&Bootstrap
+                     );
 
   if (!EFI_ERROR (Status)) {
     DEBUG ((DEBUG_INFO, "OC: Found previous image, aborting\n"));
@@ -307,11 +310,11 @@ UefiMain (
   }
 
   LoadedImage = NULL;
-  Status = gBS->HandleProtocol (
-    ImageHandle,
-    &gEfiLoadedImageProtocolGuid,
-    (VOID **) &LoadedImage
-    );
+  Status      = gBS->HandleProtocol (
+                       ImageHandle,
+                       &gEfiLoadedImageProtocolGuid,
+                       (VOID **)&LoadedImage
+                       );
 
   if (EFI_ERROR (Status)) {
     DEBUG ((DEBUG_ERROR, "OC: Failed to locate loaded image - %r\n", Status));
@@ -335,10 +338,10 @@ UefiMain (
   //
   // Obtain the file system device path
   //
-  FileSystem = LocateFileSystem (
-    LoadedImage->DeviceHandle,
-    LoadedImage->FilePath
-    );
+  FileSystem = OcLocateFileSystem (
+                 LoadedImage->DeviceHandle,
+                 LoadedImage->FilePath
+                 );
   if (FileSystem == NULL) {
     DEBUG ((DEBUG_ERROR, "OC: Failed to locate file system\n"));
     return EFI_INVALID_PARAMETER;
@@ -348,17 +351,17 @@ UefiMain (
   if (AbsPath == NULL) {
     DEBUG ((DEBUG_ERROR, "OC: Failed to allocate absolute path\n"));
     return EFI_OUT_OF_RESOURCES;
-  }  
+  }
 
   DebugPrintDevicePath (DEBUG_INFO, "OC: Absolute booter path", LoadedImage->FilePath);
 
   BootstrapHandle = NULL;
-  Status = gBS->InstallMultipleProtocolInterfaces (
-    &BootstrapHandle,
-    &gOcBootstrapProtocolGuid,
-    &mOpenCoreBootStrap,
-    NULL
-    );
+  Status          = gBS->InstallMultipleProtocolInterfaces (
+                           &BootstrapHandle,
+                           &gOcBootstrapProtocolGuid,
+                           &mOpenCoreBootStrap,
+                           NULL
+                           );
   if (EFI_ERROR (Status)) {
     DEBUG ((DEBUG_ERROR, "OC: Failed to install bootstrap protocol - %r\n", Status));
     FreePool (AbsPath);

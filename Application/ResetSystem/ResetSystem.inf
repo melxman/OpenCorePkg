@@ -39,12 +39,7 @@
   OpenCorePkg/OpenCorePkg.dec
 
 [LibraryClasses]
-  BaseLib
-  DebugLib
-  OcDeviceMiscLib
+  OcBootManagementLib
   OcMiscLib
-  OcStringLib
   UefiApplicationEntryPoint
-  UefiBootServicesTableLib
-  UefiRuntimeServicesTableLib
   UefiLib

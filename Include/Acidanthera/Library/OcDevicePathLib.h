@@ -21,7 +21,7 @@
   Here we replace it with the "right" value.
   Reference: https://forums.macrumors.com/posts/28169441.
 **/
-#define MSG_APPLE_NVME_NAMESPACE_DP 0x22
+#define MSG_APPLE_NVME_NAMESPACE_DP  0x22
 
 /**
   Append file name to device path.
@@ -37,6 +37,18 @@ EFI_DEVICE_PATH_PROTOCOL *
 AppendFileNameDevicePath (
   IN EFI_DEVICE_PATH_PROTOCOL  *DevicePath,
   IN CHAR16                    *FileName
+  );
+
+/**
+  Locate the terminating node inside the device path.
+
+  @param[in] DevicePath  The device path used in the search.
+
+  @return  Returned is the last Device Path Node.
+**/
+EFI_DEVICE_PATH_PROTOCOL *
+FindDevicePathEndNode (
+  IN EFI_DEVICE_PATH_PROTOCOL  *DevicePath
   );
 
 /**
@@ -67,8 +79,8 @@ FindDevicePathNodeWithType (
 BOOLEAN
 EFIAPI
 IsDevicePathEqual (
-  IN  EFI_DEVICE_PATH_PROTOCOL      *DevicePath1,
-  IN  EFI_DEVICE_PATH_PROTOCOL      *DevicePath2
+  IN  EFI_DEVICE_PATH_PROTOCOL  *DevicePath1,
+  IN  EFI_DEVICE_PATH_PROTOCOL  *DevicePath2
   );
 
 /**
@@ -98,8 +110,8 @@ FileDevicePathsEqual (
 BOOLEAN
 EFIAPI
 IsDevicePathChild (
-  IN  EFI_DEVICE_PATH_PROTOCOL      *ParentPath,
-  IN  EFI_DEVICE_PATH_PROTOCOL      *ChildPath
+  IN  EFI_DEVICE_PATH_PROTOCOL  *ParentPath,
+  IN  EFI_DEVICE_PATH_PROTOCOL  *ChildPath
   );
 
 /**
@@ -190,8 +202,8 @@ OcFileDevicePathFullNameSize (
 
   @param[out] PathName      On output, the full file path of FilePath.
   @param[in]  FilePath      The File Device Path to inspect.
-  @param[in]  PathNameSize  The size, in bytes, of PathnName.  Must equal the
-                            actual fill file path size.
+  @param[in]  PathNameSize  The size, in bytes, of PathName.  Must equal the
+                            actual full file path size.
 
 **/
 VOID
@@ -212,8 +224,8 @@ OcFileDevicePathFullName (
 **/
 CHAR16 *
 OcCopyDevicePathFullName (
-  IN   EFI_DEVICE_PATH_PROTOCOL        *DevicePath,
-  OUT  EFI_DEVICE_PATH_PROTOCOL        **FileDevicePath  OPTIONAL
+  IN   EFI_DEVICE_PATH_PROTOCOL  *DevicePath,
+  OUT  EFI_DEVICE_PATH_PROTOCOL  **FileDevicePath  OPTIONAL
   );
 
 /**
@@ -250,27 +262,27 @@ typedef struct {
   //
   // Stores the old device path prior to expansion.
   //
-  EFI_DEVICE_PATH_PROTOCOL *OldPath;
+  EFI_DEVICE_PATH_PROTOCOL    *OldPath;
   //
   // Valid iff OldPath == NULL.
   //
   union {
     struct {
-      UINT16 PortMultiplierPortNumber;
+      UINT16    PortMultiplierPortNumber;
     } Sata;
 
     struct {
-      UINT8 SubType;
+      UINT8    SubType;
     } SasExNvme;
 
     struct {
-      UINT32 HID;
-      UINT32 UID;
+      UINT32    HID;
+      UINT32    UID;
     } Acpi;
 
     struct {
-      UINT32 HID;
-      UINT32 CID;
+      UINT32    HID;
+      UINT32    CID;
     } ExtendedAcpi;
   } Types;
 } APPLE_BOOT_DP_PATCH_CONTEXT;
@@ -291,6 +303,8 @@ typedef struct {
                                  restore DevicePathNode's original content in
                                  the case of failure.
                                  On success, data may need to be freed.
+  @param[in]     ValidDevice     A device handle pointing to previous valid
+                                 device path if any.
 
   @retval -1  DevicePathNode could not be fixed.
   @retval 0   DevicePathNode was not modified and may be valid.
@@ -301,7 +315,8 @@ INTN
 OcFixAppleBootDevicePathNode (
   IN OUT EFI_DEVICE_PATH_PROTOCOL     **DevicePath,
   IN OUT EFI_DEVICE_PATH_PROTOCOL     **DevicePathNode,
-  OUT    APPLE_BOOT_DP_PATCH_CONTEXT  *RestoreContext OPTIONAL
+  OUT    APPLE_BOOT_DP_PATCH_CONTEXT  *RestoreContext OPTIONAL,
+  IN     EFI_HANDLE                   ValidDevice OPTIONAL
   );
 
 /**

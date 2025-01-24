@@ -25,13 +25,13 @@
 [LibraryClasses]
   BaseLib
   BaseMemoryLib
+  BaseOverflowLib
   DebugLib
-  OcGuardLib
 
 [Sources]
   CxxSymbols.c
   CxxSymbolsX.h
-  Fat.c
+  MachoFat.c
   Header.c
   HeaderX.h
   OcMachoLibInternal.h

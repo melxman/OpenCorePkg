@@ -25,23 +25,23 @@ typedef struct {
   //
   // Signature.
   //
-  UINT32              Signature;
+  UINT32        Signature;
   //
   // Link for global list (MKEXT_CONTEXT -> CachedKexts).
   //
-  LIST_ENTRY          Link;
+  LIST_ENTRY    Link;
   //
   // Kext bundle identifier.
   //
-  CHAR8               *Identifier;
+  CHAR8         *Identifier;
   //
   // Offset of binary in mkext.
   //
-  UINT32              BinaryOffset;
+  UINT32        BinaryOffset;
   //
   // Size of binary in mkext.
   //
-  UINT32              BinarySize;
+  UINT32        BinarySize;
 } MKEXT_KEXT;
 
 //
@@ -62,11 +62,34 @@ typedef struct {
     MKEXT_KEXT_SIGNATURE                \
     ))
 
+VOID
+InternalDropCachedMkextKext (
+  IN OUT MKEXT_CONTEXT  *Context,
+  IN     CONST CHAR8    *Identifier
+  );
+
+EFI_STATUS
+InternalGetMkextV1KextOffsets (
+  IN OUT MKEXT_CONTEXT  *Context,
+  IN     CONST CHAR8    *Identifier,
+  OUT UINT32            *KextIndex,
+  OUT UINT32            *KextPlistOffset,
+  OUT UINT32            *KextPlistSize,
+  OUT UINT32            *KextBinOffset,
+  OUT UINT32            *KextBinSize
+  );
 
 MKEXT_KEXT *
 InternalCachedMkextKext (
-  IN OUT MKEXT_CONTEXT      *Context,
-  IN     CONST CHAR8        *BundleId
+  IN OUT MKEXT_CONTEXT  *Context,
+  IN     CONST CHAR8    *BundleId
+  );
+
+BOOLEAN
+InternalParseKextBinary (
+  IN OUT UINT8    **Buffer,
+  IN OUT UINT32   *BufferSize,
+  IN     BOOLEAN  Is32Bit
   );
 
 #endif // MKEXT_INTERNAL_H
